@@ -8,6 +8,7 @@ DocFlow extracts fields from Ukrainian invoices/receipts, sends them through hum
 
 Before planning, implementing or reviewing a change, read:
 
+- `memory/handoff.md` — start here after a context reset: state, commands, next steps;
 - `memory/current-state.md` — confirmed implementation and limitations;
 - `knowledge/architecture-principles.md` — non-negotiable engineering principles;
 - `memory/next-steps.md` — agreed work order;
