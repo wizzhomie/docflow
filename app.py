@@ -350,6 +350,16 @@ def _find_existing_deal(fields: dict) -> dict | None:
         return None
 
 
+def _effective_fields(parsed_values: dict, submitted: dict) -> dict:
+    """What the reviewer confirmed: parsed defaults, overridden by the form.
+
+    A missing key means the form did not show that field (an older cached UI, or
+    a document type without it), so the parsed value must survive instead of
+    silently disappearing from the history and the CRM payload.
+    """
+    return {**parsed_values, **{key: value for key, value in submitted.items() if value not in (None, '')}}
+
+
 def _process(doc_id: str, filename: str, path: Path, source: str = 'upload') -> dict:
     text = extract_text(path)
     items = parse_items(text)
@@ -375,7 +385,12 @@ def _process(doc_id: str, filename: str, path: Path, source: str = 'upload') -> 
 
 @app.get('/')
 def index():
-    return FileResponse(BASE / 'templates' / 'index.html')
+    # The UI ships new fields with every change; a stale cached copy silently
+    # drops them from the confirm payload, so it must not be cached.
+    return FileResponse(
+        BASE / 'templates' / 'index.html',
+        headers={'Cache-Control': 'no-store, must-revalidate'},
+    )
 
 
 @app.get('/api/samples')
@@ -420,12 +435,13 @@ def confirm(payload: ConfirmPayload):
     meta = json.loads(meta_path.read_text(encoding='utf-8'))
 
     parsed_values = {k: v['value'] for k, v in meta['parsed']['fields'].items()}
+    fields = _effective_fields(parsed_values, payload.fields)
     edited = [k for k, v in payload.fields.items() if parsed_values.get(k) != v]
 
     # Duplicate suppression: a local history match needs no CRM call, and it
     # works when the CRM is unreachable or disabled.
     history = _read_confirmed()
-    local_duplicate = _local_duplicate(payload.fields, history)
+    local_duplicate = _local_duplicate(fields, history)
     crm: dict = {'configured': uspacy.configured() and not DEMO_MODE, 'demo': DEMO_MODE}
 
     if local_duplicate is not None:
@@ -439,11 +455,11 @@ def confirm(payload: ConfirmPayload):
         # Nothing leaves the host during a demonstration.
         crm['deal'] = {
             'id': f'DEMO-{payload.id}',
-            'title': f'Рахунок №{payload.fields.get("number") or "—"} — {payload.fields.get("supplier") or "Document"}',
+            'title': f'Рахунок №{fields.get("number") or "—"} — {fields.get("supplier") or "Document"}',
         }
         crm['simulated'] = True
     else:
-        existing_deal = _find_existing_deal(payload.fields)
+        existing_deal = _find_existing_deal(fields)
         if existing_deal:
             crm['deal'] = {'id': existing_deal.get('id'), 'title': existing_deal.get('title')}
             crm['duplicate'] = True
@@ -451,20 +467,20 @@ def confirm(payload: ConfirmPayload):
         elif crm['configured']:
             company = contact = None
             try:
-                company = _find_or_create_supplier_company(payload.fields)
+                company = _find_or_create_supplier_company(fields)
             except Exception as exc:
                 # A failed enrichment must be visible, not a silently empty card.
                 crm['company_error'] = str(exc)
             try:
-                contact = _find_or_create_supplier_contact(payload.fields, company)
+                contact = _find_or_create_supplier_contact(fields, company)
             except Exception as exc:
                 crm['contact_error'] = str(exc)
             try:
                 deal = uspacy.create_deal(
-                    title=f'Рахунок №{payload.fields.get("number") or "—"} — {payload.fields.get("supplier") or "Document"}',
-                    amount=payload.fields.get('total'),
-                    currency=payload.fields.get('currency') or 'UAH',
-                    comments=_deal_comment(payload.fields, payload.id),
+                    title=f'Рахунок №{fields.get("number") or "—"} — {fields.get("supplier") or "Document"}',
+                    amount=fields.get('total'),
+                    currency=fields.get('currency') or 'UAH',
+                    comments=_deal_comment(fields, payload.id),
                     company_id=(company or {}).get('id'),
                     contact_ids=[contact['id']] if contact and contact.get('id') else None,
                 )
@@ -484,7 +500,7 @@ def confirm(payload: ConfirmPayload):
         'uploaded_at': meta['uploaded_at'],
         'confirmed_at': confirmed_at,
         'review_seconds': int(review_seconds or 0),
-        'fields': payload.fields,
+        'fields': fields,
         'parsed': parsed_values,
         'edited_fields': edited,
         'confidence': meta['parsed']['confidence'],

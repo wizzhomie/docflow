@@ -167,6 +167,26 @@ def test_company_lookup_error_is_not_swallowed():
         raise AssertionError('error must propagate to the confirm response')
 
 
+def test_missing_form_keys_fall_back_to_parsed_values():
+    # Regression: a cached UI without the requisites inputs sent only the legacy
+    # keys, and the parsed address/phone/contact disappeared from the record.
+    parsed = {
+        'number': '2026-501',
+        'supplier': 'ТОВ «Терра-Буд»',
+        'phone': '380441112233',
+        'contact_person': 'Олена Ткаченко',
+    }
+    submitted = {'number': '2026-501', 'supplier': 'ТОВ «Терра-Буд»'}
+    merged = app._effective_fields(parsed, submitted)
+    assert merged['phone'] == '380441112233'
+    assert merged['contact_person'] == 'Олена Ткаченко'
+
+
+def test_edited_value_wins_over_parsed_value():
+    merged = app._effective_fields({'total': 100.0, 'phone': '380441112233'}, {'total': 90.0})
+    assert merged['total'] == 90.0
+
+
 def main():
     for name, case in sorted(globals().items()):
         if name.startswith('test_') and callable(case):
