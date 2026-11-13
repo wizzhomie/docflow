@@ -24,7 +24,9 @@ LABELS = {
     'address': [r'адреса', r'адрес'],
 }
 
-TAX_ID_PREFIXES = [r'єдрпоу', r'іпн', r'инн']
+# Includes OCR look-alikes: tesseract renders «ІПН» as «INH» and «ЄДРПОУ» as
+# «ЕДРПОУ» often enough that the tax id must survive the mangling.
+TAX_ID_PREFIXES = [r'єдрпоу', r'едрпоу', r'іпн', r'инн', r'inh']
 
 # Invoice number/date markers (OCR-tolerant).
 NUMBER_MARKERS = [r'№', r'n[oоeе]?', r'м[оo0О]']

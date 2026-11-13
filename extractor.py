@@ -281,7 +281,9 @@ def parse_invoice(
             if re.search(patterns['vat_zero_re'], low):
                 vat = 0.0
                 vat_found = True
-            elif re.search(patterns['vat_detail_re'], low):
+            else:
+                # OCR routinely turns «20%» into «2090», so an amount on a VAT
+                # line counts even without the detail marker.
                 value = _last_money(line)
                 if value is not None:
                     vat = value

@@ -55,6 +55,8 @@ Load additional context only when relevant:
   labelled `source: synthetic` rows for the impact report.
 - `python3 tools/make_extra_samples.py` regenerates the extra sample invoices
   (inline tax id, Russian language, image-only scan).
+- OCR runs from a portable Tesseract in `.tools/ocr` (gitignored); `.env` puts it
+  on `PATH`, so scans parse without root. Details in `docs/stack-and-operations.md`.
 
 ## Commands
 

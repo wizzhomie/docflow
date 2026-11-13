@@ -10,3 +10,4 @@ data/pending/
 data/confirmed.jsonl
 
 .run/
+.tools/
