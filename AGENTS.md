@@ -1,0 +1,86 @@
+# AGENTS.md — DocFlow
+
+## Project
+
+DocFlow extracts fields from Ukrainian invoices/receipts, sends them through human review, and creates Uspacy CRM deals. Target market: Ukraine; documents in Ukrainian; amounts in UAH; UI in English.
+
+## Mandatory context
+
+Before planning, implementing or reviewing a change, read:
+
+- `memory/current-state.md` — confirmed implementation and limitations;
+- `knowledge/architecture-principles.md` — non-negotiable engineering principles;
+- `memory/next-steps.md` — agreed work order;
+- `memory/decision-log.md` — decisions that must not be silently reversed.
+
+Load additional context only when relevant:
+
+- `knowledge/product.md` and `knowledge/domain.md`;
+- `knowledge/ai-engineering.md` for transferable AI-engineering judgment;
+- `memory/error-catalog.md` for defect work;
+- `docs/architecture.md` for component boundaries;
+- `docs/process-map.md` for the as-is / to-be process and exception handling;
+- `docs/stack-and-operations.md` for commands and dependencies;
+- `memory/development-log.md` for history.
+
+## Architecture map
+
+- `app.py` — FastAPI orchestration, persistence, review workflow and reporting.
+- `extractor.py` — text acquisition, OCR fallback and field interpretation.
+- `profiles/invoice_ua.py` — executable Ukrainian invoice profile and anchors.
+- `validation.py` — deterministic field invariants.
+- `uspacy.py` — Uspacy authentication and deal creation.
+- `templates/index.html` — English upload/review/history UI.
+- `tests/run_eval.py` — deterministic regression baseline.
+- `tests/invoice_ua_cases.json` — compact labelled fixtures.
+
+## Engineering rules
+
+1. Separate probabilistic interpretation from deterministic execution.
+2. Keep whole-document context; line-by-line parsing causes confident errors.
+3. Confident errors are worse than missing values. Never silently send a wrong amount, supplier, tax ID or currency to CRM.
+4. Preserve uncertainty. Human review is expected, not a failure.
+5. Fix defect classes, not single examples: root cause → invariant → test → fix → regression.
+6. Keep runtime processing and the system-improvement loop separate.
+7. Prioritize by consequences, not only frequency.
+8. Prefer deterministic code for formal rules. Avoid default heavy LLM and multi-agent runs.
+9. Extend document-type profiles and supplier templates instead of growing an unbounded regex pile.
+10. Do not read, disclose or commit secrets and runtime data.
+
+## Commands
+
+Local service:
+
+```bash
+./dev.sh start
+./dev.sh stop
+./dev.sh restart
+./dev.sh status
+./dev.sh logs
+```
+
+Health:
+
+```bash
+curl -s http://127.0.0.1:8765/api/health
+```
+
+Regression baseline:
+
+```bash
+python3 tests/run_eval.py
+```
+
+No lint, typecheck or CI command is currently defined.
+
+## Memory update protocol
+
+After a meaningful behavior change:
+
+1. update `memory/current-state.md`;
+2. update `memory/next-steps.md` if the work order changed;
+3. append to `memory/development-log.md`;
+4. update `memory/error-catalog.md` if the defect class changed;
+5. update `knowledge/` or `docs/` only for durable confirmed knowledge.
+
+Do not create commits or push unless explicitly requested.
