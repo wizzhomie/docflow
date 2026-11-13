@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>DocFlow — проверка документов</title>
+<title>DocFlow — Invoice review</title>
 <style>
   :root {
     --bg: #07080d;
@@ -46,6 +46,11 @@
   }
   .logo-mark::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--bg); border: 2px solid rgba(255,255,255,.7); }
   .top-stats { display: flex; gap: 22px; margin-left: auto; }
+  .badge-demo {
+    font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    padding: 5px 10px; border-radius: 999px; white-space: nowrap;
+    background: rgba(251,191,36,.14); border: 1px solid rgba(251,191,36,.45); color: #fcd34d;
+  }
   .top-stat { font-size: .78rem; color: var(--muted); }
   .top-stat b { display: block; font-size: 1rem; color: var(--text); letter-spacing: -.01em; }
 
@@ -123,6 +128,32 @@
   .empty-state { color: #5d6377; text-align: center; padding: 50px 20px; font-size: .88rem; }
 
   .table-card { margin-top: 20px; }
+
+  .impact-card { margin-top: 20px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .kpi {
+    border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+    background: linear-gradient(160deg, rgba(124,92,255,.08), transparent 65%);
+  }
+  .kpi span { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+  .kpi b { display: block; font-size: 1.6rem; letter-spacing: -.02em; margin: 6px 0 2px; }
+  .kpi i { font-style: normal; font-size: .72rem; color: #6f768d; }
+  .kpi.good b { color: var(--ok); }
+  .kpi.warn b { color: var(--warn); }
+  .kpi.bad b { color: var(--bad); }
+  .impact-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 20px; }
+  .impact-cols h3 { font-size: .76rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 500; margin-bottom: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: .8rem; }
+  .bar-label { width: 172px; flex: none; color: #c9cde0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { display: block; flex: 1; height: 8px; border-radius: 999px; background: rgba(255,255,255,.06); overflow: hidden; }
+  .bar-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+  .bar-count { width: 34px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .bar-empty { font-size: .8rem; color: #5d6377; }
+  .assumptions { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); font-size: .74rem; color: #6f768d; line-height: 1.55; }
+  @media (max-width: 960px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .impact-cols { grid-template-columns: 1fr; }
+  }
   table { width: 100%; border-collapse: collapse; font-size: .82rem; }
   th { text-align: left; color: var(--muted); font-weight: 500; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; padding: 10px 14px; border-bottom: 1px solid var(--line); }
   td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.05); }
@@ -130,6 +161,7 @@
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .tag-edited { font-size: .68rem; padding: 2px 7px; border-radius: 6px; background: rgba(251,191,36,.15); color: #fcd34d; }
   .tag-clean { font-size: .68rem; padding: 2px 7px; border-radius: 6px; background: rgba(52,211,153,.13); color: #6ee7b7; }
+  .tag-synth { font-size: .64rem; padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,.07); color: #9aa0b4; margin-right: 6px; letter-spacing: .04em; }
 
   .toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
@@ -159,58 +191,101 @@
 <header class="topbar">
   <div class="logo"><span class="logo-mark"></span> DocFlow</div>
   <div class="top-stats">
-    <div class="top-stat"><b id="st-docs">0</b> документов</div>
-    <div class="top-stat"><b id="st-saved">0 мин</b> сэкономлено</div>
-    <div class="top-stat"><b id="st-acc">0%</b> точность</div>
+    <div class="top-stat"><b id="st-docs">0</b> documents</div>
+    <div class="top-stat"><b id="st-saved">0 min</b> saved</div>
+    <div class="top-stat"><b id="st-acc">0%</b> accuracy</div>
   </div>
-  <a class="btn" href="/api/export.csv">Экспорт CSV</a>
+  <span class="badge-demo" id="demo-badge" hidden>Demo · CRM simulated</span>
+  <a class="btn" href="/api/export.csv">Export CSV</a>
 </header>
 
 <div class="wrap">
   <div class="grid">
     <section class="card">
       <div class="card-head">
-        <h2>Документ</h2>
-        <span class="hint" id="doc-name">не загружен</span>
+        <h2>Document</h2>
+        <span class="hint" id="doc-name">not loaded</span>
       </div>
       <div class="card-body">
         <div class="drop" id="drop">
           <div class="ico">⇪</div>
-          <b>Перетащите счёт сюда</b>
-          <p>PDF, TXT или HTML · или нажмите, чтобы выбрать файл</p>
-          <input type="file" id="file" accept=".pdf,.txt,.html,.htm" hidden />
+          <b>Drop an invoice here</b>
+          <p>PDF, TXT, HTML or image · or click to choose a file</p>
+          <input type="file" id="file" accept=".pdf,.txt,.html,.htm,.png,.jpg,.jpeg,.webp,.tif,.tiff" hidden />
         </div>
-        <div class="samples" id="samples"><span class="hint" style="color:#5d6377;font-size:.76rem">Загрузка примеров…</span></div>
+        <div class="samples" id="samples"><span class="hint" style="color:#5d6377;font-size:.76rem">Loading samples…</span></div>
         <div class="preview" id="preview">
-          <div class="empty-preview">Здесь появится документ для проверки</div>
+          <div class="empty-preview">Document preview will appear here</div>
         </div>
       </div>
     </section>
 
     <section class="card">
       <div class="card-head">
-        <h2>Распознанные поля</h2>
+        <h2>Extracted fields</h2>
         <span class="hint" id="conf-label">—</span>
       </div>
       <div class="card-body">
         <div id="fields-wrap">
-          <div class="empty-state">Загрузите документ, чтобы увидеть<br>извлечённые данные</div>
+          <div class="empty-state">Upload a document to see<br>extracted data</div>
         </div>
         <div class="actions" id="actions" hidden>
-          <button class="btn btn-primary" id="confirm">Подтвердить и сохранить</button>
-          <button class="btn" id="reject">Сбросить</button>
+          <button class="btn btn-primary" id="confirm">Confirm and save</button>
+          <button class="btn" id="reject">Reset</button>
         </div>
       </div>
     </section>
   </div>
 
+  <section class="card impact-card">
+    <div class="card-head">
+      <h2>Automation impact</h2>
+      <span class="hint" id="impact-hint"></span>
+    </div>
+    <div class="card-body">
+      <div class="kpi-grid">
+        <div class="kpi">
+          <span>Documents</span>
+          <b id="kpi-docs">0</b>
+          <i id="kpi-docs-note">unique invoices processed</i>
+        </div>
+        <div class="kpi" id="kpi-auto-tile">
+          <span>Auto-pass</span>
+          <b id="kpi-auto">—</b>
+          <i>confirmed with no edits</i>
+        </div>
+        <div class="kpi">
+          <span>Median review</span>
+          <b id="kpi-review">—</b>
+          <i>upload → confirm</i>
+        </div>
+        <div class="kpi good">
+          <span>Time saved</span>
+          <b id="kpi-saved">—</b>
+          <i id="kpi-saved-note">vs manual entry</i>
+        </div>
+      </div>
+      <div class="impact-cols">
+        <div>
+          <h3>Manual corrections</h3>
+          <div id="corr-list" class="bar-empty">No confirmed documents yet</div>
+        </div>
+        <div>
+          <h3>Invariant checks tripped</h3>
+          <div id="issue-list" class="bar-empty">No confirmed documents yet</div>
+        </div>
+      </div>
+      <p class="assumptions" id="impact-notes"></p>
+    </div>
+  </section>
+
   <section class="card table-card">
     <div class="card-head">
-      <h2>Обработанные документы</h2>
+      <h2>Processed documents</h2>
       <span class="hint" id="table-hint"></span>
     </div>
     <div id="table-wrap">
-      <div class="empty-state">Пока нет подтверждённых документов</div>
+      <div class="empty-state">No confirmed documents yet</div>
     </div>
   </section>
 </div>
@@ -219,22 +294,113 @@
 
 <script>
 const FIELDS = [
-  { key: 'number', label: 'Номер счёта', type: 'text' },
-  { key: 'date', label: 'Дата', type: 'date' },
-  { key: 'supplier', label: 'Поставщик', type: 'text', wide: true },
-  { key: 'inn', label: 'ИНН', type: 'text' },
-  { key: 'kpp', label: 'КПП', type: 'text' },
-  { key: 'total', label: 'Сумма к оплате', type: 'number' },
-  { key: 'vat', label: 'НДС', type: 'number' },
-  { key: 'currency', label: 'Валюта', type: 'text' },
+  { key: 'number', label: 'Invoice number', type: 'text' },
+  { key: 'date', label: 'Date', type: 'date' },
+  { key: 'supplier', label: 'Supplier', type: 'text', wide: true },
+  { key: 'tax_id', label: 'Tax ID (ЄДРПОУ / ІПН)', type: 'text' },
+  { key: 'total', label: 'Amount due', type: 'number' },
+  { key: 'vat', label: 'VAT (ПДВ)', type: 'number' },
+  { key: 'currency', label: 'Currency', type: 'text' },
 ];
 
 const $ = (sel) => document.querySelector(sel);
 let current = null;
 
-function money(v) {
+const CURRENCY_SYMBOL = { UAH: '₴', USD: '$', EUR: '€' };
+const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp'];
+
+function money(v, cur = 'UAH') {
   if (v === null || v === undefined || v === '') return '—';
-  return Number(v).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
+  const sym = CURRENCY_SYMBOL[cur] || cur;
+  return Number(v).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + sym;
+}
+
+function duration(seconds) {
+  if (!seconds) return '—';
+  if (seconds < 60) return Math.round(seconds) + ' s';
+  if (seconds < 3600) return (seconds / 60).toFixed(1) + ' min';
+  return (seconds / 3600).toFixed(1) + ' h';
+}
+
+function minutesLabel(minutes) {
+  if (!minutes) return '0 min';
+  if (minutes < 60) return Math.round(minutes) + ' min';
+  return (minutes / 60).toFixed(1) + ' h';
+}
+
+function barList(rows, key, labelKey) {
+  if (!rows.length) return '<div class="bar-empty">None recorded</div>';
+  const peak = Math.max(...rows.map((r) => r[key]));
+  return rows.slice(0, 6).map((r) => `
+    <div class="bar-row">
+      <span class="bar-label" title="${r[labelKey]}">${r[labelKey]}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${Math.max(8, (r[key] / peak) * 100)}%"></span></span>
+      <span class="bar-count">${r[key]}</span>
+    </div>`).join('');
+}
+
+const ISSUE_FIELDS = {
+  number: 'Invoice number', date: 'Date', supplier: 'Supplier', tax_id: 'Tax ID',
+  total: 'Amount due', vat: 'VAT', currency: 'Currency', items_sum: 'Items sum',
+};
+
+function issueLabel(issue) {
+  const field = String(issue).split(':')[0].trim();
+  return (ISSUE_FIELDS[field] || field) + ' check failed';
+}
+
+function renderImpact(impact) {
+  const docs = impact.documents;
+  $('#kpi-docs').textContent = impact.unique_documents;
+  const dupes = impact.duplicate_confirmations;
+  $('#kpi-docs-note').textContent = dupes
+    ? `${docs} confirmations · ${dupes} duplicate`
+    : `${docs} confirmations`;
+
+  const autoTile = $('#kpi-auto-tile');
+  $('#kpi-auto').textContent = docs ? impact.auto_pass_rate + '%' : '—';
+  autoTile.className = 'kpi ' + (impact.auto_pass_rate >= 80 ? 'good' : impact.auto_pass_rate >= 50 ? 'warn' : 'bad');
+
+  const review = impact.review || {};
+  $('#kpi-review').textContent = duration(review.median_seconds);
+
+  const saved = impact.time_saved_minutes || 0;
+  $('#kpi-saved').textContent = minutesLabel(saved);
+  $('#kpi-saved-note').textContent = docs
+    ? `at ${impact.assumptions.manual_minutes_per_document} min manual`
+    : 'vs manual entry';
+
+  $('#corr-list').innerHTML = impact.top_corrections.length
+    ? barList(impact.top_corrections, 'count', 'label')
+    : '<div class="bar-empty">Every field was confirmed as extracted</div>';
+
+  const tripped = impact.validation.top.map((item) => ({ ...item, label: issueLabel(item.issue) }));
+  $('#issue-list').innerHTML = tripped.length
+    ? barList(tripped, 'count', 'label')
+    : '<div class="bar-empty">No invariants failed on confirmed documents</div>';
+
+  const notes = [];
+  if (impact.period.from) {
+    notes.push(`Period: ${impact.period.from.slice(0, 10)} → ${impact.period.to.slice(0, 10)}.`);
+  }
+  notes.push(`Assumption: manual entry takes ${impact.assumptions.manual_minutes_per_document} min per invoice (DOCFLOW_MANUAL_MINUTES).`);
+  if (review.measured_documents) {
+    notes.push(`Median review measured over ${review.measured_documents} confirmations (upload → confirm), average ${duration(review.average_seconds)}.`);
+  }
+  const sources = impact.sources || {};
+  if (sources.synthetic && sources.real) {
+    notes.push(`Data: ${sources.synthetic} of ${impact.documents} confirmations are synthetic demo rows, ${sources.real} real.`);
+  } else if (sources.synthetic) {
+    notes.push(`All ${impact.documents} confirmations are synthetic demo rows — not a measured pilot.`);
+  }
+  if (impact.validation.unreviewed_risk_documents) {
+    notes.push(`${impact.validation.unreviewed_risk_documents} document(s) were confirmed despite a failed invariant — those are the risky ones.`);
+  }
+  $('#impact-notes').textContent = notes.join(' ');
+
+  $('#impact-hint').textContent = docs
+    ? `${impact.edited_fields} field edits across ${docs} confirmations`
+    : '';
 }
 
 function toast(message, kind = '') {
@@ -254,13 +420,15 @@ function confClass(c) {
 function renderPreview(meta) {
   const box = $('#preview');
   if (!meta) {
-    box.innerHTML = '<div class="empty-preview">Здесь появится документ для проверки</div>';
+    box.innerHTML = '<div class="empty-preview">Document preview will appear here</div>';
     return;
   }
   if (meta.suffix === '.pdf') {
-    box.innerHTML = `<iframe src="/files/${meta.id}#toolbar=0&navpanes=0&view=FitH" title="Документ"></iframe>`;
+    box.innerHTML = `<iframe src="/files/${meta.id}#toolbar=0&navpanes=0&view=FitH" title="Document preview"></iframe>`;
+  } else if (IMAGE_EXTS.includes(meta.suffix)) {
+    box.innerHTML = `<img src="/files/${meta.id}" alt="Document preview" style="max-width:100%;display:block" />`;
   } else {
-    const text = (meta.text_preview || 'Нет текста').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    const text = (meta.text_preview || 'No text').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
     box.innerHTML = `<pre>${text}</pre>`;
   }
 }
@@ -269,7 +437,7 @@ function renderFields(meta) {
   const wrap = $('#fields-wrap');
   const actions = $('#actions');
   if (!meta) {
-    wrap.innerHTML = '<div class="empty-state">Загрузите документ, чтобы увидеть<br>извлечённые данные</div>';
+    wrap.innerHTML = '<div class="empty-state">Upload a document to see<br>extracted data</div>';
     actions.hidden = true;
     $('#conf-label').textContent = '—';
     return;
@@ -294,7 +462,13 @@ function renderFields(meta) {
     w.textContent = meta.warning;
     wrap.appendChild(w);
   }
-  $('#conf-label').textContent = `общая уверенность ${Math.round(meta.parsed.confidence * 100)}%`;
+  if (meta.parsed && meta.parsed.issues && meta.parsed.issues.length) {
+    const w = document.createElement('div');
+    w.className = 'warning';
+    w.textContent = 'Validation: ' + meta.parsed.issues.join('; ');
+    wrap.appendChild(w);
+  }
+  $('#conf-label').textContent = `overall confidence ${Math.round(meta.parsed.confidence * 100)}%`;
   actions.hidden = false;
 }
 
@@ -310,12 +484,12 @@ async function uploadFile(file) {
   const data = new FormData();
   data.append('file', file);
   const drop = $('#drop');
-  drop.innerHTML = '<div class="spinner" style="margin:0 auto 10px"></div><b>Распознаём документ…</b>';
+  drop.innerHTML = '<div class="spinner" style="margin:0 auto 10px"></div><b>Recognizing document…</b>';
   try {
     const res = await fetch('/api/upload', { method: 'POST', body: data });
-    if (!res.ok) throw new Error((await res.json()).detail || 'Ошибка загрузки');
+    if (!res.ok) throw new Error((await res.json()).detail || 'Upload failed');
     loadDoc(await res.json());
-    toast('Документ распознан', 'ok');
+    toast('Document recognized', 'ok');
   } catch (err) {
     toast(err.message, 'bad');
   } finally {
@@ -324,8 +498,8 @@ async function uploadFile(file) {
 }
 
 function resetDrop() {
-  $('#drop').innerHTML = '<div class="ico">⇪</div><b>Перетащите счёт сюда</b><p>PDF, TXT или HTML · или нажмите, чтобы выбрать файл</p>';
-  $('#drop').appendChild(Object.assign(document.createElement('input'), { type: 'file', id: 'file', accept: '.pdf,.txt,.html,.htm', hidden: true }));
+  $('#drop').innerHTML = '<div class="ico">⇪</div><b>Drop an invoice here</b><p>PDF, TXT, HTML or image · or click to choose a file</p>';
+  $('#drop').appendChild(Object.assign(document.createElement('input'), { type: 'file', id: 'file', accept: '.pdf,.txt,.html,.htm,.png,.jpg,.jpeg,.webp,.tif,.tiff', hidden: true }));
   bindDrop();
 }
 
@@ -344,16 +518,16 @@ async function loadSamples() {
     const items = await (await fetch('/api/samples')).json();
     const box = $('#samples');
     if (!items.length) { box.innerHTML = ''; return; }
-    box.innerHTML = '<span style="font-size:.76rem;color:#5d6377;align-self:center;margin-right:2px">Примеры:</span>' +
+    box.innerHTML = '<span style="font-size:.76rem;color:#5d6377;align-self:center;margin-right:2px">Samples:</span>' +
       items.map((s) => `<span class="chip" data-name="${s.name}">${s.name.replace(/^invoice_|\.pdf$/g, '')}</span>`).join('');
     box.querySelectorAll('.chip').forEach((chip) => {
       chip.onclick = async () => {
         chip.style.opacity = '.5';
         try {
           const res = await fetch('/api/samples/' + encodeURIComponent(chip.dataset.name), { method: 'POST' });
-          if (!res.ok) throw new Error('Не удалось открыть пример');
+          if (!res.ok) throw new Error('Could not open sample');
           loadDoc(await res.json());
-          toast('Пример загружен', 'ok');
+          toast('Sample loaded', 'ok');
         } catch (err) {
           toast(err.message, 'bad');
         } finally {
@@ -375,20 +549,32 @@ async function confirmDoc() {
   });
   const btn = $('#confirm');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Сохраняем…';
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
   try {
     const res = await fetch('/api/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: current.id, fields }),
     });
-    if (!res.ok) throw new Error('Не удалось сохранить');
+    if (!res.ok) throw new Error('Could not save');
     const data = await res.json();
-    toast(data.edited_fields.length
-      ? `Сохранено. Исправлено полей: ${data.edited_fields.length}`
-      : 'Сохранено без правок — распознано точно', 'ok');
+    let msg = data.edited_fields.length
+      ? `Saved. Fields edited: ${data.edited_fields.length}`
+      : 'Saved without edits — recognized accurately';
+    if (data.crm && data.crm.duplicate) {
+      msg = `Duplicate blocked — this invoice is already confirmed (${data.crm.deal.title})`;
+    } else if (data.crm && data.crm.simulated) {
+      msg += ` · CRM deal ${data.crm.deal.id} (demo, not sent)`;
+    } else if (data.crm && data.crm.deal) {
+      msg += ` · Uspacy deal #${data.crm.deal.id}`;
+    }
+    if (data.crm && data.crm.error) {
+      toast(msg + ' · CRM error: ' + data.crm.error, 'bad');
+    } else {
+      toast(msg, 'ok');
+    }
     current = null;
-    $('#doc-name').textContent = 'не загружен';
+    $('#doc-name').textContent = 'not loaded';
     renderPreview(null);
     renderFields(null);
     refresh();
@@ -396,44 +582,55 @@ async function confirmDoc() {
     toast(err.message, 'bad');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Подтвердить и сохранить';
+    btn.textContent = 'Confirm and save';
   }
 }
 
 function resetDoc() {
   loadDoc(current);
-  toast('Правки сброшены');
+  toast('Edits reset');
+}
+
+async function loadConfig() {
+  try {
+    const config = await fetch('/api/config').then((r) => r.json());
+    $('#demo-badge').hidden = !config.demo_mode;
+    window.__docflowConfig = config;
+  } catch (e) {}
 }
 
 async function refresh() {
   try {
-    const [stats, docs] = await Promise.all([
+    const [stats, docs, impact] = await Promise.all([
       fetch('/api/stats').then((r) => r.json()),
       fetch('/api/documents').then((r) => r.json()),
+      fetch('/api/impact').then((r) => r.json()),
     ]);
     $('#st-docs').textContent = stats.documents;
-    $('#st-saved').textContent = stats.saved_minutes + ' мин';
+    $('#st-saved').textContent = minutesLabel(impact.time_saved_minutes);
     $('#st-acc').textContent = stats.accuracy + '%';
+    renderImpact(impact);
     $('#table-hint').textContent = stats.documents
-      ? `${stats.documents} шт · на сумму ${money(stats.total_amount)}`
+      ? `${stats.documents} docs · total ${money(stats.total_amount, 'UAH')}`
       : '';
     const wrap = $('#table-wrap');
     if (!docs.length) {
-      wrap.innerHTML = '<div class="empty-state">Пока нет подтверждённых документов</div>';
+      wrap.innerHTML = '<div class="empty-state">No confirmed documents yet</div>';
       return;
     }
     wrap.innerHTML = `<table>
-      <thead><tr><th>Документ</th><th>Поставщик</th><th>Номер</th><th>Дата</th><th class="num">Сумма</th><th>Статус</th></tr></thead>
+      <thead><tr><th>Document</th><th>Supplier</th><th>Number</th><th>Date</th><th class="num">Amount</th><th class="num">Review</th><th>Status</th></tr></thead>
       <tbody>${docs.map((d) => {
         const f = d.fields;
         const edited = d.edited_fields.length;
         return `<tr>
-          <td>${d.filename}</td>
+          <td>${d.source === 'synthetic' ? '<span class="tag-synth">synthetic</span>' : ''}${d.filename}</td>
           <td>${f.supplier || '—'}</td>
           <td>${f.number || '—'}</td>
           <td>${f.date || '—'}</td>
-          <td class="num">${money(f.total)}</td>
-          <td>${edited ? `<span class="tag-edited">правок: ${edited}</span>` : '<span class="tag-clean">без правок</span>'}</td>
+          <td class="num">${money(f.total, f.currency)}</td>
+          <td class="num">${duration(d.review_seconds)}</td>
+          <td>${edited ? `<span class="tag-edited">edits: ${edited}</span>` : '<span class="tag-clean">no edits</span>'}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>`;
@@ -442,6 +639,7 @@ async function refresh() {
 
 bindDrop();
 loadSamples();
+loadConfig();
 refresh();
 $('#confirm').onclick = confirmDoc;
 $('#reject').onclick = resetDoc;
