@@ -38,7 +38,13 @@ Deterministic field invariants. Reports issues without guessing corrected values
 
 ### `uspacy.py`
 
-Uspacy authentication, token refresh and deal creation.
+Uspacy authentication, token refresh, entity matching and deal creation. The
+entity endpoints ignore `search`/`filter`/`limit`, so companies and deals are
+read page by page and matched on the client: tax ID from `comments`, normalised
+name, invoice number as a whole token. A lookup that cannot be matched exactly
+returns `None` instead of an arbitrary record, and the caller creates a new
+company rather than linking to a wrong one. Demo mode short-circuits this module
+entirely, so a demonstration never writes to the account.
 
 ### `templates/index.html`
 
