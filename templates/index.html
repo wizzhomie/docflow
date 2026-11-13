@@ -127,6 +127,15 @@
     background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.3); color: #fcd34d; }
   .empty-state { color: #5d6377; text-align: center; padding: 50px 20px; font-size: .88rem; }
 
+  .result-card { border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.06); border-radius: 14px; padding: 18px 20px; }
+  .result-card.warn { border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.07); }
+  .result-card.bad { border-color: rgba(248,113,113,.45); background: rgba(248,113,113,.07); }
+  .result-card h3 { font-size: .95rem; color: var(--ok); }
+  .result-card.warn h3 { color: var(--warn); }
+  .result-card.bad h3 { color: var(--bad); }
+  .result-line { font-size: .84rem; margin-top: 8px; line-height: 1.45; }
+  .result-line.muted { color: var(--muted); font-size: .78rem; }
+
   .table-card { margin-top: 20px; }
 
   .impact-card { margin-top: 20px; }
@@ -433,6 +442,40 @@ function renderPreview(meta) {
   }
 }
 
+function renderResult(data) {
+  const wrap = $('#fields-wrap');
+  const actions = $('#actions');
+  const rec = data.record || {};
+  const fields = rec.fields || {};
+  const crm = data.crm || {};
+  const deal = crm.deal || {};
+  const duplicate = !!crm.duplicate;
+  const edited = (data.edited_fields || []).length;
+  const kind = crm.error ? 'bad' : duplicate ? 'warn' : 'ok';
+  const title = crm.error ? 'CRM error' : duplicate ? 'Duplicate blocked' : 'Confirmed and saved';
+  let where;
+  if (duplicate) {
+    const ref = (deal.title || 'earlier document').replace(/^Already confirmed:\s*/i, '');
+    where = `This invoice was already confirmed earlier (${ref}). Nothing new was saved.`;
+  } else if (crm.error) {
+    where = `Saved to history, but the CRM call failed: ${crm.error}`;
+  } else if (crm.simulated) {
+    where = `Saved to history · demo CRM deal ${deal.id} (nothing left the host)`;
+  } else {
+    where = `Saved to history · Uspacy deal #${deal.id || '—'}`;
+  }
+  wrap.innerHTML = `
+    <div class="result-card ${kind}">
+      <h3>${title}</h3>
+      <p class="result-line">${fields.supplier || 'Document'} · №${fields.number || '—'} · ${money(fields.total, fields.currency || 'UAH')}</p>
+      <p class="result-line">${where}</p>
+      <p class="result-line muted">${edited ? `Fields edited: ${edited}` : 'No edits'} · review ${Math.round(rec.review_seconds || 0)} s</p>
+      <p class="result-line muted">Load the same file again to see duplicate protection.</p>
+    </div>`;
+  actions.hidden = true;
+  $('#conf-label').textContent = duplicate ? 'duplicate' : crm.error ? 'crm error' : 'saved';
+}
+
 function renderFields(meta) {
   const wrap = $('#fields-wrap');
   const actions = $('#actions');
@@ -562,7 +605,8 @@ async function confirmDoc() {
       ? `Saved. Fields edited: ${data.edited_fields.length}`
       : 'Saved without edits — recognized accurately';
     if (data.crm && data.crm.duplicate) {
-      msg = `Duplicate blocked — this invoice is already confirmed (${data.crm.deal.title})`;
+      const ref = (data.crm.deal.title || 'this document').replace(/^Already confirmed:\s*/i, '');
+      msg = `Duplicate blocked — ${ref} was already confirmed. Nothing new was saved.`;
     } else if (data.crm && data.crm.simulated) {
       msg += ` · CRM deal ${data.crm.deal.id} (demo, not sent)`;
     } else if (data.crm && data.crm.deal) {
@@ -574,9 +618,8 @@ async function confirmDoc() {
       toast(msg, 'ok');
     }
     current = null;
-    $('#doc-name').textContent = 'not loaded';
-    renderPreview(null);
-    renderFields(null);
+    $('#doc-name').textContent = 'saved';
+    renderResult(data);
     refresh();
   } catch (err) {
     toast(err.message, 'bad');
