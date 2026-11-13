@@ -30,7 +30,7 @@ Load additional context only when relevant:
 - `extractor.py` — text acquisition, OCR fallback and field interpretation.
 - `profiles/invoice_ua.py` — executable Ukrainian invoice profile and anchors.
 - `validation.py` — deterministic field invariants.
-- `uspacy.py` — Uspacy authentication and deal creation.
+- `uspacy.py` — Uspacy authentication, client-side company/deal matching and deal creation.
 - `templates/index.html` — English upload/review/history UI.
 - `tests/run_eval.py` — deterministic regression baseline.
 - `tests/invoice_ua_cases.json` — compact labelled fixtures.
@@ -52,6 +52,11 @@ Load additional context only when relevant:
 
 - `DOCFLOW_DEMO_MODE=1` in `.env` — Confirm returns a simulated deal and never
   calls Uspacy; the UI shows a `DEMO · CRM simulated` badge.
+- `DOCFLOW_DEMO_MODE=0` switches the same Confirm to the real account
+  (`USPACY_BASE_URL`, currently `aitesting.uspacy.com`); a confirmed document
+  then creates the supplier company and a deal with amount, VAT and tax ID.
+- Uspacy ignores `search`/`filter`/`limit` on entity endpoints: read pages and
+  match on the client. A 200 answer does not prove the filter was applied.
 - `python3 tools/seed_demo.py [--reset]` fills `data/confirmed.jsonl` with
   labelled `source: synthetic` rows for the impact report.
 - `python3 tools/make_extra_samples.py` regenerates the extra sample invoices
@@ -80,7 +85,16 @@ curl -s http://127.0.0.1:8765/api/health
 Regression baseline:
 
 ```bash
-python3 tests/run_eval.py
+python3 tests/run_eval.py          # parser regression, 45 fixtures cases
+python3 tests/test_dedupe.py       # duplicate suppression
+python3 tests/test_impact.py       # impact report math
+python3 tests/test_uspacy_match.py # CRM matching, no network
+```
+
+An opt-in check against the real CRM (creates one test deal and one company):
+
+```bash
+set -a; . ./.env; set +a; python3 tools/check_crm.py
 ```
 
 No lint, typecheck or CI command is currently defined.
