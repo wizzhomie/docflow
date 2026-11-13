@@ -47,6 +47,15 @@ Load additional context only when relevant:
 9. Extend document-type profiles and supplier templates instead of growing an unbounded regex pile.
 10. Do not read, disclose or commit secrets and runtime data.
 
+## Demo mode
+
+- `DOCFLOW_DEMO_MODE=1` in `.env` — Confirm returns a simulated deal and never
+  calls Uspacy; the UI shows a `DEMO · CRM simulated` badge.
+- `python3 tools/seed_demo.py [--reset]` fills `data/confirmed.jsonl` with
+  labelled `source: synthetic` rows for the impact report.
+- `python3 tools/make_extra_samples.py` regenerates the extra sample invoices
+  (inline tax id, Russian language, image-only scan).
+
 ## Commands
 
 Local service:
