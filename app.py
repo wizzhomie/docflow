@@ -322,10 +322,7 @@ def _find_or_create_supplier_company(fields: dict) -> dict | None:
     supplier = fields.get('supplier')
     if not supplier:
         return None
-    try:
-        return uspacy.find_or_create_company(supplier, _supplier_details(fields))
-    except Exception:
-        return None
+    return uspacy.find_or_create_company(supplier, _supplier_details(fields))
 
 
 def _find_or_create_supplier_contact(fields: dict, company: dict | None) -> dict | None:
@@ -333,15 +330,12 @@ def _find_or_create_supplier_contact(fields: dict, company: dict | None) -> dict
     name = fields.get('contact_person')
     if not name:
         return None
-    try:
-        return uspacy.find_or_create_contact(
-            name,
-            (company or {}).get('id'),
-            phone=fields.get('phone'),
-            email=fields.get('email'),
-        )
-    except Exception:
-        return None
+    return uspacy.find_or_create_contact(
+        name,
+        (company or {}).get('id'),
+        phone=fields.get('phone'),
+        email=fields.get('email'),
+    )
 
 
 def _find_existing_deal(fields: dict) -> dict | None:
@@ -455,8 +449,16 @@ def confirm(payload: ConfirmPayload):
             crm['duplicate'] = True
             crm['duplicate_source'] = 'crm'
         elif crm['configured']:
-            company = _find_or_create_supplier_company(payload.fields)
-            contact = _find_or_create_supplier_contact(payload.fields, company)
+            company = contact = None
+            try:
+                company = _find_or_create_supplier_company(payload.fields)
+            except Exception as exc:
+                # A failed enrichment must be visible, not a silently empty card.
+                crm['company_error'] = str(exc)
+            try:
+                contact = _find_or_create_supplier_contact(payload.fields, company)
+            except Exception as exc:
+                crm['contact_error'] = str(exc)
             try:
                 deal = uspacy.create_deal(
                     title=f'Рахунок №{payload.fields.get("number") or "—"} — {payload.fields.get("supplier") or "Document"}',

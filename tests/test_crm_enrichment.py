@@ -152,6 +152,21 @@ def test_contact_from_another_company_is_not_reused():
     assert 'first_name' not in posted[0], 'name must not be split by guesswork'
 
 
+def test_company_lookup_error_is_not_swallowed():
+    # Regression: a failed enrichment used to be swallowed, so the deal looked
+    # complete while the company card stayed empty.
+    def boom(*args, **kwargs):
+        raise RuntimeError('CRM is down')
+
+    uspacy.find_or_create_company = boom
+    try:
+        app._find_or_create_supplier_company({'supplier': 'ТОВ «Терра-Буд»'})
+    except RuntimeError as exc:
+        assert 'CRM is down' in str(exc)
+    else:
+        raise AssertionError('error must propagate to the confirm response')
+
+
 def main():
     for name, case in sorted(globals().items()):
         if name.startswith('test_') and callable(case):
