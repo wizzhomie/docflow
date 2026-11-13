@@ -22,6 +22,11 @@ LABELS = {
     'supplier': [r'постачальник', r'продавець', r'виконавець', r'поставщик'],
     'buyer': [r'покупець', r'покупатель', r'замовник', r'заказчик', r'платник', r'плательщик'],
     'address': [r'адреса', r'адрес'],
+    'phone': [r'тел\.?', r'телефон', r'моб\.?'],
+    'email': [r'e-?mail', r'ел\.\s*пошта', r'эл\.\s*почта'],
+    'bank': [r'банк'],
+    'iban': [r'iban', r'р/р', r'розрахунковий\s+рахунок'],
+    'contact': [r'контактна\s+особа', r'контактное\s+лицо', r'менеджер'],
 }
 
 # Includes OCR look-alikes: tesseract renders «ІПН» as «INH» and «ЄДРПОУ» as
@@ -48,7 +53,12 @@ CURRENCY = {
 }
 DEFAULT_CURRENCY = 'UAH'
 
-FIELD_KEYS = ['number', 'date', 'supplier', 'tax_id', 'total', 'vat', 'currency']
+# Fields that decide whether the document was understood. Optional requisites
+# (address, phone, email, bank, IBAN, contact) never lower the overall score:
+# their absence is normal, only a malformed value is a problem.
+CORE_FIELD_KEYS = ['number', 'date', 'supplier', 'tax_id', 'total', 'vat', 'currency']
+OPTIONAL_FIELD_KEYS = ['address', 'phone', 'email', 'bank', 'iban', 'contact_person']
+FIELD_KEYS = CORE_FIELD_KEYS + OPTIONAL_FIELD_KEYS
 
 VAT_RATE = 20
 
@@ -61,4 +71,7 @@ INVARIANTS = [
     'vat is 0 or ~20/120 of total when present',
     'currency is one of UAH, USD, EUR',
     'sum(items) approx equals total when items are parsed',
+    'email is present or absent, but never malformed',
+    'phone is present or absent, but never a random number from the text',
+    'iban is UA + 27 digits when present',
 ]
