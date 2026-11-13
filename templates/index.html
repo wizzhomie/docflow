@@ -310,6 +310,12 @@ const FIELDS = [
   { key: 'total', label: 'Amount due', type: 'number' },
   { key: 'vat', label: 'VAT (ПДВ)', type: 'number' },
   { key: 'currency', label: 'Currency', type: 'text' },
+  { key: 'address', label: 'Address', type: 'text', wide: true },
+  { key: 'phone', label: 'Phone', type: 'text' },
+  { key: 'email', label: 'Email', type: 'text' },
+  { key: 'bank', label: 'Bank', type: 'text' },
+  { key: 'iban', label: 'IBAN', type: 'text', wide: true },
+  { key: 'contact_person', label: 'Contact person', type: 'text' },
 ];
 
 const $ = (sel) => document.querySelector(sel);
@@ -463,6 +469,8 @@ function renderResult(data) {
     where = `Saved to history · demo CRM deal ${deal.id} (nothing left the host)`;
   } else {
     where = `Saved to history · Uspacy deal #${deal.id || '—'}`;
+    if (crm.company && crm.company.title) where += ` · company: ${crm.company.title}`;
+    if (crm.contact && crm.contact.title) where += ` · contact: ${crm.contact.title}`;
   }
   wrap.innerHTML = `
     <div class="result-card ${kind}">

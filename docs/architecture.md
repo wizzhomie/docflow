@@ -30,7 +30,10 @@ Text acquisition, OCR fallback, interpretation of Ukrainian invoice fields and c
 
 ### `profiles/invoice_ua.py`
 
-Executable document-type knowledge: labels, synonyms, anchors, currency markers, required fields and VAT rate.
+Executable document-type knowledge: labels, synonyms, anchors, currency markers,
+required fields and VAT rate. Also declares the optional requisites (address,
+phone, email, bank, IBAN, contact person) and which fields are core for the
+overall confidence score.
 
 ### `validation.py`
 
@@ -38,13 +41,16 @@ Deterministic field invariants. Reports issues without guessing corrected values
 
 ### `uspacy.py`
 
-Uspacy authentication, token refresh, entity matching and deal creation. The
+Uspacy authentication, token refresh, entity matching, company-card enrichment,
+contact creation and deal creation. The
 entity endpoints ignore `search`/`filter`/`limit`, so companies and deals are
 read page by page and matched on the client: tax ID from `comments`, normalised
 name, invoice number as a whole token. A lookup that cannot be matched exactly
 returns `None` instead of an arbitrary record, and the caller creates a new
-company rather than linking to a wrong one. Demo mode short-circuits this module
-entirely, so a demonstration never writes to the account.
+company rather than linking to a wrong one. A confirmed document fills only the
+empty fields of the company card and creates the contact person once. Demo mode
+short-circuits this module entirely, so a demonstration never writes to the
+account.
 
 ### `templates/index.html`
 

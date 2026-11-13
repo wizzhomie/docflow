@@ -33,7 +33,7 @@ Load additional context only when relevant:
 - `uspacy.py` — Uspacy authentication, client-side company/deal matching and deal creation.
 - `templates/index.html` — English upload/review/history UI.
 - `tests/run_eval.py` — deterministic regression baseline.
-- `tests/invoice_ua_cases.json` — compact labelled fixtures.
+- `tests/invoice_ua_cases.json` — compact labelled fixtures, including supplier requisites.
 
 ## Engineering rules
 
@@ -57,6 +57,10 @@ Load additional context only when relevant:
   then creates the supplier company and a deal with amount, VAT and tax ID.
 - Uspacy ignores `search`/`filter`/`limit` on entity endpoints: read pages and
   match on the client. A 200 answer does not prove the filter was applied.
+- A confirmed document fills the supplier company card (phone, email, address,
+  tax ID, bank, IBAN in comments), creates or reuses the contacted person and
+  links both the company and the contact to the deal. Empty company fields are
+  filled; values already present are never overwritten.
 - `python3 tools/seed_demo.py [--reset]` fills `data/confirmed.jsonl` with
   labelled `source: synthetic` rows for the impact report.
 - `python3 tools/make_extra_samples.py` regenerates the extra sample invoices
@@ -88,10 +92,11 @@ curl -s http://127.0.0.1:8765/api/health
 Regression baseline:
 
 ```bash
-python3 tests/run_eval.py          # parser regression, 45 fixtures cases
+python3 tests/run_eval.py          # parser regression, 10 fixtures cases
 python3 tests/test_dedupe.py       # duplicate suppression
 python3 tests/test_impact.py       # impact report math
 python3 tests/test_uspacy_match.py # CRM matching, no network
+python3 tests/test_crm_enrichment.py # company card and contact mapping, no network
 ```
 
 An opt-in check against the real CRM (creates one test deal and one company):
