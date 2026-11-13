@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DocFlow — проверка документов</title>
+<style>
+  :root {
+    --bg: #07080d;
+    --panel: #0e1018;
+    --panel-2: #12141f;
+    --line: rgba(255,255,255,.09);
+    --text: #eceef5;
+    --muted: #9aa0b4;
+    --accent: #7c5cff;
+    --accent-2: #22d3ee;
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --bad: #f87171;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background:
+      radial-gradient(700px circle at 10% -10%, rgba(124,92,255,.18), transparent 55%),
+      radial-gradient(600px circle at 100% 0%, rgba(34,211,238,.1), transparent 50%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+  a { color: inherit; }
+
+  .topbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 16px 26px; border-bottom: 1px solid var(--line);
+    background: rgba(7,8,13,.7); backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; letter-spacing: -.02em; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 8px; position: relative;
+    background: conic-gradient(from 180deg, var(--accent), var(--accent-2), #ff5c9d, var(--accent));
+    box-shadow: 0 0 20px rgba(124,92,255,.5);
+  }
+  .logo-mark::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--bg); border: 2px solid rgba(255,255,255,.7); }
+  .top-stats { display: flex; gap: 22px; margin-left: auto; }
+  .top-stat { font-size: .78rem; color: var(--muted); }
+  .top-stat b { display: block; font-size: 1rem; color: var(--text); letter-spacing: -.01em; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 9px 16px; border-radius: 10px; font-size: .88rem; font-weight: 600;
+    border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--text);
+    cursor: pointer; text-decoration: none; transition: background .2s, border-color .2s, transform .15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255,255,255,.1); }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), #a855f7); border-color: transparent; box-shadow: 0 8px 24px -8px rgba(124,92,255,.7); }
+  .btn-primary:hover { background: linear-gradient(135deg, #8b6cff, #b06bff); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 24px 26px 60px; }
+  .grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 20px; align-items: start; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+    overflow: hidden;
+  }
+  .card-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .card-head h2 { font-size: .95rem; font-weight: 600; letter-spacing: -.01em; }
+  .card-head .hint { margin-left: auto; font-size: .76rem; color: var(--muted); }
+  .card-body { padding: 18px; }
+
+  .drop {
+    border: 1.5px dashed rgba(255,255,255,.18); border-radius: 14px;
+    padding: 30px 20px; text-align: center; cursor: pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); background: rgba(124,92,255,.07); }
+  .drop .ico { font-size: 1.6rem; margin-bottom: 8px; }
+  .drop b { font-size: .92rem; }
+  .drop p { color: var(--muted); font-size: .8rem; margin-top: 4px; }
+
+  .samples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chip {
+    font-size: .76rem; padding: 6px 11px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--muted);
+    transition: color .2s, border-color .2s, background .2s;
+  }
+  .chip:hover { color: var(--text); border-color: rgba(124,92,255,.5); background: rgba(124,92,255,.1); }
+
+  .preview { margin-top: 16px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; }
+  .preview iframe { width: 100%; height: 420px; border: 0; display: block; }
+  .preview pre { margin: 0; padding: 16px; background: #0b0d14; color: #c7cbe0; font-size: .78rem; white-space: pre-wrap; max-height: 420px; overflow: auto; }
+  .empty-preview { padding: 40px 20px; text-align: center; color: #5d6377; background: #0b0d14; font-size: .85rem; }
+
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.wide { grid-column: 1 / -1; }
+  .field label { font-size: .74rem; color: var(--muted); display: flex; align-items: center; gap: 7px; }
+  .field input, .field select {
+    width: 100%; padding: 9px 11px; border-radius: 9px; font-size: .88rem;
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+    outline: none; transition: border-color .2s, box-shadow .2s;
+    font-family: inherit;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,92,255,.18); }
+  .field input.low { border-color: rgba(251,191,36,.55); }
+  .field input.missing { border-color: rgba(248,113,113,.6); }
+
+  .conf { display: inline-flex; align-items: center; gap: 4px; font-size: .68rem; color: var(--muted); }
+  .conf i { width: 6px; height: 6px; border-radius: 50%; background: #555; display: inline-block; }
+  .conf.high i { background: var(--ok); }
+  .conf.mid i { background: var(--warn); }
+  .conf.low i { background: var(--bad); }
+
+  .actions { display: flex; gap: 10px; margin-top: 18px; }
+  .actions .btn { flex: 1; padding: 11px; }
+  .warning { margin-top: 12px; padding: 10px 12px; border-radius: 9px; font-size: .8rem;
+    background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.3); color: #fcd34d; }
+  .empty-state { color: #5d6377; text-align: center; padding: 50px 20px; font-size: .88rem; }
+
+  .table-card { margin-top: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.05); }
+  tr:last-child td { border-bottom: none; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tag-edited { font-size: .68rem; padding: 2px 7px; border-radius: 6px; background: rgba(251,191,36,.15); color: #fcd34d; }
+  .tag-clean { font-size: .68rem; padding: 2px 7px; border-radius: 6px; background: rgba(52,211,153,.13); color: #6ee7b7; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: #161927; border: 1px solid var(--line); color: var(--text);
+    padding: 12px 18px; border-radius: 12px; font-size: .86rem; z-index: 100;
+    opacity: 0; transition: opacity .25s, transform .25s; box-shadow: 0 20px 50px -20px #000;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.ok { border-color: rgba(52,211,153,.4); }
+  .toast.bad { border-color: rgba(248,113,113,.4); }
+
+  .spinner { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 960px) {
+    .grid { grid-template-columns: 1fr; }
+    .top-stats { display: none; }
+  }
+  @media (max-width: 560px) {
+    .fields { grid-template-columns: 1fr; }
+    .wrap { padding: 16px 14px 50px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo"><span class="logo-mark"></span> DocFlow</div>
+  <div class="top-stats">
+    <div class="top-stat"><b id="st-docs">0</b> документов</div>
+    <div class="top-stat"><b id="st-saved">0 мин</b> сэкономлено</div>
+    <div class="top-stat"><b id="st-acc">0%</b> точность</div>
+  </div>
+  <a class="btn" href="/api/export.csv">Экспорт CSV</a>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <section class="card">
+      <div class="card-head">
+        <h2>Документ</h2>
+        <span class="hint" id="doc-name">не загружен</span>
+      </div>
+      <div class="card-body">
+        <div class="drop" id="drop">
+          <div class="ico">⇪</div>
+          <b>Перетащите счёт сюда</b>
+          <p>PDF, TXT или HTML · или нажмите, чтобы выбрать файл</p>
+          <input type="file" id="file" accept=".pdf,.txt,.html,.htm" hidden />
+        </div>
+        <div class="samples" id="samples"><span class="hint" style="color:#5d6377;font-size:.76rem">Загрузка примеров…</span></div>
+        <div class="preview" id="preview">
+          <div class="empty-preview">Здесь появится документ для проверки</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Распознанные поля</h2>
+        <span class="hint" id="conf-label">—</span>
+      </div>
+      <div class="card-body">
+        <div id="fields-wrap">
+          <div class="empty-state">Загрузите документ, чтобы увидеть<br>извлечённые данные</div>
+        </div>
+        <div class="actions" id="actions" hidden>
+          <button class="btn btn-primary" id="confirm">Подтвердить и сохранить</button>
+          <button class="btn" id="reject">Сбросить</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card table-card">
+    <div class="card-head">
+      <h2>Обработанные документы</h2>
+      <span class="hint" id="table-hint"></span>
+    </div>
+    <div id="table-wrap">
+      <div class="empty-state">Пока нет подтверждённых документов</div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const FIELDS = [
+  { key: 'number', label: 'Номер счёта', type: 'text' },
+  { key: 'date', label: 'Дата', type: 'date' },
+  { key: 'supplier', label: 'Поставщик', type: 'text', wide: true },
+  { key: 'inn', label: 'ИНН', type: 'text' },
+  { key: 'kpp', label: 'КПП', type: 'text' },
+  { key: 'total', label: 'Сумма к оплате', type: 'number' },
+  { key: 'vat', label: 'НДС', type: 'number' },
+  { key: 'currency', label: 'Валюта', type: 'text' },
+];
+
+const $ = (sel) => document.querySelector(sel);
+let current = null;
+
+function money(v) {
+  if (v === null || v === undefined || v === '') return '—';
+  return Number(v).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
+}
+
+function toast(message, kind = '') {
+  const el = $('#toast');
+  el.textContent = message;
+  el.className = 'toast show ' + kind;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => (el.className = 'toast ' + kind), 3200);
+}
+
+function confClass(c) {
+  if (c >= 0.8) return 'high';
+  if (c >= 0.5) return 'mid';
+  return 'low';
+}
+
+function renderPreview(meta) {
+  const box = $('#preview');
+  if (!meta) {
+    box.innerHTML = '<div class="empty-preview">Здесь появится документ для проверки</div>';
+    return;
+  }
+  if (meta.suffix === '.pdf') {
+    box.innerHTML = `<iframe src="/files/${meta.id}#toolbar=0&navpanes=0&view=FitH" title="Документ"></iframe>`;
+  } else {
+    const text = (meta.text_preview || 'Нет текста').replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    box.innerHTML = `<pre>${text}</pre>`;
+  }
+}
+
+function renderFields(meta) {
+  const wrap = $('#fields-wrap');
+  const actions = $('#actions');
+  if (!meta) {
+    wrap.innerHTML = '<div class="empty-state">Загрузите документ, чтобы увидеть<br>извлечённые данные</div>';
+    actions.hidden = true;
+    $('#conf-label').textContent = '—';
+    return;
+  }
+  const fields = meta.parsed.fields;
+  wrap.innerHTML = '<div class="fields">' + FIELDS.map((f) => {
+    const item = fields[f.key] || { value: '', confidence: 0 };
+    const value = item.value ?? '';
+    const cls = item.confidence === 0 ? 'missing' : item.confidence < 0.7 ? 'low' : '';
+    const c = item.confidence ?? 0;
+    return `<div class="field ${f.wide ? 'wide' : ''}">
+      <label>${f.label}
+        <span class="conf ${confClass(c)}"><i></i>${Math.round(c * 100)}%</span>
+      </label>
+      <input data-key="${f.key}" type="${f.type}" step="0.01" value="${String(value).replace(/"/g, '&quot;')}" class="${cls}" />
+    </div>`;
+  }).join('') + '</div>';
+
+  if (meta.warning) {
+    const w = document.createElement('div');
+    w.className = 'warning';
+    w.textContent = meta.warning;
+    wrap.appendChild(w);
+  }
+  $('#conf-label').textContent = `общая уверенность ${Math.round(meta.parsed.confidence * 100)}%`;
+  actions.hidden = false;
+}
+
+function loadDoc(meta) {
+  current = meta;
+  $('#doc-name').textContent = meta.filename;
+  renderPreview(meta);
+  renderFields(meta);
+}
+
+async function uploadFile(file) {
+  if (!file) return;
+  const data = new FormData();
+  data.append('file', file);
+  const drop = $('#drop');
+  drop.innerHTML = '<div class="spinner" style="margin:0 auto 10px"></div><b>Распознаём документ…</b>';
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: data });
+    if (!res.ok) throw new Error((await res.json()).detail || 'Ошибка загрузки');
+    loadDoc(await res.json());
+    toast('Документ распознан', 'ok');
+  } catch (err) {
+    toast(err.message, 'bad');
+  } finally {
+    resetDrop();
+  }
+}
+
+function resetDrop() {
+  $('#drop').innerHTML = '<div class="ico">⇪</div><b>Перетащите счёт сюда</b><p>PDF, TXT или HTML · или нажмите, чтобы выбрать файл</p>';
+  $('#drop').appendChild(Object.assign(document.createElement('input'), { type: 'file', id: 'file', accept: '.pdf,.txt,.html,.htm', hidden: true }));
+  bindDrop();
+}
+
+function bindDrop() {
+  const drop = $('#drop');
+  const fileInput = $('#file');
+  drop.onclick = () => fileInput.click();
+  fileInput.onchange = () => uploadFile(fileInput.files[0]);
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('over'); uploadFile(e.dataTransfer.files[0]); };
+}
+
+async function loadSamples() {
+  try {
+    const items = await (await fetch('/api/samples')).json();
+    const box = $('#samples');
+    if (!items.length) { box.innerHTML = ''; return; }
+    box.innerHTML = '<span style="font-size:.76rem;color:#5d6377;align-self:center;margin-right:2px">Примеры:</span>' +
+      items.map((s) => `<span class="chip" data-name="${s.name}">${s.name.replace(/^invoice_|\.pdf$/g, '')}</span>`).join('');
+    box.querySelectorAll('.chip').forEach((chip) => {
+      chip.onclick = async () => {
+        chip.style.opacity = '.5';
+        try {
+          const res = await fetch('/api/samples/' + encodeURIComponent(chip.dataset.name), { method: 'POST' });
+          if (!res.ok) throw new Error('Не удалось открыть пример');
+          loadDoc(await res.json());
+          toast('Пример загружен', 'ok');
+        } catch (err) {
+          toast(err.message, 'bad');
+        } finally {
+          chip.style.opacity = '';
+        }
+      };
+    });
+  } catch (e) {}
+}
+
+async function confirmDoc() {
+  if (!current) return;
+  const fields = {};
+  document.querySelectorAll('#fields-wrap input[data-key]').forEach((input) => {
+    const key = input.dataset.key;
+    let value = input.value.trim();
+    if (key === 'total' || key === 'vat') value = value === '' ? null : Number(value);
+    fields[key] = value;
+  });
+  const btn = $('#confirm');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Сохраняем…';
+  try {
+    const res = await fetch('/api/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: current.id, fields }),
+    });
+    if (!res.ok) throw new Error('Не удалось сохранить');
+    const data = await res.json();
+    toast(data.edited_fields.length
+      ? `Сохранено. Исправлено полей: ${data.edited_fields.length}`
+      : 'Сохранено без правок — распознано точно', 'ok');
+    current = null;
+    $('#doc-name').textContent = 'не загружен';
+    renderPreview(null);
+    renderFields(null);
+    refresh();
+  } catch (err) {
+    toast(err.message, 'bad');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Подтвердить и сохранить';
+  }
+}
+
+function resetDoc() {
+  loadDoc(current);
+  toast('Правки сброшены');
+}
+
+async function refresh() {
+  try {
+    const [stats, docs] = await Promise.all([
+      fetch('/api/stats').then((r) => r.json()),
+      fetch('/api/documents').then((r) => r.json()),
+    ]);
+    $('#st-docs').textContent = stats.documents;
+    $('#st-saved').textContent = stats.saved_minutes + ' мин';
+    $('#st-acc').textContent = stats.accuracy + '%';
+    $('#table-hint').textContent = stats.documents
+      ? `${stats.documents} шт · на сумму ${money(stats.total_amount)}`
+      : '';
+    const wrap = $('#table-wrap');
+    if (!docs.length) {
+      wrap.innerHTML = '<div class="empty-state">Пока нет подтверждённых документов</div>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr><th>Документ</th><th>Поставщик</th><th>Номер</th><th>Дата</th><th class="num">Сумма</th><th>Статус</th></tr></thead>
+      <tbody>${docs.map((d) => {
+        const f = d.fields;
+        const edited = d.edited_fields.length;
+        return `<tr>
+          <td>${d.filename}</td>
+          <td>${f.supplier || '—'}</td>
+          <td>${f.number || '—'}</td>
+          <td>${f.date || '—'}</td>
+          <td class="num">${money(f.total)}</td>
+          <td>${edited ? `<span class="tag-edited">правок: ${edited}</span>` : '<span class="tag-clean">без правок</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  } catch (e) {}
+}
+
+bindDrop();
+loadSamples();
+refresh();
+$('#confirm').onclick = confirmDoc;
+$('#reject').onclick = resetDoc;
+</script>
+</body>
+</html>
