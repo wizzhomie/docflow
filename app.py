@@ -280,20 +280,66 @@ def _deal_comment(fields: dict, doc_id: str | None = None) -> str:
         parts.append(f'Invoice date: {fields["date"]}')
     if fields.get('vat') is not None:
         parts.append(f'VAT: {fields["vat"]} {fields.get("currency") or "UAH"}')
+    if fields.get('address'):
+        parts.append(f'Address: {fields["address"]}')
+    if fields.get('phone'):
+        parts.append(f'Phone: {fields["phone"]}')
+    if fields.get('email'):
+        parts.append(f'Email: {fields["email"]}')
+    if fields.get('bank'):
+        parts.append(f'Bank: {fields["bank"]}')
+    if fields.get('iban'):
+        parts.append(f'IBAN: {fields["iban"]}')
+    if fields.get('contact_person'):
+        parts.append(f'Contact: {fields["contact_person"]}')
     if doc_id:
         parts.append(f'Source file: /files/{doc_id}')
     return '. '.join(parts) + '.'
 
 
-def _find_or_create_supplier_company(fields: dict) -> int | None:
-    """Find or create supplier company in Uspacy, return company_id."""
+def _supplier_details(fields: dict) -> dict:
+    """Map invoice fields onto the Uspacy company card and its comment block."""
+    comment_lines = []
+    if fields.get('tax_id'):
+        comment_lines.append(f'ЄДРПОУ/ІПН: {fields["tax_id"]}')
+    if fields.get('iban'):
+        comment_lines.append(f'IBAN: {fields["iban"]}')
+    if fields.get('bank'):
+        comment_lines.append(f'Банк: {fields["bank"]}')
+    return {
+        'tax_id': fields.get('tax_id'),
+        'address': fields.get('address'),
+        'phone': fields.get('phone'),
+        'email': fields.get('email'),
+        'bank': fields.get('bank'),
+        'iban': fields.get('iban'),
+        'comment_lines': comment_lines,
+    }
+
+
+def _find_or_create_supplier_company(fields: dict) -> dict | None:
+    """Find or create the supplier company and fill its card from the document."""
     supplier = fields.get('supplier')
-    tax_id = fields.get('tax_id')
     if not supplier:
         return None
     try:
-        company = uspacy.find_or_create_company(supplier, tax_id)
-        return company.get('id')
+        return uspacy.find_or_create_company(supplier, _supplier_details(fields))
+    except Exception:
+        return None
+
+
+def _find_or_create_supplier_contact(fields: dict, company: dict | None) -> dict | None:
+    """Supplier contact person, linked to the company and later to the deal."""
+    name = fields.get('contact_person')
+    if not name:
+        return None
+    try:
+        return uspacy.find_or_create_contact(
+            name,
+            (company or {}).get('id'),
+            phone=fields.get('phone'),
+            email=fields.get('email'),
+        )
     except Exception:
         return None
 
@@ -409,16 +455,20 @@ def confirm(payload: ConfirmPayload):
             crm['duplicate'] = True
             crm['duplicate_source'] = 'crm'
         elif crm['configured']:
-            company_id = _find_or_create_supplier_company(payload.fields)
+            company = _find_or_create_supplier_company(payload.fields)
+            contact = _find_or_create_supplier_contact(payload.fields, company)
             try:
                 deal = uspacy.create_deal(
                     title=f'Рахунок №{payload.fields.get("number") or "—"} — {payload.fields.get("supplier") or "Document"}',
                     amount=payload.fields.get('total'),
                     currency=payload.fields.get('currency') or 'UAH',
                     comments=_deal_comment(payload.fields, payload.id),
-                    company_id=company_id,
+                    company_id=(company or {}).get('id'),
+                    contact_ids=[contact['id']] if contact and contact.get('id') else None,
                 )
                 crm['deal'] = {'id': deal.get('id'), 'title': deal.get('title')}
+                crm['company'] = {'id': (company or {}).get('id'), 'title': (company or {}).get('title')}
+                crm['contact'] = {'id': (contact or {}).get('id'), 'title': (contact or {}).get('title')}
             except Exception as exc:
                 crm['error'] = str(exc)
 

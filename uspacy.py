@@ -174,29 +174,112 @@ def find_company_by_name(name: str) -> dict | None:
     return None
 
 
-def create_company(name: str, tax_id: str | None = None) -> dict:
-    """Create company with name and optional tax_id in comments."""
-    payload = {'title': name, 'company_name': name}
-    if tax_id:
-        payload['comments'] = f'ЄДРПОУ/ІПН: {tax_id}'
+def _company_fields(details: dict) -> dict:
+    """Uspacy expects phone and email as arrays, address and site as strings."""
+    payload = {}
+    if details.get('phone'):
+        payload['phone'] = [{'value': details['phone']}]
+    if details.get('email'):
+        payload['email'] = [{'value': details['email']}]
+    if details.get('address'):
+        payload['address'] = details['address']
+    if details.get('site'):
+        payload['site'] = details['site']
+    return payload
+
+
+def _comment_block(details: dict) -> str:
+    lines = [line for line in details.get('comment_lines') or [] if line]
+    return '\n'.join(lines)
+
+
+def create_company(name: str, details: dict | None = None) -> dict:
+    """Create a company from the document requisites."""
+    details = details or {}
+    payload = {'title': name, 'company_name': name, **_company_fields(details)}
+    comments = _comment_block(details)
+    if comments:
+        payload['comments'] = comments
     res = _post('/crm/v1/entities/companies', payload)
-    if res.status_code == 401 and EMAIL and PASSWORD:
-        _sign_in()
-        res = _post('/crm/v1/entities/companies', payload)
     res.raise_for_status()
     return res.json()
 
 
-def find_or_create_company(name: str, tax_id: str | None = None) -> dict:
-    """Find existing company by tax_id or name, create if not found."""
-    if tax_id:
-        company = find_company_by_tax_id(tax_id)
-        if company:
-            return company
-    company = find_company_by_name(name)
-    if company:
+def enrich_company(company: dict, details: dict | None = None) -> dict:
+    """Fill company fields that are still empty. A human-entered value is never overwritten."""
+    details = details or {}
+    payload = {}
+    for key, value in _company_fields(details).items():
+        if value and not (company.get(key) or ''):
+            payload[key] = value
+    comments = (company.get('comments') or '').strip()
+    lines = [line for line in details.get('comment_lines') or [] if line and line not in comments]
+    if lines:
+        payload['comments'] = (comments + '\n' if comments else '') + '\n'.join(lines)
+    if not payload:
         return company
-    return create_company(name, tax_id)
+    res = _patch(f'/crm/v1/entities/companies/{company.get("id")}', payload)
+    if res.status_code != 200:
+        return company
+    return res.json()
+
+
+def find_or_create_company(name: str, details: dict | None = None) -> dict:
+    """Find a company by tax ID or name and enrich it; create it when it is new."""
+    details = details or {}
+    tax_id = details.get('tax_id')
+    company = find_company_by_tax_id(tax_id) if tax_id else None
+    if company is None:
+        company = find_company_by_name(name)
+    if company is not None:
+        return enrich_company(company, details)
+    return create_company(name, details)
+
+
+def find_contact_by_name(name: str, company_id: int | None = None) -> dict | None:
+    """Find a contact by name, optionally restricted to one company."""
+    wanted = _name_forms(name)
+    if not wanted:
+        return None
+    for contact in _page_through('/crm/v1/entities/contacts'):
+        if company_id:
+            linked = [c.get('id') for c in contact.get('companies') or []]
+            if company_id not in linked:
+                continue
+        if _name_forms(contact.get('title') or '') & wanted:
+            return contact
+    return None
+
+
+def create_contact(
+    name: str,
+    company_id: int | None = None,
+    phone: str | None = None,
+    email: str | None = None,
+) -> dict:
+    """Create a contact with the full name as title and no guessed name split."""
+    payload = {'title': name}
+    if company_id:
+        payload['companies'] = [company_id]
+    fields = _company_fields({'phone': phone, 'email': email})
+    payload.update(fields)
+    res = _post('/crm/v1/entities/contacts', payload)
+    res.raise_for_status()
+    return res.json()
+
+
+def find_or_create_contact(
+    name: str,
+    company_id: int | None = None,
+    phone: str | None = None,
+    email: str | None = None,
+) -> dict | None:
+    if not name:
+        return None
+    contact = find_contact_by_name(name, company_id)
+    if contact is not None:
+        return contact
+    return create_contact(name, company_id, phone, email)
 
 
 def _has_number(title: str, number: str) -> bool:
@@ -207,6 +290,25 @@ def _has_number(title: str, number: str) -> bool:
         rf'(?![{_NUMBER_CHARS}\-])'
     )
     return re.search(pattern, (title or '').casefold()) is not None
+
+
+def _patch(path: str, payload: dict) -> requests.Response:
+    _ensure_token()
+    res = _session.patch(
+        f'{BASE_URL}{path}',
+        json=payload,
+        headers={'Authorization': f'Bearer {_token}'},
+        timeout=20,
+    )
+    if res.status_code == 401 and EMAIL and PASSWORD:
+        _sign_in()
+        res = _session.patch(
+            f'{BASE_URL}{path}',
+            json=payload,
+            headers={'Authorization': f'Bearer {_token}'},
+            timeout=20,
+        )
+    return res
 
 
 def find_deal_by_invoice(number: str, supplier_tax_id: str | None = None) -> dict | None:
@@ -333,6 +435,7 @@ def create_deal(
     currency: str = 'UAH',
     comments: str = '',
     company_id: int | None = None,
+    contact_ids: list[int] | None = None,
 ) -> dict:
     if not configured():
         raise RuntimeError('Uspacy is not configured')
@@ -346,6 +449,8 @@ def create_deal(
     }
     if company_id:
         payload['companies'] = [company_id]
+    if contact_ids:
+        payload['contacts'] = list(contact_ids)
     try:
         res = _post('/crm/v1/entities/deals', payload)
         if res.status_code == 401 and EMAIL and PASSWORD:
