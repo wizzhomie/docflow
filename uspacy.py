@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import threading
 import time
 from dataclasses import asdict, dataclass
@@ -94,28 +95,83 @@ def _post(path: str, payload: dict) -> requests.Response:
     )
 
 
+MAX_PAGES = 50
+
+_LEGAL_FORMS = ('тов', 'фоп', 'пп', 'дп', 'ат')
+_NUMBER_CHARS = '0-9a-zа-яіїєґ'
+
+
+def _page_through(path: str) -> list[dict]:
+    """Read a whole CRM collection.
+
+    Uspacy ignores search/filter/limit on these endpoints and returns the first
+    page regardless, so every lookup is matched client-side; only `page` works.
+    """
+    items: list[dict] = []
+    for page in range(1, MAX_PAGES + 1):
+        res = _get(path, params={'page': page})
+        if res.status_code != 200:
+            break
+        payload = res.json()
+        data = payload.get('data') or []
+        if not data:
+            break
+        items.extend(data)
+        meta = (payload.get('meta') or {}).get('meta') or {}
+        last_page = meta.get('last_page')
+        if last_page and page >= last_page:
+            break
+    return items
+
+
+def _norm_name(value: str) -> str:
+    text = (value or '').casefold()
+    for ch in '«»"\'\u2018\u2019\u201c\u201d(),.;:':
+        text = text.replace(ch, ' ')
+    return ' '.join(text.split())
+
+
+def _name_forms(value: str) -> set[str]:
+    """Comparable name forms: as written and without the legal form."""
+    norm = _norm_name(value)
+    if not norm:
+        return set()
+    forms = {norm}
+    head, _, tail = norm.partition(' ')
+    if head in _LEGAL_FORMS and tail:
+        forms.add(tail)
+    return forms
+
+
+def _digits(value: str) -> str:
+    return re.sub(r'\D', '', value or '')
+
+
 def find_company_by_tax_id(tax_id: str) -> dict | None:
-    """Find company by tax ID (ЄДРПОУ/ІПН) using search."""
-    if not tax_id:
+    """Find a company whose stored tax ID matches; None instead of a wrong hit."""
+    needle = _digits(tax_id)
+    if len(needle) < 8:
         return None
-    res = _get('/crm/v1/entities/companies', params={'search': tax_id, 'limit': 5})
-    if res.status_code != 200:
-        return None
-    for company in res.json().get('data', []):
-        if tax_id in (company.get('title', '') + company.get('company_name', '')):
+    for company in _page_through('/crm/v1/entities/companies'):
+        haystack = ' '.join(
+            str(company.get(key) or '')
+            for key in ('comments', 'description', 'company_name')
+        )
+        if needle in _digits(haystack):
             return company
     return None
 
 
 def find_company_by_name(name: str) -> dict | None:
-    """Find company by exact name match."""
-    if not name:
+    """Find a company by name; None rather than an arbitrary company."""
+    wanted = _name_forms(name)
+    if not wanted:
         return None
-    res = _get('/crm/v1/entities/companies', params={'filter[title]': name, 'limit': 5})
-    if res.status_code != 200:
-        return None
-    data = res.json().get('data', [])
-    return data[0] if data else None
+    for company in _page_through('/crm/v1/entities/companies'):
+        for field in ('title', 'company_name'):
+            if _name_forms(company.get(field) or '') & wanted:
+                return company
+    return None
 
 
 def create_company(name: str, tax_id: str | None = None) -> dict:
@@ -143,27 +199,27 @@ def find_or_create_company(name: str, tax_id: str | None = None) -> dict:
     return create_company(name, tax_id)
 
 
+def _has_number(title: str, number: str) -> bool:
+    """Whole-token match: invoice "55" must not match the title of "2026-455"."""
+    pattern = (
+        rf'(?<![{_NUMBER_CHARS}\-])'
+        rf'{re.escape(number.casefold())}'
+        rf'(?![{_NUMBER_CHARS}\-])'
+    )
+    return re.search(pattern, (title or '').casefold()) is not None
+
+
 def find_deal_by_invoice(number: str, supplier_tax_id: str | None = None) -> dict | None:
-    """Find existing deal by invoice number and optionally supplier tax_id."""
+    """Find a deal for this invoice number, and supplier when the tax ID is known."""
     if not number:
         return None
-    res = _get('/crm/v1/entities/deals', params={'search': number, 'limit': 20})
-    if res.status_code != 200:
-        return None
-    for deal in res.json().get('data', []):
-        title = deal.get('title', '')
-        if number not in title:
+    needle = _digits(supplier_tax_id)
+    for deal in _page_through('/crm/v1/entities/deals'):
+        if not _has_number(deal.get('title', ''), number):
             continue
-        if supplier_tax_id:
-            comments = deal.get('comments', '')
-            if supplier_tax_id in comments:
-                return deal
-            # Also check companies title (fallback)
-            companies = deal.get('companies') or []
-            for c in companies:
-                if supplier_tax_id in (c.get('title', '') + str(c.get('id', ''))):
-                    return deal
-        else:
+        if not needle:
+            return deal
+        if needle in _digits(deal.get('comments', '')):
             return deal
     return None
 
