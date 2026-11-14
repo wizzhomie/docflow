@@ -16,6 +16,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
+import mailbox
 import routing
 import uspacy
 from connectors import active as active_connector
@@ -84,10 +85,12 @@ async def lifespan(app: FastAPI):
     if provider_name() == 'uspacy':
         uspacy.start_retry_worker()
     watcher = asyncio.create_task(_folder_watcher())
+    mail_watcher = asyncio.create_task(_mailbox_worker())
     try:
         yield
     finally:
         watcher.cancel()
+        mail_watcher.cancel()
         uspacy.stop_retry_worker()
 
 
@@ -423,6 +426,47 @@ async def _folder_watcher() -> None:
         await asyncio.sleep(3)
 
 
+def _mailbox_poll_once() -> dict:
+    """Take the attachments of new mail through the same path as an upload.
+
+    A document that arrives by e-mail is not special: it is recognised, put in
+    the review queue and routed exactly like a dropped file. The only difference
+    is the provenance kept in the meta file.
+    """
+    def handler(attachment: dict, message: dict):
+        suffix = Path(attachment['filename']).suffix.lower()
+        if suffix not in ALLOWED:
+            return None
+        doc_id = uuid.uuid4().hex[:10]
+        target = UPLOADS / f'{doc_id}{suffix}'
+        target.write_bytes(attachment['data'])
+        _process(
+            doc_id,
+            attachment['filename'],
+            target,
+            source='mailbox',
+            extra={'email': {
+                'from': message.get('from'),
+                'subject': message.get('subject'),
+                'date': message.get('date'),
+                'message_id': message.get('message_id'),
+            }},
+        )
+        return True
+
+    return mailbox.poll(handler)
+
+
+async def _mailbox_worker() -> None:
+    # The IMAP client is blocking; keep it out of the event loop.
+    while True:
+        try:
+            await asyncio.to_thread(_mailbox_poll_once)
+        except Exception:
+            pass
+        await asyncio.sleep(mailbox.settings()['interval'])
+
+
 def _pending_documents(limit: int = 20) -> list[dict]:
     """Uploaded documents that are still waiting for a decision.
 
@@ -458,7 +502,8 @@ def _pending_documents(limit: int = 20) -> list[dict]:
     return items[:limit]
 
 
-def _process(doc_id: str, filename: str, path: Path, source: str = 'upload') -> dict:
+def _process(doc_id: str, filename: str, path: Path, source: str = 'upload',
+             extra: dict | None = None) -> dict:
     text = extract_text(path)
     items = parse_items(text)
     # First pass to get tax_id/supplier for supplier profile
@@ -477,6 +522,8 @@ def _process(doc_id: str, filename: str, path: Path, source: str = 'upload') -> 
         'suffix': path.suffix.lower(),
         'source': source,
     }
+    if extra:
+        meta.update(extra)
     _meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
     return meta
 
@@ -648,6 +695,17 @@ def intake_state():
 @app.post('/api/intake/scan')
 def intake_scan():
     return {'ingested': _ingest_folder_once()}
+
+
+@app.get('/api/mailbox')
+def mailbox_state():
+    return mailbox.status()
+
+
+@app.post('/api/mailbox/check')
+async def mailbox_check():
+    result = await asyncio.to_thread(_mailbox_poll_once)
+    return {**mailbox.status(), 'last_poll': result}
 
 
 @app.get('/api/documents/{doc_id}')

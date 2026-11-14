@@ -9,6 +9,7 @@ templates/index.html
        ▼
 FastAPI orchestration
 app.py
+       ├── e-mail intake → mailbox.py + data/inbox/
        ├── text acquisition → extractor.py
        ├── interpretation → extractor.py + profiles/invoice_ua.py
        ├── deterministic checks → validation.py
@@ -27,6 +28,10 @@ HTTP API, orchestration, file persistence, review workflow, statistics, automati
 ### `extractor.py`
 
 Text acquisition, OCR fallback, interpretation of Ukrainian invoice fields and confidence adjustment after validation failures.
+
+### `mailbox.py`
+
+IMAP polling: finds unseen messages, decodes their attachments, hands each file to the application (which ingests it through the same path as an upload) and marks the message seen only after the ingest succeeded. Polling state (seen Message-IDs, counters, last error) is persisted in `data/mailbox_state.json`.
 
 ### `profiles/invoice_ua.py`
 
@@ -97,7 +102,7 @@ plan can change without touching the application.
 
 ## Runtime
 
-1. Upload a document, choose a sample, or drop it into `data/inbox/`.
+1. Upload a document, choose a sample, drop it into `data/inbox/`, or let an e-mail attachment arrive through the mailbox watcher.
 2. Extract text, detect the document type and pick its profile.
 3. Parse invoice and items.
 4. Validate and adjust confidence.

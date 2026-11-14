@@ -30,6 +30,7 @@ Load additional context only when relevant:
 
 - `app.py` — FastAPI orchestration, persistence, review workflow and reporting.
 - `extractor.py` — text acquisition, OCR fallback and field interpretation.
+- `mailbox.py` — IMAP intake: attachments of new mail go through the same pipeline as an upload.
 - `profiles/invoice_ua.py` — executable Ukrainian invoice profile and anchors.
 - `profiles/act_ua.py` — the same tree for «Акт виконаних робіт».
 - `profiles/__init__.py` — registry: the first lines of a document decide which profile owns it.
@@ -89,6 +90,11 @@ technical debt in his head, even when the code is correct.
   through an incoming webhook: `BITRIX24_WEBHOOK_URL=https://<portal>/rest/1/<token>/`.
 - Documents dropped into `data/inbox/` are picked up by a background watcher and
   appear in the review queue without a manual upload.
+- `DOCFLOW_IMAP_*` in `.env` connects one mailbox: new attachments are ingested
+  through the same pipeline (`source: mailbox`), the message is marked seen only
+  after a successful ingest, and seen Message-IDs are persisted in
+  `data/mailbox_state.json`. Empty settings disable the mailbox. Verify with
+  `GET /api/mailbox` and `python3 tests/test_mailbox.py`.
 - Every confirmation is routed: invoice to Payments, act to Accounting, anything
   above `DOCFLOW_APPROVAL_THRESHOLD` (default 100 000) to Approval. The
   destination and its reason go into the record, the result card and the CRM

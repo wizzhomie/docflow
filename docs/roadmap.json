@@ -61,8 +61,8 @@
     {
       "id": "second-crm",
       "title": "Second CRM: Bitrix24",
-      "status": "current",
-      "summary": "Connector and local emulator are ready; a live portal needs the client's incoming webhook.",
+      "status": "next",
+      "summary": "Connector is written and covered by a local fake; a live portal check is deferred by the owner.",
       "decision": "Every CRM behind one interface: the client must not be locked to a vendor."
     },
     {
@@ -75,8 +75,8 @@
     {
       "id": "sources",
       "title": "Email and external sources",
-      "status": "next",
-      "summary": "Invoices arrive by email or through the customer's API, not only from a folder.",
+      "status": "current",
+      "summary": "IMAP intake is built and tested against a fake mail server; a live mailbox is waiting for the owner's credentials.",
       "decision": "A platform starts where the intake is not a single source."
     },
     {

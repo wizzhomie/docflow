@@ -153,7 +153,17 @@
   .inbox-meta { font-size: .8rem; color: var(--muted); flex: 1; }
   .pill { font-size: .72rem; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--muted); }
   .pill.bad { background: rgba(251,191,36,.16); color: var(--warn); }
-  .inbox-empty { color: #5d6377; text-align: center; padding: 26px 20px; font-size: .85rem; }
+    .inbox-empty { color: #5d6377; text-align: center; padding: 26px 20px; font-size: .85rem; }
+
+  .mailbox-card { margin-top: 20px; }
+  .mb-line { font-size: .84rem; line-height: 1.55; }
+  .mb-line.muted { color: var(--muted); font-size: .78rem; margin-top: 4px; }
+  .mb-line.bad { color: #fcd34d; }
+  .mb-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; background: #555; vertical-align: middle; }
+  .mb-dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(52,211,153,.8); }
+  .mb-dot.bad { background: var(--bad); box-shadow: 0 0 8px rgba(248,113,113,.8); }
+  .mb-dot.idle { background: var(--muted); }
+  .mb-actions { margin-top: 12px; }
 
   .result-card { border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.06); border-radius: 14px; padding: 18px 20px; }
   .result-card.warn { border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.07); }
@@ -282,6 +292,18 @@
     </div>
     <div class="card-body">
       <div id="inbox-wrap"><div class="inbox-empty">Nothing is waiting for review</div></div>
+    </div>
+  </section>
+
+  <section class="card mailbox-card">
+    <div class="card-head">
+      <h2>Mailbox</h2>
+      <span class="hint" id="mb-hint">—</span>
+    </div>
+    <div class="card-body">
+      <p class="mb-line" id="mb-status"><span class="mb-dot idle"></span>Checking mailbox…</p>
+      <p class="mb-line muted" id="mb-detail"></p>
+      <div class="mb-actions"><button class="btn" id="mb-check">Check now</button></div>
     </div>
   </section>
 
@@ -601,6 +623,52 @@ function renderInbox(items) {
   });
 }
 
+function renderMailbox(data) {
+  const status = $('#mb-status');
+  const detail = $('#mb-detail');
+  const hint = $('#mb-hint');
+  const button = $('#mb-check');
+  if (!data || !data.configured) {
+    hint.textContent = 'not connected';
+    status.innerHTML = '<span class="mb-dot idle"></span>No mailbox connected yet';
+    detail.textContent = 'Set DOCFLOW_IMAP_HOST, DOCFLOW_IMAP_USER and DOCFLOW_IMAP_PASSWORD in .env and restart. Invoices sent to that mailbox will land in the review queue by themselves.';
+    button.disabled = true;
+    return;
+  }
+  button.disabled = false;
+  hint.textContent = `${data.folder} · every ${data.interval} s`;
+  const bad = !!data.last_error;
+  const dot = bad ? 'bad' : (data.last_check ? 'ok' : 'idle');
+  status.innerHTML = `<span class="mb-dot ${dot}"></span><b>${data.user}</b> on ${data.host}`;
+  const parts = [];
+  if (data.last_check) {
+    parts.push(`last check ${new Date(data.last_check * 1000).toLocaleTimeString()}`);
+  }
+  parts.push(`${data.messages} message(s), ${data.attachments} attachment(s) taken`);
+  detail.textContent = parts.join(' · ');
+  detail.className = 'mb-line muted' + (bad ? ' bad' : '');
+  if (bad) detail.textContent += ` · error: ${data.last_error}`;
+  if (data.last_message) detail.textContent += ` · last: ${data.last_message}`;
+}
+
+async function checkMailbox() {
+  const button = $('#mb-check');
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner"></span> Checking…';
+  try {
+    const data = await (await fetch('/api/mailbox/check', { method: 'POST' })).json();
+    renderMailbox(data);
+    const poll = data.last_poll || {};
+    if (data.last_error) toast('Mailbox: ' + data.last_error, 'bad');
+    else toast(poll.messages ? `Mailbox: ${poll.messages} message(s) processed` : 'Mailbox: nothing new', 'ok');
+  } catch (err) {
+    toast(err.message, 'bad');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Check now';
+  }
+}
+
 function renderFields(meta) {
   const wrap = $('#fields-wrap');
   const actions = $('#actions');
@@ -770,12 +838,13 @@ async function loadConfig() {
 
 async function refresh() {
   try {
-    const [stats, docs, impact, inbox, roadmap] = await Promise.all([
+    const [stats, docs, impact, inbox, roadmap, mailboxStatus] = await Promise.all([
       fetch('/api/stats').then((r) => r.json()),
       fetch('/api/documents').then((r) => r.json()),
       fetch('/api/impact').then((r) => r.json()),
       fetch('/api/inbox').then((r) => r.json()),
       fetch('/api/roadmap').then((r) => r.json()),
+      fetch('/api/mailbox').then((r) => r.json()),
     ]);
     $('#st-docs').textContent = stats.documents;
     $('#st-saved').textContent = minutesLabel(impact.time_saved_minutes);
@@ -783,6 +852,7 @@ async function refresh() {
     renderImpact(impact);
     renderInbox(inbox);
     renderRoadmap(roadmap);
+    renderMailbox(mailboxStatus);
     $('#table-hint').textContent = stats.documents
       ? `${stats.documents} docs · total ${money(stats.total_amount, 'UAH')}`
       : '';
@@ -819,6 +889,7 @@ loadConfig();
 refresh();
 $('#confirm').onclick = confirmDoc;
 $('#reject').onclick = resetDoc;
+$('#mb-check').onclick = checkMailbox;
 </script>
 </body>
 </html>
