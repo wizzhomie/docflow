@@ -235,6 +235,8 @@ def test_confirm_writes_through_the_active_connector():
             assert result['crm']['contact']['id'] == 7
         deal_payload = fake.method_calls('crm.deal.add')[0]
         assert deal_payload['COMPANY_ID'] == 5 and deal_payload['CONTACT_ID'] == 7
+        # The destination must travel with the deal, not stay in our database.
+        assert 'Routed to: Approval' in deal_payload['COMMENTS']
         assert fake.method_calls('crm.company.add')[0]['TITLE'] == 'ТОВ «Терра-Буд»'
     finally:
         docflow_app.active_connector = original
