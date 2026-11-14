@@ -28,6 +28,7 @@ PENDING = BASE / 'data' / 'pending'
 INBOX = BASE / 'data' / 'inbox'
 INBOX_DONE = INBOX / 'processed'
 CONFIRMED = BASE / 'data' / 'confirmed.jsonl'
+ROADMAP = BASE / 'docs' / 'roadmap.json'
 for directory in (UPLOADS, PENDING, INBOX, INBOX_DONE):
     directory.mkdir(parents=True, exist_ok=True)
 
@@ -656,6 +657,22 @@ def stats():
         'saved_minutes': round(total * (MANUAL_MINUTES - ASSISTED_MINUTES), 1),
         'total_amount': round(sum((r['fields'].get('total') or 0) for r in rows), 2),
     }
+
+
+@app.get('/api/roadmap')
+def roadmap():
+    """The product path shown on the site: what is done, where we are, what is next."""
+    if not ROADMAP.exists():
+        return {'title': 'Our path', 'subtitle': '', 'stages': [], 'progress': {'done': 0, 'total': 0, 'percent': 0}}
+    data = json.loads(ROADMAP.read_text(encoding='utf-8'))
+    stages = data.get('stages') or []
+    done = sum(1 for stage in stages if stage.get('status') == 'done')
+    data['progress'] = {
+        'done': done,
+        'total': len(stages),
+        'percent': round(100 * done / len(stages)) if stages else 0,
+    }
+    return data
 
 
 @app.get('/api/config')

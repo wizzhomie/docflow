@@ -39,6 +39,7 @@ Load additional context only when relevant:
 - `templates/index.html` — English upload/review/history UI.
 - `tests/run_eval.py` — deterministic regression baseline.
 - `tests/document_cases.json` — compact labelled fixtures for every document type (invoice, act).
+- `docs/roadmap.json` + `/api/roadmap` — the product path shown on the site: stages with a decision each.
 - `app.py` serves the review queue: `/api/inbox` lists uploaded-but-unconfirmed
   documents, so a document survives a page reload until someone decides on it.
 
@@ -117,6 +118,7 @@ python3 tests/test_crm_enrichment.py # company card and contact mapping, no netw
 python3 tests/test_inbox.py        # review queue / exception list
 python3 tests/test_document_types.py # profile detection and deal titles
 python3 tests/test_connectors.py   # connector layer, Bitrix24 over a local fake
+python3 tests/test_roadmap.py      # product path data and progress
 ```
 
 An opt-in check against the real CRM (creates one test deal and one company):

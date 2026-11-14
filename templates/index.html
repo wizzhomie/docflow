@@ -127,6 +127,22 @@
     background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.3); color: #fcd34d; }
   .empty-state { color: #5d6377; text-align: center; padding: 50px 20px; font-size: .88rem; }
 
+  .path-card { margin-top: 20px; }
+  .path-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .path-bar { flex: 1; height: 8px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .path-bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+  .path-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .path-step { border: 1px solid var(--line); border-left-width: 3px; border-radius: 12px; padding: 12px 14px; background: rgba(255,255,255,.02); }
+  .path-step.done { border-left-color: var(--ok); }
+  .path-step.current { border-left-color: var(--accent); background: rgba(124,92,255,.09); }
+  .path-step.next { border-left-color: rgba(255,255,255,.18); opacity: .78; }
+  .path-step h4 { font-size: .86rem; margin: 2px 0 6px; }
+  .path-step p { font-size: .76rem; color: var(--muted); line-height: 1.4; }
+  .path-step p.decision { margin-top: 8px; font-size: .72rem; color: #8b9bb4; font-style: italic; }
+  .path-badge { font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .path-step.current .path-badge { color: var(--accent-2); }
+  .path-step.done .path-badge { color: var(--ok); }
+
   .inbox-card { margin-top: 20px; }
   .inbox-row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
     padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.02);
@@ -306,6 +322,16 @@
         </div>
       </div>
       <p class="assumptions" id="impact-notes"></p>
+    </div>
+  </section>
+
+  <section class="card path-card">
+    <div class="card-head">
+      <h2>Our path</h2>
+      <span class="hint" id="path-hint">loading…</span>
+    </div>
+    <div class="card-body">
+      <div id="path-wrap"><div class="inbox-empty">Loading roadmap…</div></div>
     </div>
   </section>
 
@@ -503,6 +529,32 @@ function renderResult(data) {
     </div>`;
   actions.hidden = true;
   $('#conf-label').textContent = duplicate ? 'duplicate' : crm.error ? 'crm error' : 'saved';
+}
+
+function renderRoadmap(data) {
+  const wrap = $('#path-wrap');
+  const stages = (data && data.stages) || [];
+  if (!stages.length) {
+    $('#path-hint').textContent = 'not configured';
+    wrap.innerHTML = '<div class="inbox-empty">No roadmap yet</div>';
+    return;
+  }
+  const progress = data.progress || { done: 0, total: stages.length, percent: 0 };
+  const current = stages.find((stage) => stage.status === 'current');
+  $('#path-hint').textContent = `${progress.done} of ${progress.total} steps done${current ? ' · now: ' + current.title : ''}`;
+  const label = { done: 'done', current: 'now', next: 'next' };
+  wrap.innerHTML = `
+    <div class="path-progress">
+      <div class="path-bar"><i style="width:${progress.percent}%"></i></div>
+      <span class="hint">${progress.percent}%</span>
+    </div>
+    <div class="path-grid">${stages.map((stage) => `
+      <div class="path-step ${stage.status}">
+        <span class="path-badge">${label[stage.status] || stage.status}</span>
+        <h4>${stage.title}</h4>
+        <p>${stage.summary || ''}</p>
+        ${stage.decision ? `<p class="decision">${stage.decision}</p>` : ''}
+      </div>`).join('')}</div>`;
 }
 
 function renderInbox(items) {
@@ -710,17 +762,19 @@ async function loadConfig() {
 
 async function refresh() {
   try {
-    const [stats, docs, impact, inbox] = await Promise.all([
+    const [stats, docs, impact, inbox, roadmap] = await Promise.all([
       fetch('/api/stats').then((r) => r.json()),
       fetch('/api/documents').then((r) => r.json()),
       fetch('/api/impact').then((r) => r.json()),
       fetch('/api/inbox').then((r) => r.json()),
+      fetch('/api/roadmap').then((r) => r.json()),
     ]);
     $('#st-docs').textContent = stats.documents;
     $('#st-saved').textContent = minutesLabel(impact.time_saved_minutes);
     $('#st-acc').textContent = stats.accuracy + '%';
     renderImpact(impact);
     renderInbox(inbox);
+    renderRoadmap(roadmap);
     $('#table-hint').textContent = stats.documents
       ? `${stats.documents} docs · total ${money(stats.total_amount, 'UAH')}`
       : '';

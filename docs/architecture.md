@@ -79,6 +79,13 @@ invariants, and clicking a row loads the document back into review.
 
 Upload, preview, editable fields, confidence, validation issues, confirmation, history and statistics.
 
+## Product path
+
+`docs/roadmap.json` is data, not code: every stage has a status (`done`,
+`current`, `next`), a one-line summary and the decision behind it. `/api/roadmap`
+adds the progress counter and the UI renders it as the "Our path" block, so the
+plan can change without touching the application.
+
 ## Runtime
 
 1. Upload a document, choose a sample, or drop it into `data/inbox/`.
