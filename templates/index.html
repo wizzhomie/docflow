@@ -520,9 +520,10 @@ function renderInbox(items) {
     const badge = issues.length
       ? `<span class="pill bad">${issues.length} issue${issues.length > 1 ? 's' : ''}</span>`
       : '<span class="pill">no issues</span>';
+    const type = item.doc_type ? item.doc_type.split(' (')[0] : 'Document';
     return `<button class="inbox-row" data-id="${item.id}">
       <span class="inbox-file">${item.filename || 'document'}</span>
-      <span class="inbox-meta">${f.supplier || 'unknown supplier'} · ${f.number ? '№' + f.number : 'no number'} · ${money(f.total, f.currency || 'UAH')}</span>
+      <span class="inbox-meta">${type} · ${f.supplier || 'unknown supplier'} · ${f.number ? '№' + f.number : 'no number'} · ${money(f.total, f.currency || 'UAH')}</span>
       ${badge}
     </button>`;
   }).join('');
@@ -575,7 +576,8 @@ function renderFields(meta) {
     w.textContent = 'Validation: ' + meta.parsed.issues.join('; ');
     wrap.appendChild(w);
   }
-  $('#conf-label').textContent = `overall confidence ${Math.round(meta.parsed.confidence * 100)}%`;
+  const typeLabel = meta.parsed.type_label ? meta.parsed.type_label.split(' (')[0] : 'Document type';
+  $('#conf-label').textContent = `${typeLabel} · confidence ${Math.round(meta.parsed.confidence * 100)}%`;
   actions.hidden = false;
 }
 
@@ -728,12 +730,14 @@ async function refresh() {
       return;
     }
     wrap.innerHTML = `<table>
-      <thead><tr><th>Document</th><th>Supplier</th><th>Number</th><th>Date</th><th class="num">Amount</th><th class="num">Review</th><th>Status</th></tr></thead>
+      <thead><tr><th>Document</th><th>Type</th><th>Supplier</th><th>Number</th><th>Date</th><th class="num">Amount</th><th class="num">Review</th><th>Status</th></tr></thead>
       <tbody>${docs.map((d) => {
         const f = d.fields;
         const edited = d.edited_fields.length;
+        const dtype = d.doc_type ? d.doc_type.split(' (')[0].replace('Ukrainian ', '') : 'Invoice';
         return `<tr>
           <td>${d.source === 'synthetic' ? '<span class="tag-synth">synthetic</span>' : ''}${d.filename}</td>
+          <td class="type-cell">${dtype}</td>
           <td>${f.supplier || '—'}</td>
           <td>${f.number || '—'}</td>
           <td>${f.date || '—'}</td>

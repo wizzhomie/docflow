@@ -2,7 +2,7 @@
 
 ## Project
 
-DocFlow extracts fields from Ukrainian invoices/receipts, sends them through human review, and creates Uspacy CRM deals. Target market: Ukraine; documents in Ukrainian; amounts in UAH; UI in English.
+DocFlow extracts fields from Ukrainian invoices and acts, sends them through human review, and creates CRM deals (Uspacy or Bitrix24). Target market: Ukraine; documents in Ukrainian; amounts in UAH; UI in English.
 
 ## Mandatory context
 
@@ -29,11 +29,14 @@ Load additional context only when relevant:
 - `app.py` — FastAPI orchestration, persistence, review workflow and reporting.
 - `extractor.py` — text acquisition, OCR fallback and field interpretation.
 - `profiles/invoice_ua.py` — executable Ukrainian invoice profile and anchors.
+- `profiles/act_ua.py` — the same tree for «Акт виконаних робіт».
+- `profiles/__init__.py` — registry: the first lines of a document decide which profile owns it.
+- `connectors/` — CRM connectors behind one interface: `uspacy_connector.py`, `bitrix24.py`, `matching.py`.
 - `validation.py` — deterministic field invariants.
 - `uspacy.py` — Uspacy authentication, client-side company/deal matching and deal creation.
 - `templates/index.html` — English upload/review/history UI.
 - `tests/run_eval.py` — deterministic regression baseline.
-- `tests/invoice_ua_cases.json` — compact labelled fixtures, including supplier requisites.
+- `tests/document_cases.json` — compact labelled fixtures for every document type (invoice, act).
 - `app.py` serves the review queue: `/api/inbox` lists uploaded-but-unconfirmed
   documents, so a document survives a page reload until someone decides on it.
 
@@ -70,6 +73,10 @@ Load additional context only when relevant:
 - `python3 tools/make_pilot_batch.py` regenerates the four `pilot_*` invoices used
   for a hands-on walkthrough: new numbers, dates and tax IDs, so a first upload
   goes through the normal confirm path instead of hitting duplicate protection.
+- `DOCFLOW_CRM=uspacy|bitrix24|none` picks the active connector. Bitrix24 works
+  through an incoming webhook: `BITRIX24_WEBHOOK_URL=https://<portal>/rest/1/<token>/`.
+- Documents dropped into `data/inbox/` are picked up by a background watcher and
+  appear in the review queue without a manual upload.
 - OCR runs from a portable Tesseract in `.tools/ocr` (gitignored); `.env` puts it
   on `PATH`, so scans parse without root. Details in `docs/stack-and-operations.md`.
 
@@ -94,12 +101,14 @@ curl -s http://127.0.0.1:8765/api/health
 Regression baseline:
 
 ```bash
-python3 tests/run_eval.py          # parser regression, 10 fixtures cases
+python3 tests/run_eval.py          # parser regression, 12 fixtures cases
 python3 tests/test_dedupe.py       # duplicate suppression
 python3 tests/test_impact.py       # impact report math
 python3 tests/test_uspacy_match.py # CRM matching, no network
 python3 tests/test_crm_enrichment.py # company card and contact mapping, no network
 python3 tests/test_inbox.py        # review queue / exception list
+python3 tests/test_document_types.py # profile detection and deal titles
+python3 tests/test_connectors.py   # connector layer, Bitrix24 over a local fake
 ```
 
 An opt-in check against the real CRM (creates one test deal and one company):

@@ -35,6 +35,21 @@ required fields and VAT rate. Also declares the optional requisites (address,
 phone, email, bank, IBAN, contact person) and which fields are core for the
 overall confidence score.
 
+### `profiles/`
+
+A registry of document types. The parser detects the type from the first lines
+and takes every type-specific anchor from that profile, so a new document type
+is a new profile module, not another branch in the extractor. Two profiles exist:
+Ukrainian invoice and Ukrainian act of completed work.
+
+### `connectors/`
+
+One interface for every CRM: `existing_deal`, `ensure_company`, `ensure_contact`
+and `create_deal`. `uspacy_connector.py` wraps the Uspacy JWT client,
+`bitrix24.py` posts to a Bitrix24 incoming webhook, `matching.py` holds the
+matching rules both share (tax ID by digits, names without quotes and legal form,
+invoice number as a whole token). `DOCFLOW_CRM` selects the active connector.
+
 ### `validation.py`
 
 Deterministic field invariants. Reports issues without guessing corrected values.
@@ -66,8 +81,8 @@ Upload, preview, editable fields, confidence, validation issues, confirmation, h
 
 ## Runtime
 
-1. Upload document or choose sample.
-2. Extract text.
+1. Upload a document, choose a sample, or drop it into `data/inbox/`.
+2. Extract text, detect the document type and pick its profile.
 3. Parse invoice and items.
 4. Validate and adjust confidence.
 5. Persist pending result.
