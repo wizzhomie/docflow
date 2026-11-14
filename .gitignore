@@ -11,3 +11,4 @@ data/confirmed.jsonl
 
 .run/
 .tools/
+data/inbox/
