@@ -79,6 +79,15 @@ invariants, and clicking a row loads the document back into review.
 
 Upload, preview, editable fields, confidence, validation issues, confirmation, history and statistics.
 
+## Routing
+
+`routing.py` answers one question: where does a confirmed document go. The rule
+is deterministic — document type first, then an amount threshold for approval —
+and it always returns a human-readable reason. The destination is stored in the
+record, shown on the result card and in the history, and written into the CRM
+comment, so the route can be audited later. Routing is policy: it lives outside
+the profiles and outside the connectors.
+
 ## Product path
 
 `docs/roadmap.json` is data, not code: every stage has a status (`done`,

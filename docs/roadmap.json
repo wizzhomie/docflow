@@ -82,9 +82,9 @@
     {
       "id": "routing",
       "title": "Document routing",
-      "status": "next",
-      "summary": "An invoice goes to payment, an act to accounting, a contract to legal — each type to its own process.",
-      "decision": "The next level: not one destination, but a process per document type."
+      "status": "done",
+      "summary": "An invoice goes to payments, an act to accounting, a large amount to approval; the route and its reason are recorded.",
+      "decision": "A route nobody can explain is a route nobody trusts: every destination carries its reason."
     },
     {
       "id": "roles",
@@ -92,6 +92,13 @@
       "status": "next",
       "summary": "Who uploaded, who confirmed, what changed — for a real department.",
       "decision": "Responsibility in the process must be visible, not implied."
+    },
+    {
+      "id": "routing-multi",
+      "title": "Routing rules per supplier and several recipients",
+      "status": "next",
+      "summary": "Rules by company or supplier, and one document can notify several destinations.",
+      "decision": "Real departments route by counterparty, not only by document type."
     }
   ]
 }

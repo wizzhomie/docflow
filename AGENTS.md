@@ -34,6 +34,7 @@ Load additional context only when relevant:
 - `profiles/act_ua.py` — the same tree for «Акт виконаних робіт».
 - `profiles/__init__.py` — registry: the first lines of a document decide which profile owns it.
 - `connectors/` — CRM connectors behind one interface: `uspacy_connector.py`, `bitrix24.py`, `matching.py`.
+- `routing.py` — deterministic destination policy: document type and amount decide where a confirmed document goes.
 - `validation.py` — deterministic field invariants.
 - `uspacy.py` — Uspacy authentication, client-side company/deal matching and deal creation.
 - `templates/index.html` — English upload/review/history UI.
@@ -86,6 +87,10 @@ technical debt in his head, even when the code is correct.
   through an incoming webhook: `BITRIX24_WEBHOOK_URL=https://<portal>/rest/1/<token>/`.
 - Documents dropped into `data/inbox/` are picked up by a background watcher and
   appear in the review queue without a manual upload.
+- Every confirmation is routed: invoice to Payments, act to Accounting, anything
+  above `DOCFLOW_APPROVAL_THRESHOLD` (default 100 000) to Approval. The
+  destination and its reason go into the record, the result card and the CRM
+  comment, so the route is auditable.
 - OCR runs from a portable Tesseract in `.tools/ocr` (gitignored); `.env` puts it
   on `PATH`, so scans parse without root. Details in `docs/stack-and-operations.md`.
 
@@ -119,6 +124,7 @@ python3 tests/test_inbox.py        # review queue / exception list
 python3 tests/test_document_types.py # profile detection and deal titles
 python3 tests/test_connectors.py   # connector layer, Bitrix24 over a local fake
 python3 tests/test_roadmap.py      # product path data and progress
+python3 tests/test_routing.py      # destination rules and their explanations
 ```
 
 An opt-in check against the real CRM (creates one test deal and one company):
