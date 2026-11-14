@@ -38,14 +38,14 @@ class UspacyConnector(Connector):
             email=fields.get('email'),
         )
 
-    def create_deal(self, *, title: str, fields: dict, company, contact, doc_id) -> dict:
+    def create_deal(self, *, title: str, fields: dict, company, contact, doc_id, route=None) -> dict:
         from app import _deal_comment
 
         deal = uspacy.create_deal(
             title=title,
             amount=fields.get('total'),
             currency=fields.get('currency') or 'UAH',
-            comments=_deal_comment(fields, doc_id),
+            comments=_deal_comment(fields, doc_id, route),
             company_id=(company or {}).get('id'),
             contact_ids=[contact['id']] if contact and contact.get('id') else None,
         )

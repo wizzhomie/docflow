@@ -127,6 +127,7 @@
     background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.3); color: #fcd34d; }
   .empty-state { color: #5d6377; text-align: center; padding: 50px 20px; font-size: .88rem; }
 
+  .route-cell { font-size: .78rem; color: var(--accent-2); }
   .path-card { margin-top: 20px; }
   .path-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
   .path-bar { flex: 1; height: 8px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
@@ -519,11 +520,16 @@ function renderResult(data) {
     if (crm.company && crm.company.title) where += ` · company: ${crm.company.title}`;
     if (crm.contact && crm.contact.title) where += ` · contact: ${crm.contact.title}`;
   }
+  const route = crm.route || null;
+  const routeLine = route
+    ? `<p class="result-line">Routed to: <b>${route.destination}</b> — ${route.reason || ''}</p>`
+    : '';
   wrap.innerHTML = `
     <div class="result-card ${kind}">
       <h3>${title}</h3>
       <p class="result-line">${fields.supplier || 'Document'} · №${fields.number || '—'} · ${money(fields.total, fields.currency || 'UAH')}</p>
       <p class="result-line">${where}</p>
+      ${routeLine}
       <p class="result-line muted">${edited ? `Fields edited: ${edited}` : 'No edits'} · review ${Math.round(rec.review_seconds || 0)} s</p>
       <p class="result-line muted">Load the same file again to see duplicate protection.</p>
     </div>`;
@@ -573,9 +579,10 @@ function renderInbox(items) {
       ? `<span class="pill bad">${issues.length} issue${issues.length > 1 ? 's' : ''}</span>`
       : '<span class="pill">no issues</span>';
     const type = item.doc_type ? item.doc_type.split(' (')[0] : 'Document';
+    const destination = item.route && item.route.destination ? item.route.destination : '';
     return `<button class="inbox-row" data-id="${item.id}">
       <span class="inbox-file">${item.filename || 'document'}</span>
-      <span class="inbox-meta">${type} · ${f.supplier || 'unknown supplier'} · ${f.number ? '№' + f.number : 'no number'} · ${money(f.total, f.currency || 'UAH')}</span>
+      <span class="inbox-meta">${type} · ${f.supplier || 'unknown supplier'} · ${f.number ? '№' + f.number : 'no number'} · ${money(f.total, f.currency || 'UAH')}${destination ? ' → ' + destination : ''}</span>
       ${badge}
     </button>`;
   }).join('');
@@ -784,7 +791,7 @@ async function refresh() {
       return;
     }
     wrap.innerHTML = `<table>
-      <thead><tr><th>Document</th><th>Type</th><th>Supplier</th><th>Number</th><th>Date</th><th class="num">Amount</th><th class="num">Review</th><th>Status</th></tr></thead>
+      <thead><tr><th>Document</th><th>Type</th><th>Supplier</th><th>Number</th><th>Date</th><th class="num">Amount</th><th>Route</th><th class="num">Review</th><th>Status</th></tr></thead>
       <tbody>${docs.map((d) => {
         const f = d.fields;
         const edited = d.edited_fields.length;
@@ -796,6 +803,7 @@ async function refresh() {
           <td>${f.number || '—'}</td>
           <td>${f.date || '—'}</td>
           <td class="num">${money(f.total, f.currency)}</td>
+          <td class="route-cell">${d.destination || '—'}</td>
           <td class="num">${duration(d.review_seconds)}</td>
           <td>${edited ? `<span class="tag-edited">edits: ${edited}</span>` : '<span class="tag-clean">no edits</span>'}</td>
         </tr>`;

@@ -143,7 +143,7 @@ class Bitrix24Connector(Connector):
         created = _call('crm.contact.add', payload)
         return {'id': created.get('result'), 'title': name}
 
-    def create_deal(self, *, title: str, fields: dict, company, contact, doc_id) -> dict:
+    def create_deal(self, *, title: str, fields: dict, company, contact, doc_id, route=None) -> dict:
         payload = {'TITLE': title}
         total = fields.get('total')
         if total not in (None, ''):
@@ -158,6 +158,8 @@ class Bitrix24Connector(Connector):
             comment_lines.append(f"Invoice date: {fields['date']}")
         if fields.get('iban'):
             comment_lines.append(f"IBAN: {fields['iban']}")
+        if route and route.get('destination'):
+            comment_lines.append(f"Routed to: {route['destination']} ({route.get('reason', '')})")
         if doc_id:
             comment_lines.append(f'Source file: /files/{doc_id}')
         payload['COMMENTS'] = '. '.join(comment_lines) + '.'

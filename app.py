@@ -16,6 +16,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
+import routing
 import uspacy
 from connectors import active as active_connector
 from connectors import provider_name
@@ -285,7 +286,7 @@ def _document_title(fields: dict, doc_title: str | None = None) -> str:
     return f'{prefix} №{fields.get("number") or "—"} — {fields.get("supplier") or "Document"}'
 
 
-def _deal_comment(fields: dict, doc_id: str | None = None) -> str:
+def _deal_comment(fields: dict, doc_id: str | None = None, route: dict | None = None) -> str:
     parts = ['Imported by DocFlow']
     if fields.get('supplier'):
         parts.append(f'Supplier: {fields["supplier"]}')
@@ -307,6 +308,8 @@ def _deal_comment(fields: dict, doc_id: str | None = None) -> str:
         parts.append(f'IBAN: {fields["iban"]}')
     if fields.get('contact_person'):
         parts.append(f'Contact: {fields["contact_person"]}')
+    if route and route.get('destination'):
+        parts.append(f"Routed to: {route['destination']} ({route.get('reason', '')})")
     if doc_id:
         parts.append(f'Source file: /files/{doc_id}')
     return '. '.join(parts) + '.'
@@ -437,6 +440,7 @@ def _pending_documents(limit: int = 20) -> list[dict]:
                 'issues': list(parsed.get('issues') or []),
                 'confidence': parsed.get('confidence'),
                 'doc_type': parsed.get('type_label'),
+                'route': routing.route(parsed.get('type'), {k: v.get('value') for k, v in (parsed.get('fields') or {}).items()}),
                 'fields': {k: v.get('value') for k, v in (parsed.get('fields') or {}).items()},
             }
         )
@@ -522,6 +526,7 @@ def confirm(payload: ConfirmPayload):
     fields = _effective_fields(parsed_values, payload.fields)
     doc_title = (meta.get('parsed') or {}).get('doc_title')
     doc_type = (meta.get('parsed') or {}).get('type_label')
+    route_info = routing.route((meta.get('parsed') or {}).get('type'), fields)
     edited = [k for k, v in payload.fields.items() if parsed_values.get(k) != v]
 
     # Duplicate suppression: a local history match needs no CRM call, and it
@@ -549,6 +554,7 @@ def confirm(payload: ConfirmPayload):
             'title': _document_title(fields, doc_title),
         }
         crm['simulated'] = True
+        crm['route'] = route_info
     else:
         existing_deal = _find_existing_deal(fields)
         if existing_deal:
@@ -574,8 +580,10 @@ def confirm(payload: ConfirmPayload):
                     company=company,
                     contact=contact,
                     doc_id=payload.id,
+                    route=route_info,
                 )
                 crm['deal'] = {'id': deal.get('id'), 'title': deal.get('title')}
+                crm['route'] = route_info
                 crm['company'] = {'id': (company or {}).get('id'), 'title': (company or {}).get('title')}
                 crm['contact'] = {'id': (contact or {}).get('id'), 'title': (contact or {}).get('title')}
             except Exception as exc:
@@ -598,6 +606,9 @@ def confirm(payload: ConfirmPayload):
         'issues': list(meta['parsed'].get('issues') or []),
         'crm_deal_id': (crm.get('deal') or {}).get('id'),
         'doc_type': doc_type,
+        'destination': route_info['destination'],
+        'destination_code': route_info['destination_code'],
+        'route_reason': route_info['reason'],
         'source': meta.get('source', 'upload'),
     }
     with CONFIRMED.open('a', encoding='utf-8') as out:

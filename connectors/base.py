@@ -28,6 +28,6 @@ class Connector:
         """Find or create the contact person, linked to the company."""
         raise NotImplementedError
 
-    def create_deal(self, *, title: str, fields: dict, company, contact, doc_id) -> dict:
-        """Create the deal and link company/contact; return {'id', 'title'}."""
+    def create_deal(self, *, title: str, fields: dict, company, contact, doc_id, route=None) -> dict:
+        """Create the deal, link company/contact and note the route; return {'id', 'title'}."""
         raise NotImplementedError
