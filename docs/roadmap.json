@@ -74,10 +74,17 @@
     },
     {
       "id": "sources",
-      "title": "Email and external sources",
-      "status": "current",
-      "summary": "IMAP intake is built and tested against a fake mail server; a live mailbox is waiting for the owner's credentials.",
+      "title": "Email intake",
+      "status": "done",
+      "summary": "IMAP polling: new mail becomes a review-queue document with sender provenance. Verified live on a temporary test mail server; a real mailbox is only settings.",
       "decision": "A platform starts where the intake is not a single source."
+    },
+    {
+      "id": "external-sources",
+      "title": "External sources: API and webhooks",
+      "status": "next",
+      "summary": "Documents arriving from the customer's system through an API or a webhook, next to mail and the folder.",
+      "decision": "Intake channels grow the platform; one clever parser does not."
     },
     {
       "id": "routing",
