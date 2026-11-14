@@ -34,6 +34,8 @@ Load additional context only when relevant:
 - `templates/index.html` — English upload/review/history UI.
 - `tests/run_eval.py` — deterministic regression baseline.
 - `tests/invoice_ua_cases.json` — compact labelled fixtures, including supplier requisites.
+- `app.py` serves the review queue: `/api/inbox` lists uploaded-but-unconfirmed
+  documents, so a document survives a page reload until someone decides on it.
 
 ## Engineering rules
 
@@ -97,6 +99,7 @@ python3 tests/test_dedupe.py       # duplicate suppression
 python3 tests/test_impact.py       # impact report math
 python3 tests/test_uspacy_match.py # CRM matching, no network
 python3 tests/test_crm_enrichment.py # company card and contact mapping, no network
+python3 tests/test_inbox.py        # review queue / exception list
 ```
 
 An opt-in check against the real CRM (creates one test deal and one company):
