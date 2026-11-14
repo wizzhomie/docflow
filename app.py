@@ -30,6 +30,16 @@ INBOX = BASE / 'data' / 'inbox'
 INBOX_DONE = INBOX / 'processed'
 CONFIRMED = BASE / 'data' / 'confirmed.jsonl'
 ROADMAP = BASE / 'docs' / 'roadmap.json'
+
+
+def _html(name: str) -> FileResponse:
+    """Serve a page from templates/ without caching: the UI ships new fields
+    with every change, and a stale copy silently drops them from the confirm
+    payload."""
+    return FileResponse(
+        BASE / 'templates' / name,
+        headers={'Cache-Control': 'no-store, must-revalidate'},
+    )
 for directory in (UPLOADS, PENDING, INBOX, INBOX_DONE):
     directory.mkdir(parents=True, exist_ok=True)
 
@@ -472,13 +482,16 @@ def _process(doc_id: str, filename: str, path: Path, source: str = 'upload') -> 
 
 
 @app.get('/')
+def landing():
+    # The showcase page explains the product; the working review UI lives at /app.
+    return _html('landing.html')
+
+
+@app.get('/app')
 def index():
     # The UI ships new fields with every change; a stale cached copy silently
     # drops them from the confirm payload, so it must not be cached.
-    return FileResponse(
-        BASE / 'templates' / 'index.html',
-        headers={'Cache-Control': 'no-store, must-revalidate'},
-    )
+    return _html('index.html')
 
 
 @app.get('/api/samples')
