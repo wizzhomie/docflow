@@ -1,11 +1,17 @@
 # DocFlow
 
-**Ukrainian invoices and acts → recognised fields → human review → routed to the process that owns them → a CRM deal.**
+**Every document → recognised fields → human review → routed to the process that owns them → a CRM deal.**
 
 DocFlow is a working prototype of a document-intake platform: it takes a PDF, a scan
 or an e-mail attachment, reads the whole document, shows what it is unsure about,
 lets a human confirm it in one screen, and then sends the result where it belongs —
 payments, accounting or approval — creating or updating a deal in the CRM.
+
+The service is built to be market-neutral. A **document profile** carries everything
+that belongs to one market — field labels, default currency, OCR language, tax-ID and
+IBAN formats, legal forms for CRM matching. Two profiles ship today, the first ones
+implemented: a Ukrainian invoice and a Ukrainian act of completed work. Adding a
+document type or a second market means adding a profile, not rewriting the parser.
 
 ![Showcase page](docs/screenshots/landing.webp)
 
@@ -16,8 +22,9 @@ payments, accounting or approval — creating or updating a deal in the CRM.
 - **Intake from several sources**: upload in the browser, sample documents, a watched
   `data/inbox/` folder, or an IMAP mailbox (`mailbox.py`).
 - **Whole-document recognition**: a profile registry decides the document type from the
-  first lines (invoice, act), a profile extracts fields with per-field confidence;
-  `pdftotext` first, OCR (`ukr+eng`) as a fallback for scans.
+  first lines, the profile extracts fields with per-field confidence and supplies the
+  labels the reviewer sees; `pdftotext` first, OCR as a fallback for scans (the language
+  set comes from the registered profiles, `DOCFLOW_OCR_LANGS` overrides it).
 - **Uncertainty is visible, not hidden**: confidence dots in the review form, deterministic
   invariants (amount = items sum, tax ID format, IBAN, phone, e-mail), and an exception
   queue for documents that need attention.
@@ -83,6 +90,7 @@ Everything is optional; the application starts with no CRM and no mailbox.
 | `DOCFLOW_APPROVAL_THRESHOLD` | amount above which a document goes to approval |
 | `DOCFLOW_MANUAL_MINUTES` | manual-entry minutes used by the impact report |
 | `DOCFLOW_IMAP_HOST`, `_PORT`, `_USER`, `_PASSWORD`, `_FOLDER`, `_INTERVAL`, `_SSL` | mailbox intake; empty host/user/password disables it |
+| `DOCFLOW_OCR_LANGS` | OCR languages, e.g. `ukr+eng`; default is the union of the registered profiles |
 
 Secrets live only in `.env` (git-ignored). `.env.example` documents the keys with empty values.
 
@@ -118,6 +126,8 @@ plus a Docker build on manual dispatch and on pull requests.
 
 This is a prototype for a client demonstration, not a production platform:
 
+- two document profiles are implemented (Ukrainian invoice and act); other markets need a
+  profile each, and the review form is one fixed field set rather than profile-specific;
 - one business workspace and one configured mailbox/CRM at a time; there are no accounts,
   roles or audit yet;
 - the app has no authentication of its own and is published to a private tailnet only;
@@ -153,6 +163,8 @@ memory/            working memory: state, handoff, decision log, plain log
 ---
 
 **По-русски, коротко:** DocFlow — прототип платформы для автоматизации документооборота:
-украинские счета и акты приходят из папки или почты, распознаются, проходят проверку
-человеком и уходят в нужный процесс и CRM. Подробное объяснение простым языком —
-[`docs/plain-guide.md`](docs/plain-guide.md), рабочее состояние — [`memory/handoff.md`](memory/handoff.md).
+документы приходят из папки или почты, распознаются, проходят проверку человеком и уходят
+в нужный процесс и CRM. Сервис задуман универсальным: всё, что относится к конкретному
+рынку, живёт в профиле документа, а не в ядре; сейчас реализованы украинские счёт и акт.
+Подробное объяснение простым языком — [`docs/plain-guide.md`](docs/plain-guide.md),
+рабочее состояние — [`memory/handoff.md`](memory/handoff.md).

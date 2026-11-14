@@ -4,14 +4,31 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from profiles import DEFAULT_PROFILE, detect_profile
+from profiles import DEFAULT_PROFILE, detect_profile, ocr_langs, source_labels
 from profiles.suppliers import get_supplier_profile
 from validation import validate
 
 MONEY = r'([\d\u00a0\s]+[.,]\d{2})'
 
 IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp'}
-OCR_LANGS = 'ukr+eng'
+
+# Evidence labels used when a profile does not name a field; English, no market
+# assumptions. The profile's SOURCE_LABELS replace them per document type.
+SOURCE_FALLBACKS = {
+    'number': 'Document number',
+    'date': 'Document date',
+    'supplier': 'Supplier block',
+    'tax_id': 'Tax ID',
+    'total': 'Amount due',
+    'vat': 'VAT',
+    'currency': 'Detected from text',
+    'address': 'Address',
+    'phone': 'Phone',
+    'email': 'Email',
+    'bank': 'Bank',
+    'iban': 'IBAN',
+    'contact_person': 'Contact person',
+}
 
 
 def _build_patterns(
@@ -45,10 +62,11 @@ def _build_patterns(
     vat_re = '|'.join(document_profile.VAT_LABELS)
     number_re = (
         document_profile.TITLE_RE
-        + r'(?:\s+на\s+оплату)?\s*(?:'
+        + getattr(document_profile, 'NUMBER_CONTEXT_RE', '')
+        + r'\s*(?:'
         + '|'.join(document_profile.NUMBER_MARKERS)
         + r')\s*'
-        r'([A-Za-zА-Яа-яІіЇїЄєҐґ0-9\-/]+)'
+        r'([\w\-/]+)'
         r'(?:\s*(?:' + '|'.join(document_profile.DATE_PREFIXES) + r')\s*'
         r'(\d{1,2}\s*[.\-/]\s*\d{1,2}\s*[.\-/]\s*\d{2,4}))?'
     )
@@ -86,7 +104,7 @@ def _ocr_image(path: Path) -> str:
                 str(path),
                 'stdout',
                 '-l',
-                OCR_LANGS,
+                ocr_langs(),
                 '--psm',
                 '4',
                 '-c',
@@ -215,9 +233,6 @@ def _last_money(line: str) -> float | None:
 
 
 EMAIL_RE = re.compile(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}')
-PHONE_RE = re.compile(r'\+?380[\s\-]?\(?\d{2,3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
-PHONE_LOCAL_RE = re.compile(r'\(?0\d{2,3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}')
-IBAN_CANDIDATE_RE = re.compile(r'\bUA[\s\d]{26,45}')
 
 
 def _digits(raw: str) -> str:
@@ -233,35 +248,38 @@ def _label_value(text: str, labels: str) -> str | None:
     return value or None
 
 
-def _extract_phone(text: str) -> str | None:
-    """Only a labelled phone or an explicit +380 number; never a random digit run."""
+def _extract_phone(text: str, profile) -> str | None:
+    """Only a labelled phone or an explicit country-code number; never a random digit run."""
+    labels = '|'.join(profile.LABELS.get('phone', []))
+    patterns = [re.compile(profile.PHONE_RE), re.compile(profile.PHONE_LOCAL_RE)]
     for line in text.splitlines():
-        if re.search(r'тел\.?|телефон|моб\.?', line, re.I):
-            for pattern in (PHONE_RE, PHONE_LOCAL_RE):
+        if labels and re.search(labels, line, re.I):
+            for pattern in patterns:
                 match = pattern.search(line)
                 if match:
-                    phone = _normalise_phone(match.group(0))
+                    phone = _normalise_phone(match.group(0), profile)
                     if phone:
                         return phone
-    match = re.search(r'\+380[\s\-]?\(?\d{2,3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', text)
-    return _normalise_phone(match.group(0)) if match else None
+    match = re.search(profile.PHONE_RE, text)
+    return _normalise_phone(match.group(0), profile) if match else None
 
 
-def _normalise_phone(raw: str) -> str | None:
+def _normalise_phone(raw: str, profile) -> str | None:
     digits = _digits(raw)
-    if digits.startswith('8') and len(digits) == 11:
-        digits = '3' + digits
+    trunk = profile.PHONE_TRUNK_PREFIX
+    if trunk and digits.startswith(trunk) and len(digits) == len(trunk) + 10:
+        digits = profile.PHONE_COUNTRY_CODE[0] + digits
     elif digits.startswith('0'):
-        digits = '38' + digits
+        digits = profile.PHONE_COUNTRY_CODE + digits
     return digits if 11 <= len(digits) <= 13 else None
 
 
-def _extract_iban(text: str) -> str | None:
-    # A Ukrainian IBAN is UA plus 27 digits; grouping spaces differ per document,
-    # so the whitespace is stripped before the length is checked.
-    for match in IBAN_CANDIDATE_RE.finditer(text.upper()):
+def _extract_iban(text: str, profile) -> str | None:
+    # Grouping spaces differ per document, so whitespace is stripped before the
+    # profile's format check; the canonical form is what reaches CRM.
+    for match in re.finditer(profile.IBAN_CANDIDATE_RE, text.upper()):
         candidate = re.sub(r'\s', '', match.group(0))
-        if len(candidate) == 29 and candidate[2:].isdigit():
+        if re.fullmatch(profile.IBAN_RE, candidate):
             return candidate
     return None
 
@@ -279,6 +297,7 @@ def parse_invoice(
     profile=None,
 ) -> dict:
     profile = profile or detect_profile(text)
+    labels = {**SOURCE_FALLBACKS, **source_labels(profile.CODE)}
     t = _clean(text)
     flat = re.sub(r'[ \t]+', ' ', t)
 
@@ -374,30 +393,30 @@ def parse_invoice(
             currency = code
             break
 
-    phone = _extract_phone(t)
+    phone = _extract_phone(t, profile)
     email = _extract_email(t)
-    iban = _extract_iban(t)
+    iban = _extract_iban(t, profile)
     bank = _label_value(t, patterns['bank_labels'])
     address = _label_value(t, patterns['address_labels'])
     contact_person = _label_value(t, patterns['contact_labels'])
 
     fields = {
-        'number': _field(number, 'Invoice number', 0.95 if number else 0.0),
-        'date': _field(date, 'Invoice date', 0.9 if date else 0.0),
-        'supplier': _field(supplier, 'Supplier block', 0.85 if supplier else 0.0),
-        'tax_id': _field(tax_id, 'ЄДРПОУ / ІПН', 0.85 if tax_id else 0.0),
-        'total': _field(total, 'Amount due', 0.9 if total is not None else 0.0),
-        'vat': _field(vat, 'VAT (ПДВ)', 0.75 if vat is not None else 0.0),
-        'currency': _field(currency, 'Detected from text', 0.6),
-        'address': _field(address, 'Адреса', 0.7 if address else 0.0),
-        'phone': _field(phone, 'Телефон', 0.8 if phone else 0.0),
-        'email': _field(email, 'Email', 0.8 if email else 0.0),
-        'bank': _field(bank, 'Банк', 0.65 if bank else 0.0),
-        'iban': _field(iban, 'IBAN', 0.8 if iban else 0.0),
-        'contact_person': _field(contact_person, 'Контактна особа', 0.65 if contact_person else 0.0),
+        'number': _field(number, labels['number'], 0.95 if number else 0.0),
+        'date': _field(date, labels['date'], 0.9 if date else 0.0),
+        'supplier': _field(supplier, labels['supplier'], 0.85 if supplier else 0.0),
+        'tax_id': _field(tax_id, labels['tax_id'], 0.85 if tax_id else 0.0),
+        'total': _field(total, labels['total'], 0.9 if total is not None else 0.0),
+        'vat': _field(vat, labels['vat'], 0.75 if vat is not None else 0.0),
+        'currency': _field(currency, labels['currency'], 0.6),
+        'address': _field(address, labels['address'], 0.7 if address else 0.0),
+        'phone': _field(phone, labels['phone'], 0.8 if phone else 0.0),
+        'email': _field(email, labels['email'], 0.8 if email else 0.0),
+        'bank': _field(bank, labels['bank'], 0.65 if bank else 0.0),
+        'iban': _field(iban, labels['iban'], 0.8 if iban else 0.0),
+        'contact_person': _field(contact_person, labels['contact_person'], 0.65 if contact_person else 0.0),
     }
 
-    validation = validate(fields, items)
+    validation = validate(fields, items, profile)
     for key, passed in validation['ok'].items():
         if passed is False:
             if key == 'items_sum':
@@ -418,6 +437,8 @@ def parse_invoice(
         'issues': validation['issues'],
         'type_label': profile.NAME,
         'doc_title': profile.DOC_TITLE,
+        'field_labels': dict(getattr(profile, 'UI_LABELS', {})),
+        'default_currency': profile.DEFAULT_CURRENCY,
     }
 
 

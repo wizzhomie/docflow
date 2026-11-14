@@ -66,6 +66,59 @@ FIELD_KEYS = CORE_FIELD_KEYS + OPTIONAL_FIELD_KEYS
 
 VAT_RATE = 20
 
+# --- The profile's passport: everything the core must not know about a market.
+# The review workspace shows fields with these labels; the evidence label says
+# where a value was taken from; the CRM comment repeats the local requisites.
+UI_LABELS = {
+    'number': 'Invoice number',
+    'date': 'Invoice date',
+    'supplier': 'Supplier',
+    'tax_id': 'Tax ID (ЄДРПОУ / ІПН)',
+    'total': 'Amount due',
+    'vat': 'VAT (ПДВ)',
+    'currency': 'Currency',
+    'address': 'Address',
+    'phone': 'Phone',
+    'email': 'Email',
+    'bank': 'Bank',
+    'iban': 'IBAN',
+    'contact_person': 'Contact person',
+}
+
+SOURCE_LABELS = {
+    'number': 'Invoice number',
+    'date': 'Invoice date',
+    'supplier': 'Supplier block',
+    'tax_id': 'ЄДРПОУ / ІПН',
+    'total': 'Amount due',
+    'vat': 'VAT (ПДВ)',
+    'address': 'Адреса',
+    'phone': 'Телефон',
+    'bank': 'Банк',
+    'contact_person': 'Контактна особа',
+}
+
+COMMENT_LABELS = {'tax_id': 'ЄДРПОУ/ІПН', 'bank': 'Банк'}
+
+# Language of the documents; the OCR reads the union of all profiles.
+OCR_LANGS = 'ukr+eng'
+
+# «Рахунок на оплату № 55»: the words between the document title and the number.
+NUMBER_CONTEXT_RE = r'(?:\s+на\s+оплату)?'
+
+# Value formats of this market.
+TAX_ID_RE = r'\d{8}|\d{10,12}'
+IBAN_RE = r'UA\d{27}'
+IBAN_CANDIDATE_RE = r'\bUA[\s\d]{26,45}'
+PHONE_RE = r'\+?380[\s\-]?\(?\d{2,3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}'
+PHONE_LOCAL_RE = r'\(?0\d{2,3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}'
+PHONE_COUNTRY_CODE = '38'
+PHONE_TRUNK_PREFIX = '8'
+
+# Names are matched in the CRM after legal forms are removed.
+LEGAL_FORMS = ('тов', 'фоп', 'пп', 'дп', 'ат', 'ооо')
+NUMBER_CHARS = '0-9a-zа-яіїєґ'
+
 INVARIANTS = [
     'number is present',
     'date is a valid calendar date',

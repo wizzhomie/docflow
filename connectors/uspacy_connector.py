@@ -1,5 +1,6 @@
 """Uspacy adapter: the first CRM, kept behind the connector interface."""
 
+import profiles
 import uspacy
 
 from connectors.base import Connector
@@ -18,14 +19,14 @@ class UspacyConnector(Connector):
             return None
         return uspacy.find_deal_by_invoice(number, fields.get('tax_id'))
 
-    def ensure_company(self, fields: dict) -> dict | None:
+    def ensure_company(self, fields: dict, doc_type: str | None = None) -> dict | None:
         supplier = fields.get('supplier')
         if not supplier:
             return None
-        # Imported lazily: app owns the invoice-to-CRM mapping.
+        # Imported lazily: app owns the document-to-CRM mapping.
         from app import _supplier_details
 
-        return uspacy.find_or_create_company(supplier, _supplier_details(fields))
+        return uspacy.find_or_create_company(supplier, _supplier_details(fields, doc_type))
 
     def ensure_contact(self, fields: dict, company: dict | None) -> dict | None:
         name = fields.get('contact_person')
@@ -38,14 +39,24 @@ class UspacyConnector(Connector):
             email=fields.get('email'),
         )
 
-    def create_deal(self, *, title: str, fields: dict, company, contact, doc_id, route=None) -> dict:
+    def create_deal(
+        self,
+        *,
+        title: str,
+        fields: dict,
+        company,
+        contact,
+        doc_id,
+        route=None,
+        doc_type: str | None = None,
+    ) -> dict:
         from app import _deal_comment
 
         deal = uspacy.create_deal(
             title=title,
             amount=fields.get('total'),
-            currency=fields.get('currency') or 'UAH',
-            comments=_deal_comment(fields, doc_id, route),
+            currency=fields.get('currency') or profiles.default_currency(doc_type),
+            comments=_deal_comment(fields, doc_id, route, doc_type),
             company_id=(company or {}).get('id'),
             contact_ids=[contact['id']] if contact and contact.get('id') else None,
         )

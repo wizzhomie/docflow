@@ -1,18 +1,19 @@
-"""Deterministic invariants for Ukrainian invoices.
+"""Deterministic invariants for a document type.
 
 Validation is pure code: it does not use a model and it never guesses. Its job
 is to catch confident errors (wrong total, bad tax id, mismatched VAT) before a
-value reaches the CRM.
+value reaches the CRM. The value formats belong to the document profile: the
+core asks for the tax-id shape, the IBAN shape, the currency list and the VAT
+rate instead of assuming one market.
 """
 
 import re
 from datetime import date
 
-CURRENCIES = {'UAH', 'USD', 'EUR'}
-TAX_ID_RE = re.compile(r'\d{8}|\d{10,12}')
+from profiles import DEFAULT_PROFILE
+
 EMAIL_RE = re.compile(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}')
-IBAN_RE = re.compile(r'UA\d{27}')
-PHONE_RE = re.compile(r'\d{11,13}')
+PHONE_DIGITS_RE = re.compile(r'\d{11,13}')
 
 
 def _optional(value, check):
@@ -36,7 +37,8 @@ def _close(a: float, b: float) -> bool:
     return abs(a - b) <= max(1.0, abs(b) * 0.01)
 
 
-def validate(fields: dict, items: list | None = None) -> dict:
+def validate(fields: dict, items: list | None = None, profile=None) -> dict:
+    profile = profile or DEFAULT_PROFILE
     values = {key: field.get('value') for key, field in fields.items()}
     ok: dict[str, bool | None] = {}
     issues: list[str] = []
@@ -46,7 +48,7 @@ def validate(fields: dict, items: list | None = None) -> dict:
     ok['supplier'] = bool(values.get('supplier'))
 
     tax_id = values.get('tax_id')
-    ok['tax_id'] = bool(tax_id) and bool(TAX_ID_RE.fullmatch(str(tax_id)))
+    ok['tax_id'] = bool(tax_id) and bool(re.fullmatch(profile.TAX_ID_RE, str(tax_id)))
 
     total = values.get('total')
     total_is_number = isinstance(total, (int, float))
@@ -58,17 +60,19 @@ def validate(fields: dict, items: list | None = None) -> dict:
     elif not total_is_number:
         ok['vat'] = False
     else:
-        expected = round(total * 20 / 120, 2)
+        vat_rate = profile.VAT_RATE
+        expected = round(total * vat_rate / (100 + vat_rate), 2)
         ok['vat'] = vat == 0 or _close(float(vat), expected)
 
-    ok['currency'] = values.get('currency') in CURRENCIES
+    ok['currency'] = values.get('currency') in set(profile.CURRENCY)
 
     ok['email'] = _optional(values.get('email'), lambda v: bool(EMAIL_RE.fullmatch(v)))
     ok['phone'] = _optional(
-        values.get('phone'), lambda v: bool(PHONE_RE.fullmatch(re.sub(r'\D', '', v)))
+        values.get('phone'), lambda v: bool(PHONE_DIGITS_RE.fullmatch(re.sub(r'\D', '', v)))
     )
     ok['iban'] = _optional(
-        values.get('iban'), lambda v: bool(IBAN_RE.fullmatch(re.sub(r'\s', '', v).upper()))
+        values.get('iban'),
+        lambda v: bool(re.fullmatch(profile.IBAN_RE, re.sub(r'\s', '', v).upper())),
     )
 
     if items:

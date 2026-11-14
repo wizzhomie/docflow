@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 import mailbox
+import profiles
 import routing
 import uspacy
 from connectors import active as active_connector
@@ -295,11 +296,18 @@ def build_impact(rows: list[dict], manual_minutes: float = MANUAL_BASELINE_MINUT
 
 
 def _document_title(fields: dict, doc_title: str | None = None) -> str:
-    prefix = doc_title or 'Документ'
+    # Unknown legacy documents fall back to a neutral English word, never to a
+    # language of one market.
+    prefix = doc_title or 'Document'
     return f'{prefix} №{fields.get("number") or "—"} — {fields.get("supplier") or "Document"}'
 
 
-def _deal_comment(fields: dict, doc_id: str | None = None, route: dict | None = None) -> str:
+def _deal_comment(
+    fields: dict,
+    doc_id: str | None = None,
+    route: dict | None = None,
+    doc_type: str | None = None,
+) -> str:
     parts = ['Imported by DocFlow']
     if fields.get('supplier'):
         parts.append(f'Supplier: {fields["supplier"]}')
@@ -308,7 +316,8 @@ def _deal_comment(fields: dict, doc_id: str | None = None, route: dict | None = 
     if fields.get('date'):
         parts.append(f'Invoice date: {fields["date"]}')
     if fields.get('vat') is not None:
-        parts.append(f'VAT: {fields["vat"]} {fields.get("currency") or "UAH"}')
+        currency = fields.get('currency') or profiles.default_currency(doc_type)
+        parts.append(f'VAT: {fields["vat"]} {currency}')
     if fields.get('address'):
         parts.append(f'Address: {fields["address"]}')
     if fields.get('phone'):
@@ -328,15 +337,16 @@ def _deal_comment(fields: dict, doc_id: str | None = None, route: dict | None = 
     return '. '.join(parts) + '.'
 
 
-def _supplier_details(fields: dict) -> dict:
-    """Map invoice fields onto the Uspacy company card and its comment block."""
+def _supplier_details(fields: dict, doc_type: str | None = None) -> dict:
+    """Map document fields onto the Uspacy company card and its comment block."""
+    labels = profiles.comment_labels(doc_type)
     comment_lines = []
     if fields.get('tax_id'):
-        comment_lines.append(f'ЄДРПОУ/ІПН: {fields["tax_id"]}')
+        comment_lines.append(f'{labels["tax_id"]}: {fields["tax_id"]}')
     if fields.get('iban'):
         comment_lines.append(f'IBAN: {fields["iban"]}')
     if fields.get('bank'):
-        comment_lines.append(f'Банк: {fields["bank"]}')
+        comment_lines.append(f'{labels["bank"]}: {fields["bank"]}')
     return {
         'tax_id': fields.get('tax_id'),
         'address': fields.get('address'),
@@ -348,12 +358,12 @@ def _supplier_details(fields: dict) -> dict:
     }
 
 
-def _find_or_create_supplier_company(fields: dict) -> dict | None:
+def _find_or_create_supplier_company(fields: dict, doc_type: str | None = None) -> dict | None:
     """Find or create the supplier company and fill its card from the document."""
     supplier = fields.get('supplier')
     if not supplier:
         return None
-    return uspacy.find_or_create_company(supplier, _supplier_details(fields))
+    return uspacy.find_or_create_company(supplier, _supplier_details(fields, doc_type))
 
 
 def _find_or_create_supplier_contact(fields: dict, company: dict | None) -> dict | None:
@@ -586,6 +596,7 @@ def confirm(payload: ConfirmPayload):
     fields = _effective_fields(parsed_values, payload.fields)
     doc_title = (meta.get('parsed') or {}).get('doc_title')
     doc_type = (meta.get('parsed') or {}).get('type_label')
+    profile_code = (meta.get('parsed') or {}).get('type')
     route_info = routing.route((meta.get('parsed') or {}).get('type'), fields)
     edited = [k for k, v in payload.fields.items() if parsed_values.get(k) != v]
 
@@ -625,7 +636,7 @@ def confirm(payload: ConfirmPayload):
             company = contact = None
             company = contact = None
             try:
-                company = connector.ensure_company(fields)
+                company = connector.ensure_company(fields, doc_type=profile_code)
             except Exception as exc:
                 # A failed enrichment must be visible, not a silently empty card.
                 crm['company_error'] = str(exc)
@@ -641,6 +652,7 @@ def confirm(payload: ConfirmPayload):
                     contact=contact,
                     doc_id=payload.id,
                     route=route_info,
+                    doc_type=profile_code,
                 )
                 crm['deal'] = {'id': deal.get('id'), 'title': deal.get('title')}
                 crm['route'] = route_info
@@ -766,6 +778,10 @@ def config():
         'crm_provider': provider_name(),
         'crm_configured': bool(connector and connector.configured()),
         'manual_minutes_per_document': MANUAL_BASELINE_MINUTES,
+        # Presentation defaults come from the document profiles, not from the
+        # page: the UI shows what the registered types actually read.
+        'default_currency': profiles.default_currency(None),
+        'document_types': profiles.catalog(),
     }
 
 

@@ -2,7 +2,7 @@
 
 ## Project
 
-DocFlow extracts fields from Ukrainian invoices and acts, sends them through human review, and creates CRM deals (Uspacy or Bitrix24). Target market: Ukraine; documents in Ukrainian; amounts in UAH; UI in English.
+DocFlow extracts fields from documents, sends them through human review, and creates CRM deals (Uspacy or Bitrix24). The service is market-neutral: a document profile carries everything that belongs to one market — field labels, default currency, OCR language, tax-ID and IBAN formats, legal forms for CRM matching. Two profiles ship today, the first implemented: a Ukrainian invoice and a Ukrainian act of completed work. Adding a document type or a second market is a new profile, not a rewrite of the core. UI in English.
 
 ## Mandatory context
 
@@ -31,9 +31,12 @@ Load additional context only when relevant:
 - `app.py` — FastAPI orchestration, persistence, review workflow and reporting.
 - `extractor.py` — text acquisition, OCR fallback and field interpretation.
 - `mailbox.py` — IMAP intake: attachments of new mail go through the same pipeline as an upload.
-- `profiles/invoice_ua.py` — executable Ukrainian invoice profile and anchors.
-- `profiles/act_ua.py` — the same tree for «Акт виконаних робіт».
-- `profiles/__init__.py` — registry: the first lines of a document decide which profile owns it.
+- `profiles/invoice_ua.py` — executable Ukrainian invoice profile: anchors, plus the
+  passport (UI/source/comment labels, default currency, OCR language, value formats).
+- `profiles/act_ua.py` — the same tree for a Ukrainian act of completed work.
+- `profiles/__init__.py` — registry: the first lines of a document decide which profile owns
+  it, and the core asks the registry for labels, currency, OCR languages, legal forms and
+  number characters instead of hardcoding one market.
 - `connectors/` — CRM connectors behind one interface: `uspacy_connector.py`, `bitrix24.py`, `matching.py`.
 - `routing.py` — deterministic destination policy: document type and amount decide where a confirmed document goes.
 - `validation.py` — deterministic field invariants.
@@ -100,4 +103,9 @@ technical debt in his head, even when the code is correct.
   destination and its reason go into the record, the result card and the CRM
   comment, so the route is auditable.
 - OCR runs from a portable Tesseract in `.tools/ocr` (gitignored); `.env` puts it
-  on `PATH`, so scans parse without root. Details in `docs/stack-and-operations.md`.
+  on `PATH`, so scans parse without root. The language set is the union of the registered
+  profiles; `DOCFLOW_OCR_LANGS` overrides it for a market that is not registered yet.
+  Details in `docs/stack-and-operations.md`.
+- The review form takes its labels from the profile that recognised the document
+  (`metadata.field_labels`); the page ships neutral English labels only as a fallback.
+  `GET /api/config` exposes `default_currency` and the registered `document_types`.

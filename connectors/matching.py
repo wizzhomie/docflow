@@ -8,8 +8,10 @@ and legal form, an invoice number compared as a whole token.
 
 import re
 
-_LEGAL_FORMS = ('тов', 'фоп', 'пп', 'дп', 'ат', 'ооо')
-_NUMBER_CHARS = '0-9a-zа-яіїєґ'
+from profiles import legal_forms, number_chars
+
+_LEGAL_FORMS = legal_forms()
+_NUMBER_CHARS = number_chars()
 
 
 def digits(value) -> str:

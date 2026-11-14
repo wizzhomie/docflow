@@ -27,7 +27,7 @@ HTTP API, orchestration, file persistence, review workflow, statistics, automati
 
 ### `extractor.py`
 
-Text acquisition, OCR fallback, interpretation of Ukrainian invoice fields and confidence adjustment after validation failures.
+Text acquisition, OCR fallback, interpretation of document fields with the anchors and value formats of the active profile, and confidence adjustment after validation failures.
 
 ### `mailbox.py`
 
@@ -40,12 +40,20 @@ required fields and VAT rate. Also declares the optional requisites (address,
 phone, email, bank, IBAN, contact person) and which fields are core for the
 overall confidence score.
 
+The same module is the profile's passport: UI and source labels, the CRM comment
+labels, default currency, OCR languages, tax-ID and IBAN formats, phone formats,
+legal forms for CRM matching and the characters allowed in a document number.
+The core never hardcodes a market — it asks the registry for these facts.
+
 ### `profiles/`
 
 A registry of document types. The parser detects the type from the first lines
 and takes every type-specific anchor from that profile, so a new document type
-is a new profile module, not another branch in the extractor. Two profiles exist:
-Ukrainian invoice and Ukrainian act of completed work.
+is a new profile module, not another branch in the extractor. The registry also
+answers market questions: UI labels, default currency, OCR language union, legal
+forms and number characters. Two profiles exist — a Ukrainian invoice and a
+Ukrainian act of completed work — as the first implemented types; a second market
+is another profile, not a rewrite.
 
 ### `connectors/`
 
@@ -58,6 +66,9 @@ invoice number as a whole token). `DOCFLOW_CRM` selects the active connector.
 ### `validation.py`
 
 Deterministic field invariants. Reports issues without guessing corrected values.
+The value formats it checks (tax ID, IBAN, currencies, VAT rate) come from the
+document profile, so the same invariants serve another market once its profile
+is registered.
 
 ### `uspacy.py`
 

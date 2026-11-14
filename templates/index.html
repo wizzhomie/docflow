@@ -373,13 +373,16 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// Base form layout. Labels are neutral English; the document profile that
+// recognised the file supplies its own labels (metadata.field_labels), so the
+// page does not assume one market.
 const FIELDS = [
-  { key: 'number', label: 'Invoice number', type: 'text' },
-  { key: 'date', label: 'Date', type: 'date' },
+  { key: 'number', label: 'Document number', type: 'text' },
+  { key: 'date', label: 'Document date', type: 'date' },
   { key: 'supplier', label: 'Supplier', type: 'text', wide: true },
-  { key: 'tax_id', label: 'Tax ID (ЄДРПОУ / ІПН)', type: 'text' },
+  { key: 'tax_id', label: 'Tax ID', type: 'text' },
   { key: 'total', label: 'Amount due', type: 'number' },
-  { key: 'vat', label: 'VAT (ПДВ)', type: 'number' },
+  { key: 'vat', label: 'VAT', type: 'number' },
   { key: 'currency', label: 'Currency', type: 'text' },
   { key: 'address', label: 'Address', type: 'text', wide: true },
   { key: 'phone', label: 'Phone', type: 'text' },
@@ -394,11 +397,17 @@ let current = null;
 
 const CURRENCY_SYMBOL = { UAH: '₴', USD: '$', EUR: '€' };
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp'];
+// Deployment default from /api/config (the registered document profile).
+let defaultCurrency = '';
 
-function money(v, cur = 'UAH') {
+function money(v, cur = defaultCurrency) {
   if (v === null || v === undefined || v === '') return '—';
-  const sym = CURRENCY_SYMBOL[cur] || cur;
-  return Number(v).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ' + sym;
+  const sym = cur ? CURRENCY_SYMBOL[cur] || cur : '';
+  const amount = Number(v).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return sym ? amount + ' ' + sym : amount;
 }
 
 function duration(seconds) {
@@ -426,8 +435,9 @@ function barList(rows, key, labelKey) {
 }
 
 const ISSUE_FIELDS = {
-  number: 'Invoice number', date: 'Date', supplier: 'Supplier', tax_id: 'Tax ID',
-  total: 'Amount due', vat: 'VAT', currency: 'Currency', items_sum: 'Items sum',
+  number: 'Document number', date: 'Document date', supplier: 'Supplier',
+  tax_id: 'Tax ID', total: 'Amount due', vat: 'VAT', currency: 'Currency',
+  items_sum: 'Items sum',
 };
 
 function issueLabel(issue) {
@@ -550,7 +560,7 @@ function renderResult(data) {
   wrap.innerHTML = `
     <div class="result-card ${kind}">
       <h3>${title}</h3>
-      <p class="result-line">${fields.supplier || 'Document'} · №${fields.number || '—'} · ${money(fields.total, fields.currency || 'UAH')}</p>
+      <p class="result-line">${fields.supplier || 'Document'} · №${fields.number || '—'} · ${money(fields.total, fields.currency || defaultCurrency)}</p>
       <p class="result-line">${where}</p>
       ${routeLine}
       <p class="result-line muted">${edited ? `Fields edited: ${edited}` : 'No edits'} · review ${Math.round(rec.review_seconds || 0)} s</p>
@@ -605,7 +615,7 @@ function renderInbox(items) {
     const destination = item.route && item.route.destination ? item.route.destination : '';
     return `<button class="inbox-row" data-id="${item.id}">
       <span class="inbox-file">${item.filename || 'document'}</span>
-      <span class="inbox-meta">${type} · ${f.supplier || 'unknown supplier'} · ${f.number ? '№' + f.number : 'no number'} · ${money(f.total, f.currency || 'UAH')}${destination ? ' → ' + destination : ''}</span>
+      <span class="inbox-meta">${type} · ${f.supplier || 'unknown supplier'} · ${f.number ? '№' + f.number : 'no number'} · ${money(f.total, f.currency || defaultCurrency)}${destination ? ' → ' + destination : ''}</span>
       ${badge}
     </button>`;
   }).join('');
@@ -679,13 +689,15 @@ function renderFields(meta) {
     return;
   }
   const fields = meta.parsed.fields;
+  // Labels come from the profile that recognised the document.
+  const labels = meta.parsed.field_labels || {};
   wrap.innerHTML = '<div class="fields">' + FIELDS.map((f) => {
     const item = fields[f.key] || { value: '', confidence: 0 };
     const value = item.value ?? '';
     const cls = item.confidence === 0 ? 'missing' : item.confidence < 0.7 ? 'low' : '';
     const c = item.confidence ?? 0;
     return `<div class="field ${f.wide ? 'wide' : ''}">
-      <label>${f.label}
+      <label>${labels[f.key] || f.label}
         <span class="conf ${confClass(c)}"><i></i>${Math.round(c * 100)}%</span>
       </label>
       <input data-key="${f.key}" type="${f.type}" step="0.01" value="${String(value).replace(/"/g, '&quot;')}" class="${cls}" />
@@ -832,6 +844,7 @@ async function loadConfig() {
   try {
     const config = await fetch('/api/config').then((r) => r.json());
     $('#demo-badge').hidden = !config.demo_mode;
+    defaultCurrency = config.default_currency || '';
     window.__docflowConfig = config;
   } catch (e) {}
 }
@@ -854,7 +867,7 @@ async function refresh() {
     renderRoadmap(roadmap);
     renderMailbox(mailboxStatus);
     $('#table-hint').textContent = stats.documents
-      ? `${stats.documents} docs · total ${money(stats.total_amount, 'UAH')}`
+      ? `${stats.documents} docs · total ${money(stats.total_amount)}`
       : '';
     const wrap = $('#table-wrap');
     if (!docs.length) {

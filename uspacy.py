@@ -8,6 +8,8 @@ from pathlib import Path
 
 import requests
 
+from profiles import legal_forms, number_chars
+
 BASE_URL = os.environ.get('USPACY_BASE_URL', '').rstrip('/')
 EMAIL = os.environ.get('USPACY_EMAIL', '')
 PASSWORD = os.environ.get('USPACY_PASSWORD', '')
@@ -97,8 +99,8 @@ def _post(path: str, payload: dict) -> requests.Response:
 
 MAX_PAGES = 50
 
-_LEGAL_FORMS = ('тов', 'фоп', 'пп', 'дп', 'ат')
-_NUMBER_CHARS = '0-9a-zа-яіїєґ'
+_LEGAL_FORMS = legal_forms()
+_NUMBER_CHARS = number_chars()
 
 
 def _page_through(path: str) -> list[dict]:

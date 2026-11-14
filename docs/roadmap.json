@@ -80,6 +80,13 @@
       "decision": "A platform starts where the intake is not a single source."
     },
     {
+      "id": "market-neutral-core",
+      "title": "Market-neutral core",
+      "status": "done",
+      "summary": "Field labels, default currency, OCR language and value formats live in the document profile; the core no longer hardcodes one country.",
+      "decision": "Universality is proved by moving market rules into the profile, not by promising it on the first screen."
+    },
+    {
       "id": "external-sources",
       "title": "External sources: API and webhooks",
       "status": "next",

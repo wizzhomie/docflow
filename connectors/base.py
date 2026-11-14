@@ -20,14 +20,28 @@ class Connector:
         """Return an already-created deal for this invoice, or None."""
         raise NotImplementedError
 
-    def ensure_company(self, fields: dict) -> dict | None:
-        """Find or create the supplier company; may fill its empty fields."""
+    def ensure_company(self, fields: dict, doc_type: str | None = None) -> dict | None:
+        """Find or create the supplier company; may fill its empty fields.
+
+        ``doc_type`` is the profile code: the connector asks the profile for the
+        local requisites wording instead of hardcoding one market.
+        """
         raise NotImplementedError
 
     def ensure_contact(self, fields: dict, company: dict | None) -> dict | None:
         """Find or create the contact person, linked to the company."""
         raise NotImplementedError
 
-    def create_deal(self, *, title: str, fields: dict, company, contact, doc_id, route=None) -> dict:
+    def create_deal(
+        self,
+        *,
+        title: str,
+        fields: dict,
+        company,
+        contact,
+        doc_id,
+        route=None,
+        doc_type: str | None = None,
+    ) -> dict:
         """Create the deal, link company/contact and note the route; return {'id', 'title'}."""
         raise NotImplementedError

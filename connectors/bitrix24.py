@@ -14,6 +14,7 @@ import os
 
 import requests
 
+import profiles
 from connectors.base import Connector
 from connectors.matching import digits, has_number, name_forms
 
@@ -62,7 +63,7 @@ class Bitrix24Connector(Connector):
             return {'id': deal.get('ID'), 'title': deal.get('TITLE')}
         return None
 
-    def ensure_company(self, fields: dict) -> dict | None:
+    def ensure_company(self, fields: dict, doc_type: str | None = None) -> dict | None:
         supplier = fields.get('supplier')
         if not supplier:
             return None
@@ -73,12 +74,12 @@ class Bitrix24Connector(Connector):
         )
         for company in data.get('result') or []:
             if name_forms(company.get('TITLE')) & wanted:
-                return self._enrich_company(company, fields)
+                return self._enrich_company(company, fields, doc_type)
 
         payload = {
             'TITLE': supplier,
             'COMPANY_TYPE': 'SUPPLIER',
-            'COMMENTS': self._comments(fields),
+            'COMMENTS': self._comments(fields, doc_type),
         }
         if fields.get('phone'):
             payload['PHONE'] = _phone(fields['phone'])
@@ -89,17 +90,18 @@ class Bitrix24Connector(Connector):
         created = _call('crm.company.add', payload)
         return {'id': created.get('result'), 'title': supplier}
 
-    def _comments(self, fields: dict) -> str:
+    def _comments(self, fields: dict, doc_type: str | None = None) -> str:
+        labels = profiles.comment_labels(doc_type)
         lines = []
         if fields.get('tax_id'):
-            lines.append(f'ЄДРПОУ/ІПН: {fields["tax_id"]}')
+            lines.append(f'{labels["tax_id"]}: {fields["tax_id"]}')
         if fields.get('iban'):
             lines.append(f'IBAN: {fields["iban"]}')
         if fields.get('bank'):
-            lines.append(f'Банк: {fields["bank"]}')
+            lines.append(f'{labels["bank"]}: {fields["bank"]}')
         return '\n'.join(lines)
 
-    def _enrich_company(self, company: dict, fields: dict) -> dict:
+    def _enrich_company(self, company: dict, fields: dict, doc_type: str | None = None) -> dict:
         """Fill only empty fields; never overwrite what a human entered."""
         payload = {'ID': company.get('ID')}
         if fields.get('phone') and not company.get('PHONE'):
@@ -111,7 +113,7 @@ class Bitrix24Connector(Connector):
         comments = (company.get('COMMENTS') or '').strip()
         missing = [
             line
-            for line in self._comments(fields).splitlines()
+            for line in self._comments(fields, doc_type).splitlines()
             if line and line not in comments
         ]
         if missing:
@@ -143,12 +145,22 @@ class Bitrix24Connector(Connector):
         created = _call('crm.contact.add', payload)
         return {'id': created.get('result'), 'title': name}
 
-    def create_deal(self, *, title: str, fields: dict, company, contact, doc_id, route=None) -> dict:
+    def create_deal(
+        self,
+        *,
+        title: str,
+        fields: dict,
+        company,
+        contact,
+        doc_id,
+        route=None,
+        doc_type: str | None = None,
+    ) -> dict:
         payload = {'TITLE': title}
         total = fields.get('total')
         if total not in (None, ''):
             payload['OPPORTUNITY'] = round(float(total), 2)
-        payload['CURRENCY_ID'] = fields.get('currency') or 'UAH'
+        payload['CURRENCY_ID'] = fields.get('currency') or profiles.default_currency(doc_type)
         comment_lines = ['Imported by DocFlow']
         if fields.get('supplier'):
             comment_lines.append(f"Supplier: {fields['supplier']}")
