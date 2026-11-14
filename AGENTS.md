@@ -9,6 +9,8 @@ DocFlow extracts fields from Ukrainian invoices and acts, sends them through hum
 Before planning, implementing or reviewing a change, read:
 
 - `memory/handoff.md` — start here after a context reset: state, commands, next steps;
+- `docs/plain-guide.md` — the same system in plain language for the product owner;
+- `memory/plain-log.md` — three-line explanations of every noticeable change;
 - `memory/current-state.md` — confirmed implementation and limitations;
 - `knowledge/architecture-principles.md` — non-negotiable engineering principles;
 - `memory/next-steps.md` — agreed work order;
@@ -39,6 +41,12 @@ Load additional context only when relevant:
 - `tests/document_cases.json` — compact labelled fixtures for every document type (invoice, act).
 - `app.py` serves the review queue: `/api/inbox` lists uploaded-but-unconfirmed
   documents, so a document survives a page reload until someone decides on it.
+
+## Working with the product owner
+
+The owner is not a programmer and pays for understanding, not for throughput.
+Prefer fewer, explained changes: a long push of features without explanation is
+technical debt in his head, even when the code is correct.
 
 ## Engineering rules
 
@@ -127,6 +135,8 @@ After a meaningful behavior change:
 2. update `memory/next-steps.md` if the work order changed;
 3. append to `memory/development-log.md`;
 4. update `memory/error-catalog.md` if the defect class changed;
-5. update `knowledge/` or `docs/` only for durable confirmed knowledge.
+5. update `knowledge/` or `docs/` only for durable confirmed knowledge;
+6. append three plain-language lines to `memory/plain-log.md`: what changed / why /
+   what it changes for the owner. A change without these lines is not explained.
 
 Do not create commits or push unless explicitly requested.
