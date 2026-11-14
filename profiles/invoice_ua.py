@@ -14,8 +14,12 @@ Levels of the invariant tree:
 
 CODE = 'invoice_ua'
 NAME = 'Ukrainian invoice (Рахунок на оплату)'
+DOC_TITLE = 'Рахунок'
 
 TITLE_RE = r'(?:Рахунок|Сч[её]т)'
+
+# Markers that decide which profile owns a document. Checked on the first lines.
+DETECT_MARKERS = [r'^\s*рахунок\b', r'^\s*сч[её]т\b', r'рахунок\s+на\s+оплату']
 
 # Order-independent label synonyms.
 LABELS = {

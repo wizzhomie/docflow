@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from extractor import parse_invoice, parse_items  # noqa: E402
 
-CASES = Path(__file__).parent / 'invoice_ua_cases.json'
+CASES = Path(__file__).parent / 'document_cases.json'
 
 
 def matches(got, expected) -> bool:

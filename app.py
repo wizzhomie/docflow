@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import io
 import json
@@ -16,14 +17,18 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 import uspacy
+from connectors import active as active_connector
+from connectors import provider_name
 from extractor import extract_text, parse_invoice, parse_items
 
 BASE = Path(__file__).parent
 SAMPLES = BASE / 'samples'
 UPLOADS = BASE / 'data' / 'uploads'
 PENDING = BASE / 'data' / 'pending'
+INBOX = BASE / 'data' / 'inbox'
+INBOX_DONE = INBOX / 'processed'
 CONFIRMED = BASE / 'data' / 'confirmed.jsonl'
-for directory in (UPLOADS, PENDING):
+for directory in (UPLOADS, PENDING, INBOX, INBOX_DONE):
     directory.mkdir(parents=True, exist_ok=True)
 
 ALLOWED = {
@@ -63,11 +68,15 @@ FIELD_LABELS = {
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    uspacy.start_retry_worker()
-    yield
-    # Shutdown
-    uspacy.stop_retry_worker()
+    # Startup. The retry queue belongs to the Uspacy connector only.
+    if provider_name() == 'uspacy':
+        uspacy.start_retry_worker()
+    watcher = asyncio.create_task(_folder_watcher())
+    try:
+        yield
+    finally:
+        watcher.cancel()
+        uspacy.stop_retry_worker()
 
 
 app = FastAPI(title='DocFlow', lifespan=lifespan)
@@ -270,6 +279,11 @@ def build_impact(rows: list[dict], manual_minutes: float = MANUAL_BASELINE_MINUT
     }
 
 
+def _document_title(fields: dict, doc_title: str | None = None) -> str:
+    prefix = doc_title or 'Документ'
+    return f'{prefix} №{fields.get("number") or "—"} — {fields.get("supplier") or "Document"}'
+
+
 def _deal_comment(fields: dict, doc_id: str | None = None) -> str:
     parts = ['Imported by DocFlow']
     if fields.get('supplier'):
@@ -339,13 +353,12 @@ def _find_or_create_supplier_contact(fields: dict, company: dict | None) -> dict
 
 
 def _find_existing_deal(fields: dict) -> dict | None:
-    """Check if deal already exists for this invoice_number + supplier_tax_id."""
-    number = fields.get('number')
-    tax_id = fields.get('tax_id')
-    if not number:
+    """Check whether the active CRM already holds a deal for this document."""
+    connector = active_connector()
+    if connector is None or not connector.configured():
         return None
     try:
-        return uspacy.find_deal_by_invoice(number, tax_id)
+        return connector.existing_deal(fields)
     except Exception:
         return None
 
@@ -358,6 +371,42 @@ def _effective_fields(parsed_values: dict, submitted: dict) -> dict:
     silently disappearing from the history and the CRM payload.
     """
     return {**parsed_values, **{key: value for key, value in submitted.items() if value not in (None, '')}}
+
+
+def _ingest_folder_once() -> list[dict]:
+    """Pick up documents dropped into the intake folder.
+
+    A file younger than two seconds is skipped: a copy that is still being
+    written must not be parsed half-done. Handled files are moved aside so a
+    restart does not process them twice.
+    """
+    handled: list[dict] = []
+    now = time.time()
+    for path in sorted(INBOX.iterdir()):
+        if not path.is_file() or path.suffix.lower() not in ALLOWED:
+            continue
+        try:
+            if now - path.stat().st_mtime < 2:
+                continue
+            doc_id = uuid.uuid4().hex[:10]
+            target = UPLOADS / f'{doc_id}{path.suffix.lower()}'
+            shutil.copyfile(path, target)
+            _process(doc_id, path.name, target, source='folder')
+            path.replace(INBOX_DONE / f'{path.stem}-{doc_id}{path.suffix.lower()}')
+            handled.append({'id': doc_id, 'filename': path.name})
+        except Exception:
+            # A broken file must not stop the folder from being watched.
+            continue
+    return handled
+
+
+async def _folder_watcher() -> None:
+    while True:
+        try:
+            _ingest_folder_once()
+        except Exception:
+            pass
+        await asyncio.sleep(3)
 
 
 def _pending_documents(limit: int = 20) -> list[dict]:
@@ -386,6 +435,7 @@ def _pending_documents(limit: int = 20) -> list[dict]:
                 'source': meta.get('source', 'upload'),
                 'issues': list(parsed.get('issues') or []),
                 'confidence': parsed.get('confidence'),
+                'doc_type': parsed.get('type_label'),
                 'fields': {k: v.get('value') for k, v in (parsed.get('fields') or {}).items()},
             }
         )
@@ -469,13 +519,20 @@ def confirm(payload: ConfirmPayload):
 
     parsed_values = {k: v['value'] for k, v in meta['parsed']['fields'].items()}
     fields = _effective_fields(parsed_values, payload.fields)
+    doc_title = (meta.get('parsed') or {}).get('doc_title')
+    doc_type = (meta.get('parsed') or {}).get('type_label')
     edited = [k for k, v in payload.fields.items() if parsed_values.get(k) != v]
 
     # Duplicate suppression: a local history match needs no CRM call, and it
     # works when the CRM is unreachable or disabled.
     history = _read_confirmed()
     local_duplicate = _local_duplicate(fields, history)
-    crm: dict = {'configured': uspacy.configured() and not DEMO_MODE, 'demo': DEMO_MODE}
+    connector = active_connector()
+    crm: dict = {
+        'configured': bool(connector and connector.configured()) and not DEMO_MODE,
+        'provider': connector.name if connector else 'none',
+        'demo': DEMO_MODE,
+    }
 
     if local_duplicate is not None:
         crm['deal'] = {
@@ -488,7 +545,7 @@ def confirm(payload: ConfirmPayload):
         # Nothing leaves the host during a demonstration.
         crm['deal'] = {
             'id': f'DEMO-{payload.id}',
-            'title': f'Рахунок №{fields.get("number") or "—"} — {fields.get("supplier") or "Document"}',
+            'title': _document_title(fields, doc_title),
         }
         crm['simulated'] = True
     else:
@@ -499,23 +556,23 @@ def confirm(payload: ConfirmPayload):
             crm['duplicate_source'] = 'crm'
         elif crm['configured']:
             company = contact = None
+            company = contact = None
             try:
-                company = _find_or_create_supplier_company(fields)
+                company = connector.ensure_company(fields)
             except Exception as exc:
                 # A failed enrichment must be visible, not a silently empty card.
                 crm['company_error'] = str(exc)
             try:
-                contact = _find_or_create_supplier_contact(fields, company)
+                contact = connector.ensure_contact(fields, company)
             except Exception as exc:
                 crm['contact_error'] = str(exc)
             try:
-                deal = uspacy.create_deal(
-                    title=f'Рахунок №{fields.get("number") or "—"} — {fields.get("supplier") or "Document"}',
-                    amount=fields.get('total'),
-                    currency=fields.get('currency') or 'UAH',
-                    comments=_deal_comment(fields, payload.id),
-                    company_id=(company or {}).get('id'),
-                    contact_ids=[contact['id']] if contact and contact.get('id') else None,
+                deal = connector.create_deal(
+                    title=_document_title(fields, doc_title),
+                    fields=fields,
+                    company=company,
+                    contact=contact,
+                    doc_id=payload.id,
                 )
                 crm['deal'] = {'id': deal.get('id'), 'title': deal.get('title')}
                 crm['company'] = {'id': (company or {}).get('id'), 'title': (company or {}).get('title')}
@@ -539,6 +596,7 @@ def confirm(payload: ConfirmPayload):
         'confidence': meta['parsed']['confidence'],
         'issues': list(meta['parsed'].get('issues') or []),
         'crm_deal_id': (crm.get('deal') or {}).get('id'),
+        'doc_type': doc_type,
         'source': meta.get('source', 'upload'),
     }
     with CONFIRMED.open('a', encoding='utf-8') as out:
@@ -550,6 +608,21 @@ def confirm(payload: ConfirmPayload):
 @app.get('/api/inbox')
 def inbox(limit: int = 20):
     return _pending_documents(limit)
+
+
+@app.get('/api/intake')
+def intake_state():
+    files = sorted(p.name for p in INBOX.iterdir() if p.is_file()) if INBOX.exists() else []
+    return {
+        'folder': str(INBOX.relative_to(BASE)),
+        'waiting': files,
+        'processed': len(list(INBOX_DONE.glob('*'))) if INBOX_DONE.exists() else 0,
+    }
+
+
+@app.post('/api/intake/scan')
+def intake_scan():
+    return {'ingested': _ingest_folder_once()}
 
 
 @app.get('/api/documents/{doc_id}')
@@ -588,9 +661,11 @@ def stats():
 @app.get('/api/config')
 def config():
     """Deployment facts the UI must show honestly: demo mode and CRM wiring."""
+    connector = active_connector()
     return {
         'demo_mode': DEMO_MODE,
-        'crm_configured': uspacy.configured(),
+        'crm_provider': provider_name(),
+        'crm_configured': bool(connector and connector.configured()),
         'manual_minutes_per_document': MANUAL_BASELINE_MINUTES,
     }
 

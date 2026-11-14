@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from profiles import invoice_ua as base_profile
+from profiles import DEFAULT_PROFILE, detect_profile
 from profiles.suppliers import get_supplier_profile
 from validation import validate
 
@@ -14,8 +14,12 @@ IMAGE_SUFFIXES = {'.png', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp'}
 OCR_LANGS = 'ukr+eng'
 
 
-def _build_patterns(tax_id: str | None, supplier_name: str | None) -> dict:
-    """Build regex patterns from base + supplier profile."""
+def _build_patterns(
+    tax_id: str | None,
+    supplier_name: str | None,
+    document_profile=DEFAULT_PROFILE,
+) -> dict:
+    """Build regex patterns from document profile + supplier profile."""
     profile = get_supplier_profile(tax_id, supplier_name)
     labels = profile['labels']
     tax_prefixes = profile['tax_prefixes']
@@ -36,16 +40,16 @@ def _build_patterns(tax_id: str | None, supplier_name: str | None) -> dict:
     bank_labels = '|'.join(labels.get('bank', []))
     iban_labels = '|'.join(labels.get('iban', []))
     contact_labels = '|'.join(labels.get('contact', []))
-    total_re = '|'.join(base_profile.TOTAL_LABELS)
-    subtotal_re = '|'.join(base_profile.SUBTOTAL_LABELS)
-    vat_re = '|'.join(base_profile.VAT_LABELS)
+    total_re = '|'.join(document_profile.TOTAL_LABELS)
+    subtotal_re = '|'.join(document_profile.SUBTOTAL_LABELS)
+    vat_re = '|'.join(document_profile.VAT_LABELS)
     number_re = (
-        base_profile.TITLE_RE
+        document_profile.TITLE_RE
         + r'(?:\s+на\s+оплату)?\s*(?:'
-        + '|'.join(base_profile.NUMBER_MARKERS)
+        + '|'.join(document_profile.NUMBER_MARKERS)
         + r')\s*'
         r'([A-Za-zА-Яа-яІіЇїЄєҐґ0-9\-/]+)'
-        r'(?:\s*(?:' + '|'.join(base_profile.DATE_PREFIXES) + r')\s*'
+        r'(?:\s*(?:' + '|'.join(document_profile.DATE_PREFIXES) + r')\s*'
         r'(\d{1,2}\s*[.\-/]\s*\d{1,2}\s*[.\-/]\s*\d{2,4}))?'
     )
 
@@ -59,10 +63,10 @@ def _build_patterns(tax_id: str | None, supplier_name: str | None) -> dict:
         'subtotal_re': subtotal_re,
         'vat_re': vat_re,
         'number_re': number_re,
-        'currency': overrides.get('currency', base_profile.DEFAULT_CURRENCY),
-        'vat_rate': overrides.get('vat_rate', base_profile.VAT_RATE),
-        'vat_zero_re': base_profile.VAT_ZERO_RE,
-        'vat_detail_re': base_profile.VAT_DETAIL_RE,
+        'currency': overrides.get('currency', document_profile.DEFAULT_CURRENCY),
+        'vat_rate': overrides.get('vat_rate', document_profile.VAT_RATE),
+        'vat_zero_re': document_profile.VAT_ZERO_RE,
+        'vat_detail_re': document_profile.VAT_DETAIL_RE,
         'address_labels': address_labels,
         'phone_labels': phone_labels,
         'email_labels': email_labels,
@@ -272,12 +276,14 @@ def parse_invoice(
     items: list[dict] | None = None,
     tax_id: str | None = None,
     supplier_name: str | None = None,
+    profile=None,
 ) -> dict:
+    profile = profile or detect_profile(text)
     t = _clean(text)
     flat = re.sub(r'[ \t]+', ' ', t)
 
     # First pass: extract tax_id and supplier to load supplier profile
-    temp_patterns = _build_patterns(None, None)
+    temp_patterns = _build_patterns(None, None, profile)
     supplier = tax_id = None
     sm = re.search(rf'(?:{temp_patterns["supplier_labels"]})\s*[:\s]\s*(.+)', flat, re.I)
     if sm:
@@ -300,7 +306,7 @@ def parse_invoice(
         tax_id = tm.group(1)
 
     # Second pass: with supplier-specific patterns
-    patterns = _build_patterns(tax_id, supplier)
+    patterns = _build_patterns(tax_id, supplier, profile)
 
     number = date = None
     m = re.search(patterns['number_re'], flat, re.I)
@@ -363,7 +369,7 @@ def parse_invoice(
         total = _last_money(flat)
 
     currency = patterns['currency']
-    for code, markers in base_profile.CURRENCY.items():
+    for code, markers in profile.CURRENCY.items():
         if any(re.search(marker, flat, re.I) for marker in markers):
             currency = code
             break
@@ -402,14 +408,16 @@ def parse_invoice(
             elif key in fields:
                 fields[key]['confidence'] = round(fields[key]['confidence'] * 0.5, 2)
 
-    core_confidences = [fields[key]['confidence'] for key in base_profile.CORE_FIELD_KEYS]
+    core_confidences = [fields[key]['confidence'] for key in profile.CORE_FIELD_KEYS]
     overall = round(sum(core_confidences) / len(core_confidences), 2)
 
     return {
         'fields': fields,
         'confidence': overall,
-        'type': base_profile.CODE,
+        'type': profile.CODE,
         'issues': validation['issues'],
+        'type_label': profile.NAME,
+        'doc_title': profile.DOC_TITLE,
     }
 
 
