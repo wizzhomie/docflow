@@ -37,7 +37,7 @@ Load additional context only when relevant:
 - `routing.py` — deterministic destination policy: document type and amount decide where a confirmed document goes.
 - `validation.py` — deterministic field invariants.
 - `uspacy.py` — Uspacy authentication, client-side company/deal matching and deal creation.
-- `templates/index.html` — English upload/review/history UI.
+- `templates/index.html` — English showcase hero (looping intake → review → CRM window) on top of the upload/review/history UI.
 - `tests/run_eval.py` — deterministic regression baseline.
 - `tests/document_cases.json` — compact labelled fixtures for every document type (invoice, act).
 - `docs/roadmap.json` + `/api/roadmap` — the product path shown on the site: stages with a decision each.

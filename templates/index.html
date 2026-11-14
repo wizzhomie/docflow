@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>DocFlow — Invoice review</title>
+<title>DocFlow — document intake, review and routing</title>
 <style>
   :root {
     --bg: #07080d;
@@ -221,6 +221,205 @@
     .fields { grid-template-columns: 1fr; }
     .wrap { padding: 16px 14px 50px; }
   }
+
+  /* ---------- Showcase hero ---------- */
+  html { scroll-behavior: smooth; }
+  #workspace, #path { scroll-margin-top: 84px; }
+
+  .hero {
+    position: relative; overflow: hidden; padding: 38px 26px 14px;
+    text-align: center; isolation: isolate;
+  }
+  .hero::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 120px;
+    background: linear-gradient(180deg, transparent, var(--bg));
+    z-index: -1; pointer-events: none;
+  }
+  .hero-glow { position: absolute; border-radius: 50%; filter: blur(70px); pointer-events: none; z-index: -2; will-change: transform; }
+  .hero-glow.warm {
+    width: 720px; height: 500px; right: -110px; top: -170px;
+    background: radial-gradient(circle at 58% 42%, rgba(251,191,36,.8), rgba(249,115,22,.42) 44%, transparent 72%);
+    animation: drift-warm 28s ease-in-out infinite alternate;
+  }
+  .hero-glow.violet {
+    width: 600px; height: 440px; left: -140px; top: 30px;
+    background: radial-gradient(circle at 50% 50%, rgba(124,92,255,.8), rgba(124,92,255,.18) 48%, transparent 72%);
+    animation: drift-violet 33s ease-in-out infinite alternate;
+  }
+  .hero-glow.cyan {
+    width: 480px; height: 360px; left: 16%; bottom: -150px;
+    background: radial-gradient(circle at 50% 50%, rgba(34,211,238,.5), transparent 70%);
+    animation: drift-cyan 24s ease-in-out infinite alternate;
+  }
+  @keyframes drift-warm { from { transform: translate3d(0,0,0) scale(1); } to { transform: translate3d(-70px,50px,0) scale(1.15); } }
+  @keyframes drift-violet { from { transform: translate3d(0,0,0) scale(1.05); } to { transform: translate3d(60px,30px,0) scale(1); } }
+  @keyframes drift-cyan { from { transform: translate3d(0,0,0) scale(1); } to { transform: translate3d(40px,-40px,0) scale(1.12); } }
+
+  .hero-inner { position: relative; max-width: 1100px; margin: 0 auto; }
+  .hero-eyebrow {
+    display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .66rem; letter-spacing: .18em; text-transform: uppercase; color: #8f95ab;
+    padding: 6px 13px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03);
+  }
+  .hero h1 {
+    margin: 16px auto 0; max-width: 880px;
+    font-size: clamp(2.05rem, 4.6vw, 3.15rem); line-height: 1.05;
+    letter-spacing: -.045em; font-weight: 700;
+  }
+  .hero h1 .line { display: block; }
+  .hero h1 .warm {
+    background: linear-gradient(100deg, #ffffff 4%, #ffe6a3 42%, #fbbf24 78%, #f59e0b 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+  }
+  .hero-sub { max-width: 640px; margin: 16px auto 0; color: #b4b9cb; font-size: .98rem; line-height: 1.62; }
+  .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+  .btn-warm {
+    padding: 11px 20px; color: #221604; font-weight: 700; border-color: transparent;
+    background: linear-gradient(135deg, #fcd34d, #fbbf24 45%, #f59e0b 100%);
+    box-shadow: 0 12px 32px -12px rgba(251,191,36,.75), inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  .btn-warm:hover { background: linear-gradient(135deg, #fde047, #fcd34d 45%, #fbbf24 100%); }
+  .btn-glass { padding: 11px 20px; background: rgba(255,255,255,.055); border-color: rgba(255,255,255,.14); backdrop-filter: blur(8px); }
+  .btn-glass:hover { background: rgba(255,255,255,.1); }
+  .hero-facts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+  .hero-facts span {
+    font-size: .7rem; color: #8f95ab; padding: 5px 11px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.02);
+  }
+  .hero-caption {
+    margin-top: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .68rem; color: #7b8199;
+  }
+
+  .window-frame {
+    max-width: 1040px; margin: 24px auto 0; padding: 1px; border-radius: 22px;
+    background: linear-gradient(140deg, rgba(251,191,36,.5), rgba(255,255,255,.06) 26%, rgba(124,92,255,.38) 64%, rgba(34,211,238,.22));
+    box-shadow: 0 60px 140px -50px rgba(0,0,0,.95);
+    animation: window-in 1s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes window-in { from { opacity: 0; transform: translateY(26px) scale(.985); } to { opacity: 1; transform: none; } }
+  .window {
+    border-radius: 21px; overflow: hidden; text-align: left;
+    background: linear-gradient(180deg, rgba(18,20,32,.96), rgba(9,11,18,.98));
+  }
+  .winbar {
+    display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+    background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.012));
+  }
+  .win-dots { display: flex; gap: 6px; }
+  .win-dots i { display: block; width: 10px; height: 10px; border-radius: 50%; }
+  .win-dots i:nth-child(1) { background: #f87171; }
+  .win-dots i:nth-child(2) { background: #fbbf24; }
+  .win-dots i:nth-child(3) { background: #34d399; }
+  .win-title { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .7rem; letter-spacing: .05em; color: #8f95ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .win-badge {
+    margin-left: auto; font-size: .58rem; letter-spacing: .12em; text-transform: uppercase;
+    color: #fcd34d; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+    border: 1px solid rgba(251,191,36,.35); background: rgba(251,191,36,.1);
+  }
+
+  .flow { display: grid; grid-template-columns: 1fr 30px 1fr 30px 1fr; padding: 16px; }
+  .flow-arrow { position: relative; display: flex; align-items: center; justify-content: center; }
+  .flow-arrow::before {
+    content: ""; position: absolute; left: 5px; right: 5px; height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,.03), rgba(255,255,255,.18), rgba(255,255,255,.03));
+  }
+  .flow-arrow::after {
+    content: ""; position: absolute; left: 2px; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--warn); box-shadow: 0 0 12px rgba(251,191,36,.9);
+    animation: travel 3.6s ease-in-out infinite;
+  }
+  @keyframes travel {
+    0% { transform: translateX(0); opacity: 0; }
+    18% { opacity: 1; }
+    82% { opacity: 1; }
+    100% { transform: translateX(24px); opacity: 0; }
+  }
+
+  .stage {
+    display: flex; flex-direction: column; gap: 7px; min-height: 196px; padding: 13px;
+    border: 1px solid rgba(255,255,255,.07); border-radius: 14px;
+    background: linear-gradient(170deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+  }
+  .stage-head {
+    display: flex; align-items: center; gap: 7px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: #7d8399;
+  }
+  .stage-head b {
+    margin-left: 2px; font-family: inherit; font-size: .76rem; font-weight: 600;
+    letter-spacing: 0; text-transform: none; color: #dfe3f2;
+  }
+  .stage-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.2); }
+  .stage-note { margin-top: auto; font-size: .68rem; color: #767d94; line-height: 1.45; }
+
+  .mail {
+    display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03);
+  }
+  .attach {
+    flex: none; width: 30px; height: 36px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(160deg, #f87171, #dc2626); color: #fff;
+    font-size: .54rem; font-weight: 700; letter-spacing: .03em;
+  }
+  .mail-meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .mail-from { font-size: .75rem; color: #dfe3f2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mail-sub { font-size: .66rem; color: #8f95ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mail-tag {
+    flex: none; margin-left: auto; font-size: .56rem; letter-spacing: .08em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 999px; color: #fcd34d;
+    background: rgba(251,191,36,.14); border: 1px solid rgba(251,191,36,.32);
+  }
+
+  .frow {
+    display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.05); background: rgba(255,255,255,.025); font-size: .73rem;
+  }
+  .frow .k { flex: none; width: 66px; color: #8f95ab; }
+  .frow .v { color: #eceef5; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .frow .c { flex: none; margin-left: auto; font-size: .6rem; color: #6ee7b7; }
+  .frow .c.mid { color: #fcd34d; }
+
+  .route {
+    border-radius: 10px; padding: 9px 11px;
+    border: 1px solid rgba(251,191,36,.34);
+    background: linear-gradient(150deg, rgba(251,191,36,.18), rgba(251,191,36,.04));
+  }
+  .route b { display: block; font-size: .82rem; color: #fde68a; }
+  .route span { display: block; margin-top: 3px; font-size: .66rem; color: #c9b98e; line-height: 1.4; }
+  .crm { display: flex; align-items: center; gap: 8px; font-size: .72rem; color: #cfd3e4; }
+  .crm-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px rgba(52,211,153,.8); }
+
+  .anim { transition: opacity .5s ease, transform .5s ease; }
+  .window.animating .anim { opacity: 0; transform: translateY(7px); }
+  .window.animating .anim.on { opacity: 1; transform: none; }
+
+  .reveal { opacity: 0; transform: translateY(16px); transition: opacity .7s cubic-bezier(.2,.8,.2,1), transform .7s cubic-bezier(.2,.8,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .hero-glow, .window-frame, .flow-arrow::after { animation: none; }
+    .flow-arrow::after { opacity: 0; }
+    .anim, .window.animating .anim { opacity: 1; transform: none; transition: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+  @media (max-width: 900px) {
+    .hero { padding: 30px 16px 10px; }
+    .flow { grid-template-columns: 1fr; gap: 10px; padding: 14px; }
+    .flow-arrow { display: none; }
+    .stage { min-height: 0; }
+    .hero-sub { font-size: .93rem; }
+    .hero h1 { letter-spacing: -.035em; }
+    .hero-glow { filter: blur(60px); }
+    .hero-glow.warm { width: 460px; height: 380px; right: -180px; top: -220px; }
+    .hero-glow.violet { width: 380px; height: 320px; left: -190px; top: 120px; }
+    .hero-glow.cyan { display: none; }
+    .win-title { font-size: .66rem; }
+  }
 </style>
 </head>
 <body>
@@ -236,7 +435,76 @@
   <a class="btn" href="/api/export.csv">Export CSV</a>
 </header>
 
-<div class="wrap">
+<section class="hero">
+  <div class="hero-glow warm"></div>
+  <div class="hero-glow violet"></div>
+  <div class="hero-glow cyan"></div>
+  <div class="hero-inner">
+    <span class="hero-eyebrow">Document intake · parsing · routing</span>
+    <h1>
+      <span class="line">Every document</span>
+      <span class="line warm">finds its own place.</span>
+    </h1>
+    <p class="hero-sub">Invoices and acts arrive from a folder, a scan or a mailbox. DocFlow reads the whole document, keeps uncertain values for a human, and sends the confirmed result to the process that owns it — payments, accounting or approval.</p>
+    <div class="hero-cta">
+      <a class="btn btn-warm" href="#workspace">Try the live review</a>
+      <a class="btn btn-glass" href="#path">See the path</a>
+    </div>
+    <div class="hero-facts">
+      <span>2 document types</span>
+      <span>Uspacy · Bitrix24</span>
+      <span>Every route has a reason</span>
+      <span>Human review when confidence drops</span>
+    </div>
+    <div class="window-frame">
+      <div class="window">
+        <div class="winbar">
+          <div class="win-dots"><i></i><i></i><i></i></div>
+          <span class="win-title">docflow · intake → review → crm</span>
+          <span class="win-badge">looping demo</span>
+        </div>
+        <div class="flow" id="flow">
+          <div class="stage">
+            <div class="stage-head"><span class="stage-dot"></span> Intake <b>incoming</b></div>
+            <div class="mail anim" data-step="1" data-delay="420">
+              <span class="attach">PDF</span>
+              <span class="mail-meta">
+                <span class="mail-from">office@novapostach.ua</span>
+                <span class="mail-sub">Рахунок №2026-114 · рахунок_114.pdf</span>
+              </span>
+              <span class="mail-tag">new</span>
+            </div>
+            <div class="stage-note anim" data-step="2" data-delay="440">Folder, mailbox or scan — one queue, the same rules.</div>
+          </div>
+          <div class="flow-arrow"></div>
+          <div class="stage">
+            <div class="stage-head"><span class="stage-dot"></span> Recognized <b>invoice</b></div>
+            <div class="frow anim" data-step="3" data-delay="300"><span class="k">Supplier</span><span class="v">ТОВ «Нова Постач»</span><span class="c">99%</span></div>
+            <div class="frow anim" data-step="4" data-delay="240"><span class="k">Number</span><span class="v">2026-114</span><span class="c">99%</span></div>
+            <div class="frow anim" data-step="5" data-delay="240"><span class="k">Amount</span><span class="v">42 800,00 ₴</span><span class="c">97%</span></div>
+            <div class="frow anim" data-step="6" data-delay="240"><span class="k">Tax ID</span><span class="v">43987651</span><span class="c">99%</span></div>
+            <div class="frow anim" data-step="7" data-delay="380"><span class="k">VAT</span><span class="v">7 133,33 ₴</span><span class="c mid">94%</span></div>
+            <div class="stage-note anim" data-step="8" data-delay="460">Whole-document read · invariants passed.</div>
+          </div>
+          <div class="flow-arrow"></div>
+          <div class="stage">
+            <div class="stage-head"><span class="stage-dot"></span> Routed <b>crm</b></div>
+            <div class="route anim" data-step="9" data-delay="420">
+              <b>→ Payments</b>
+              <span>Invoice · below the 100 000 ₴ approval threshold</span>
+            </div>
+            <div class="crm anim" data-step="10" data-delay="320"><span class="crm-dot"></span>Uspacy · deal #24 created</div>
+            <div class="crm anim" data-step="11" data-delay="300"><span class="crm-dot"></span>Company card and contact linked</div>
+            <div class="stage-note anim" data-step="12" data-delay="420">Confirmed by a human in 6 s · 0 edits.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="hero-caption">↳ this window loops on its own · the live app is right below</p>
+  </div>
+</section>
+
+<div class="wrap" id="workspace">
   <div class="grid">
     <section class="card">
       <div class="card-head">
@@ -326,7 +594,7 @@
     </div>
   </section>
 
-  <section class="card path-card">
+  <section class="card path-card" id="path">
     <div class="card-head">
       <h2>Our path</h2>
       <span class="hint" id="path-hint">loading…</span>
@@ -812,10 +1080,67 @@ async function refresh() {
   } catch (e) {}
 }
 
+function initShowcase() {
+  const win = document.querySelector('.window');
+  const flow = document.getElementById('flow');
+  if (!win || !flow) return;
+  const steps = Array.from(flow.querySelectorAll('[data-step]'))
+    .sort((a, b) => Number(a.dataset.step) - Number(b.dataset.step));
+  if (!steps.length) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    steps.forEach((el) => el.classList.add('on'));
+    return;
+  }
+  win.classList.add('animating');
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  let stopped = false;
+  (async () => {
+    while (!stopped) {
+      steps.forEach((el) => el.classList.remove('on'));
+      await sleep(520);
+      for (const el of steps) {
+        el.classList.add('on');
+        await sleep(Number(el.dataset.delay || 380));
+      }
+      await sleep(2800);
+      steps.forEach((el) => el.classList.remove('on'));
+      await sleep(1100);
+    }
+  })();
+  window.addEventListener('pagehide', () => { stopped = true; });
+}
+
+function initReveal() {
+  const cards = Array.from(document.querySelectorAll('.wrap .card'));
+  if (!cards.length || !('IntersectionObserver' in window)) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  try {
+    cards.forEach((el) => el.classList.add('reveal'));
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { rootMargin: '0px 0px -6% 0px', threshold: 0.04 });
+    cards.forEach((el) => io.observe(el));
+    window.setTimeout(() => {
+      cards.forEach((el) => {
+        if (el.getBoundingClientRect().top < window.innerHeight) el.classList.add('in');
+      });
+    }, 900);
+  } catch (err) {
+    cards.forEach((el) => el.classList.add('in'));
+  }
+}
+
 bindDrop();
 loadSamples();
 loadConfig();
 refresh();
+initShowcase();
+initReveal();
 $('#confirm').onclick = confirmDoc;
 $('#reject').onclick = resetDoc;
 </script>
