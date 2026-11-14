@@ -149,4 +149,14 @@ After a meaningful behavior change:
 6. append three plain-language lines to `memory/plain-log.md`: what changed / why /
    what it changes for the owner. A change without these lines is not explained.
 
-Do not create commits or push unless explicitly requested.
+## Repository workflow
+
+- Commit locally after every notable step; that is expected and does not need permission.
+- Push to `origin` in batches (a finished feature or when the owner asks), not after
+  every commit: a push is a published milestone, not a save point.
+- CI is not triggered by pushes: `.github/workflows/ci.yml` runs on
+  `workflow_dispatch` and on pull requests only. Run it when a batch is ready:
+
+```bash
+gh workflow run CI
+```
