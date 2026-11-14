@@ -1,19 +1,7 @@
 # .pre-commit-config.yaml
+# Only repository hygiene. Linting and type checking are not configured yet:
+# the project has no ruff/mypy settings, so those hooks are intentionally absent.
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
-    hooks:
-      - id: ruff
-        args: [--fix]
-      - id: ruff-format
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
-    hooks:
-      - id: mypy
-        args: [--config-file, mypy.ini]
-        additional_dependencies: [types-requests]
-
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:

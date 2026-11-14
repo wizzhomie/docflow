@@ -1,7 +1,14 @@
+# Runtime
 fastapi==0.162.5
 uvicorn==0.54.0
 pydantic==2.14.3
 python-multipart==0.0.33
 pypdf==7.0.1
 requests==2.32.3
-weasyprint==65.2
+weasyprint==70.0
+
+# Sample generation (tools/) and PDF rendering of synthetic documents
+pillow==13.0.0
+
+# HTTP-level tests (fastapi.testclient)
+httpx==0.28.1

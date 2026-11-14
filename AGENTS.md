@@ -133,7 +133,9 @@ An opt-in check against the real CRM (creates one test deal and one company):
 set -a; . ./.env; set +a; python3 tools/check_crm.py
 ```
 
-No lint, typecheck or CI command is currently defined.
+CI runs the deterministic suite above on every push to `main`/`develop`
+(`.github/workflows/ci.yml`). No lint, typecheck or formatter is configured yet:
+the pre-commit config intentionally has hygiene hooks only.
 
 ## Memory update protocol
 
