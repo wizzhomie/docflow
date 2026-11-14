@@ -127,6 +127,17 @@
     background: rgba(251,191,36,.1); border: 1px solid rgba(251,191,36,.3); color: #fcd34d; }
   .empty-state { color: #5d6377; text-align: center; padding: 50px 20px; font-size: .88rem; }
 
+  .inbox-card { margin-top: 20px; }
+  .inbox-row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+    padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.02);
+    color: var(--text); font: inherit; cursor: pointer; margin-bottom: 8px; }
+  .inbox-row:hover { border-color: var(--accent); background: rgba(124,92,255,.08); }
+  .inbox-file { font-size: .85rem; font-weight: 600; min-width: 210px; }
+  .inbox-meta { font-size: .8rem; color: var(--muted); flex: 1; }
+  .pill { font-size: .72rem; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--muted); }
+  .pill.bad { background: rgba(251,191,36,.16); color: var(--warn); }
+  .inbox-empty { color: #5d6377; text-align: center; padding: 26px 20px; font-size: .85rem; }
+
   .result-card { border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.06); border-radius: 14px; padding: 18px 20px; }
   .result-card.warn { border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.07); }
   .result-card.bad { border-color: rgba(248,113,113,.45); background: rgba(248,113,113,.07); }
@@ -245,6 +256,16 @@
       </div>
     </section>
   </div>
+
+  <section class="card inbox-card">
+    <div class="card-head">
+      <h2>Needs attention</h2>
+      <span class="hint" id="inbox-hint">—</span>
+    </div>
+    <div class="card-body">
+      <div id="inbox-wrap"><div class="inbox-empty">Nothing is waiting for review</div></div>
+    </div>
+  </section>
 
   <section class="card impact-card">
     <div class="card-head">
@@ -484,6 +505,41 @@ function renderResult(data) {
   $('#conf-label').textContent = duplicate ? 'duplicate' : crm.error ? 'crm error' : 'saved';
 }
 
+function renderInbox(items) {
+  const wrap = $('#inbox-wrap');
+  const hint = $('#inbox-hint');
+  if (!items.length) {
+    hint.textContent = 'empty';
+    wrap.innerHTML = '<div class="inbox-empty">Nothing is waiting for review</div>';
+    return;
+  }
+  hint.textContent = `${items.length} waiting for review`;
+  wrap.innerHTML = items.map((item) => {
+    const f = item.fields || {};
+    const issues = item.issues || [];
+    const badge = issues.length
+      ? `<span class="pill bad">${issues.length} issue${issues.length > 1 ? 's' : ''}</span>`
+      : '<span class="pill">no issues</span>';
+    return `<button class="inbox-row" data-id="${item.id}">
+      <span class="inbox-file">${item.filename || 'document'}</span>
+      <span class="inbox-meta">${f.supplier || 'unknown supplier'} · ${f.number ? '№' + f.number : 'no number'} · ${money(f.total, f.currency || 'UAH')}</span>
+      ${badge}
+    </button>`;
+  }).join('');
+  wrap.querySelectorAll('.inbox-row').forEach((row) => {
+    row.onclick = async () => {
+      try {
+        const res = await fetch('/api/documents/' + row.dataset.id);
+        if (!res.ok) throw new Error('Could not open document');
+        loadDoc(await res.json());
+        toast('Opened for review', 'ok');
+      } catch (err) {
+        toast(err.message, 'bad');
+      }
+    };
+  });
+}
+
 function renderFields(meta) {
   const wrap = $('#fields-wrap');
   const actions = $('#actions');
@@ -652,15 +708,17 @@ async function loadConfig() {
 
 async function refresh() {
   try {
-    const [stats, docs, impact] = await Promise.all([
+    const [stats, docs, impact, inbox] = await Promise.all([
       fetch('/api/stats').then((r) => r.json()),
       fetch('/api/documents').then((r) => r.json()),
       fetch('/api/impact').then((r) => r.json()),
+      fetch('/api/inbox').then((r) => r.json()),
     ]);
     $('#st-docs').textContent = stats.documents;
     $('#st-saved').textContent = minutesLabel(impact.time_saved_minutes);
     $('#st-acc').textContent = stats.accuracy + '%';
     renderImpact(impact);
+    renderInbox(inbox);
     $('#table-hint').textContent = stats.documents
       ? `${stats.documents} docs · total ${money(stats.total_amount, 'UAH')}`
       : '';

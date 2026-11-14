@@ -52,6 +52,14 @@ empty fields of the company card and creates the contact person once. Demo mode
 short-circuits this module entirely, so a demonstration never writes to the
 account.
 
+### Review queue
+
+`/api/inbox` lists documents that were uploaded but not confirmed. Confirming
+leaves the pending snapshot on disk, so the confirmation history is what
+separates "waiting for review" from "already saved". The UI renders this as the
+"Needs attention" block: filename, supplier, amount and the number of tripped
+invariants, and clicking a row loads the document back into review.
+
 ### `templates/index.html`
 
 Upload, preview, editable fields, confidence, validation issues, confirmation, history and statistics.
