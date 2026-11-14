@@ -360,6 +360,39 @@ def _effective_fields(parsed_values: dict, submitted: dict) -> dict:
     return {**parsed_values, **{key: value for key, value in submitted.items() if value not in (None, '')}}
 
 
+def _pending_documents(limit: int = 20) -> list[dict]:
+    """Uploaded documents that are still waiting for a decision.
+
+    Confirming does not delete the pending snapshot, so the history is what
+    separates "waiting for review" from "already saved".
+    """
+    confirmed_ids = {row.get('id') for row in _read_confirmed()}
+    items = []
+    for path in PENDING.glob('*.json'):
+        doc_id = path.stem
+        if doc_id in confirmed_ids:
+            continue
+        try:
+            meta = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        parsed = meta.get('parsed') or {}
+        items.append(
+            {
+                'id': doc_id,
+                'filename': meta.get('filename'),
+                'uploaded_at': meta.get('uploaded_at'),
+                'suffix': meta.get('suffix'),
+                'source': meta.get('source', 'upload'),
+                'issues': list(parsed.get('issues') or []),
+                'confidence': parsed.get('confidence'),
+                'fields': {k: v.get('value') for k, v in (parsed.get('fields') or {}).items()},
+            }
+        )
+    items.sort(key=lambda item: item.get('uploaded_at') or '', reverse=True)
+    return items[:limit]
+
+
 def _process(doc_id: str, filename: str, path: Path, source: str = 'upload') -> dict:
     text = extract_text(path)
     items = parse_items(text)
@@ -512,6 +545,19 @@ def confirm(payload: ConfirmPayload):
         out.write(json.dumps(record, ensure_ascii=False) + '\n')
 
     return {'ok': True, 'edited_fields': edited, 'record': record, 'crm': crm}
+
+
+@app.get('/api/inbox')
+def inbox(limit: int = 20):
+    return _pending_documents(limit)
+
+
+@app.get('/api/documents/{doc_id}')
+def document_meta(doc_id: str):
+    path = _meta_path(doc_id)
+    if not path.exists():
+        raise HTTPException(404, 'Document not found')
+    return json.loads(path.read_text(encoding='utf-8'))
 
 
 @app.get('/api/documents')
