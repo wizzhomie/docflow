@@ -125,6 +125,30 @@ plan can change without touching the application.
 7. Confirm and persist history.
 8. Create Uspacy deal if configured.
 
+## Engineering approach
+
+**Deterministic core, one human checkpoint.** Reading a document is a judgement;
+validating, routing and writing to the CRM is arithmetic and rules. The pipeline keeps
+those apart: profiles interpret, validation and routing execute, the reviewer confirms.
+The human is a stage, not an exception handler, and the confirmation is the only moment
+a document can reach the CRM.
+
+**Why no orchestration framework.** There is no LangGraph, CrewAI or multi-agent graph.
+An agent orchestrator in the hot path would add cost, latency, non-reproducible output
+and a second source of confident errors, while the formal rules are exactly what code is
+better at. Async is used only where the system waits (folder watcher, IMAP poll via
+`asyncio.to_thread`); document processing is sequential, so one document cannot race
+itself into two deals. If a model is ever added, it proposes a value into the same
+review step — it never decides on its own.
+
+**Profiles are data.** A document type and its market (labels, value formats, legal
+forms, OCR language) are a profile module; the parser and the CRM connectors are
+generic. A new type is a new profile plus fixtures, not a new branch in the core.
+
+**Error classes are the unit of work.** A defect is fixed by root cause → invariant →
+test → fix → regression, not by patching one example. `docs/` and `memory/error-catalog.md`
+record the class; `tests/` is the executable expectation.
+
 ## R&D
 
 1. Collect failed or disputed cases.
