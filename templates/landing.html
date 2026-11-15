@@ -535,5 +535,19 @@ function initStats() {
 initScene();
 initStats();
 </script>
+
+<script>
+// Optional assistant widget: configured per deployment, off when the URL is empty.
+(async () => {
+  try {
+    const config = await (await fetch('/api/config')).json();
+    if (!config.assistant_url) return;
+    const script = document.createElement('script');
+    script.src = config.assistant_url;
+    script.defer = true;
+    document.head.appendChild(script);
+  } catch (error) { /* the assistant is optional */ }
+})();
+</script>
 </body>
 </html>

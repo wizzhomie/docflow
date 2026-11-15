@@ -165,6 +165,7 @@ Everything is optional; the application starts with no CRM and no mailbox.
 | `DOCFLOW_MANUAL_MINUTES` | manual-entry minutes used by the impact report |
 | `DOCFLOW_IMAP_HOST`, `_PORT`, `_USER`, `_PASSWORD`, `_FOLDER`, `_INTERVAL`, `_SSL` | mailbox intake; empty host/user/password disables it |
 | `DOCFLOW_OCR_LANGS` | OCR languages, e.g. `ukr+eng`; default is the union of the registered profiles |
+| `DOCFLOW_ASSISTANT_URL` | optional URL of an assistant widget script shown on the pages; empty disables it |
 
 Secrets live only in `.env` (git-ignored). `.env.example` documents the keys with empty values.
 

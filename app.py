@@ -782,6 +782,9 @@ def config():
         # page: the UI shows what the registered types actually read.
         'default_currency': profiles.default_currency(None),
         'document_types': profiles.catalog(),
+        # Optional: URL of the assistant widget script. Empty means the widget is off,
+        # which is the public default. A deployment that runs the assistant sets it.
+        'assistant_url': os.environ.get('DOCFLOW_ASSISTANT_URL', '').strip(),
     }
 
 
