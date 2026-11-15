@@ -18,3 +18,4 @@ data/keys/
 
 # Runtime polling state of the mailbox watcher
 data/mailbox_state.json
+projects/
