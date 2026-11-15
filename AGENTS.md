@@ -2,7 +2,8 @@
 
 ## Project
 
-DocFlow extracts fields from documents, sends them through human review, and creates CRM deals (Uspacy or Bitrix24). The service is market-neutral: a document profile carries everything that belongs to one market — field labels, default currency, OCR language, tax-ID and IBAN formats, legal forms for CRM matching. Three profiles ship today: a Ukrainian invoice, a Ukrainian act of completed work and a Ukrainian delivery note. Adding a document type or a second market is a new profile, not a rewrite of the core. UI in English.
+DocFlow lives in `backproject/docflow`; the workspace root (`backproject/`) is a
+portfolio folder that may contain other products. DocFlow extracts fields from documents, sends them through human review, and creates CRM deals (Uspacy or Bitrix24). The service is market-neutral: a document profile carries everything that belongs to one market — field labels, default currency, OCR language, tax-ID and IBAN formats, legal forms for CRM matching. Three profiles ship today: a Ukrainian invoice, a Ukrainian act of completed work and a Ukrainian delivery note. Adding a document type or a second market is a new profile, not a rewrite of the core. UI in English.
 
 ## Mandatory context
 
