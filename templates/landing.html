@@ -53,12 +53,13 @@
   }
   .btn:hover { background: rgba(255,255,255,.1); }
   .btn:active { transform: translateY(1px); }
-  .btn-warm {
-    color: #221604; border-color: transparent; font-weight: 700;
-    background: linear-gradient(135deg, #fcd34d, #fbbf24 45%, #f59e0b 100%);
-    box-shadow: 0 12px 32px -12px rgba(251,191,36,.75), inset 0 1px 0 rgba(255,255,255,.5);
+  .btn-primary {
+    color: #fff; border-color: transparent; font-weight: 600;
+    background: #7454ff;
+    box-shadow: 0 12px 32px -16px rgba(124,92,255,.8), inset 0 1px 0 rgba(255,255,255,.18);
   }
-  .btn-warm:hover { background: linear-gradient(135deg, #fde047, #fcd34d 45%, #fbbf24 100%); }
+  .btn-primary:hover { background: #6f4cf5; }
+  .btn-primary:active { background: #6445ee; }
   .btn-glass { background: rgba(255,255,255,.055); border-color: rgba(255,255,255,.14); backdrop-filter: blur(8px); }
   .btn-glass:hover { background: rgba(255,255,255,.1); }
 
@@ -317,7 +318,7 @@
 <header class="topbar">
   <a class="logo" href="/"><span class="logo-mark"></span> DocFlow</a>
   <span class="nav-note">Document router for business documents</span>
-  <a class="btn btn-warm" href="/app">Open the app</a>
+  <a class="btn btn-primary" href="/app">Open the app</a>
 </header>
 
 <section class="hero">
@@ -332,7 +333,7 @@
     </h1>
     <p class="sub">Invoices, acts, delivery notes and scans arrive from a folder, a mailbox or a phone camera. DocFlow reads the whole document, asks a human only when it matters, and delivers the confirmed result to the process that owns it.</p>
     <div class="cta">
-      <a class="btn btn-warm" href="/app">Open the app</a>
+      <a class="btn btn-primary" href="/app">Open the app</a>
       <a class="btn btn-glass" href="/app#path">See the path</a>
     </div>
 
