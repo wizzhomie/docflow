@@ -13,7 +13,7 @@ data/confirmed.jsonl
 .tools/
 data/inbox/
 
-# SSH key used to reach the Docker host (never commit)
+# Local runtime keys (never commit)
 data/keys/
 
 # Runtime polling state of the mailbox watcher
