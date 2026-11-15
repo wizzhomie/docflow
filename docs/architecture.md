@@ -33,17 +33,19 @@ Text acquisition, OCR fallback, interpretation of document fields with the ancho
 
 IMAP polling: finds unseen messages, decodes their attachments, hands each file to the application (which ingests it through the same path as an upload) and marks the message seen only after the ingest succeeded. Polling state (seen Message-IDs, counters, last error) is persisted in `data/mailbox_state.json`.
 
-### `profiles/invoice_ua.py`
+### `profiles/market_ua.py`
 
-Executable document-type knowledge: labels, synonyms, anchors, currency markers,
-required fields and VAT rate. Also declares the optional requisites (address,
-phone, email, bank, IBAN, contact person) and which fields are core for the
-overall confidence score.
+The shared facts of the Ukrainian market: currency and VAT vocabulary,
+label synonyms, tax-ID/IBAN/phone formats, legal forms for CRM matching, OCR
+language, the characters allowed in a document number, and the field sets that
+decide whether a document was understood. A profile imports them instead of
+copying them; a second market gets its own module.
 
-The same module is the profile's passport: UI and source labels, the CRM comment
-labels, default currency, OCR languages, tax-ID and IBAN formats, phone formats,
-legal forms for CRM matching and the characters allowed in a document number.
-The core never hardcodes a market — it asks the registry for these facts.
+### `profiles/invoice_ua.py`, `act_ua.py`, `delivery_ua.py`
+
+Executable document-type knowledge: title markers, anchors, total labels and the
+passport the reviewer sees (UI and source labels). The core never hardcodes a
+market — it asks the registry for these facts.
 
 ### `profiles/`
 
@@ -51,9 +53,10 @@ A registry of document types. The parser detects the type from the first lines
 and takes every type-specific anchor from that profile, so a new document type
 is a new profile module, not another branch in the extractor. The registry also
 answers market questions: UI labels, default currency, OCR language union, legal
-forms and number characters. Two profiles exist — a Ukrainian invoice and a
-Ukrainian act of completed work — as the first implemented types; a second market
-is another profile, not a rewrite.
+forms and number characters. Three profiles exist — a Ukrainian invoice, act of
+completed work and delivery note — as the first implemented types; their shared
+market facts live in `profiles/market_ua.py`, and a second market is another
+market module plus profiles, not a rewrite.
 
 ### `connectors/`
 

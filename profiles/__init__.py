@@ -15,10 +15,11 @@ second market means adding a profile, not editing the parser.
 import os
 import re
 
-from profiles import act_ua, invoice_ua
+from profiles import act_ua, delivery_ua, invoice_ua
 
-# Order matters: the act markers are more specific than the invoice ones.
-PROFILES = [act_ua, invoice_ua]
+# The delivery note markers are the most specific; the invoice is the fallback
+# type, so it comes last.
+PROFILES = [delivery_ua, act_ua, invoice_ua]
 DEFAULT = invoice_ua
 
 DEFAULT_PROFILE = invoice_ua

@@ -9,8 +9,8 @@ payments, accounting or approval — creating or updating a deal in the CRM.
 
 The service is built to be market-neutral. A **document profile** carries everything
 that belongs to one market — field labels, default currency, OCR language, tax-ID and
-IBAN formats, legal forms for CRM matching. Two profiles ship today, the first ones
-implemented: a Ukrainian invoice and a Ukrainian act of completed work. Adding a
+IBAN formats, legal forms for CRM matching. Three profiles ship today, the first ones
+implemented: a Ukrainian invoice, an act of completed work and a delivery note. Adding a
 document type or a second market means adding a profile, not rewriting the parser.
 
 ![Showcase page](docs/screenshots/landing.webp)
@@ -28,9 +28,10 @@ document type or a second market means adding a profile, not rewriting the parse
 - **Uncertainty is visible, not hidden**: confidence dots in the review form, deterministic
   invariants (amount = items sum, tax ID format, IBAN, phone, e-mail), and an exception
   queue for documents that need attention.
-- **Deterministic routing**: invoice → Payments, act → Accounting, any document above
-  `DOCFLOW_APPROVAL_THRESHOLD` (default 100 000) → Approval. The destination and its
-  reason are stored with the record, shown in the result card and added to the CRM comment.
+- **Deterministic routing**: invoice → Payments, act and delivery note → Accounting, any
+  document above `DOCFLOW_APPROVAL_THRESHOLD` (default 100 000) → Approval. The
+  destination and its reason are stored with the record, shown in the result card and
+  added to the CRM comment.
 - **One CRM interface, two connectors**: Uspacy (verified against a live account) and
   Bitrix24 (incoming webhook, verified against a local fake of the REST protocol).
 - **Duplicate protection** on two levels: local history (number + supplier + date) and a
@@ -99,7 +100,7 @@ Secrets live only in `.env` (git-ignored). `.env.example` documents the keys wit
 The deterministic suite runs without network, credentials or a real CRM:
 
 ```bash
-python3 tests/run_eval.py            # 12 labelled fixtures, 97/97 checks, 0 confident errors
+python3 tests/run_eval.py            # 13 labelled fixtures, 104/104 checks, 0 confident errors
 python3 tests/run_eval_split.py      # real vs synthetic split
 for suite in tests/test_*.py; do python3 "$suite" || exit 1; done
 ```
@@ -126,8 +127,9 @@ plus a Docker build on manual dispatch and on pull requests.
 
 This is a prototype for a client demonstration, not a production platform:
 
-- two document profiles are implemented (Ukrainian invoice and act); other markets need a
-  profile each, and the review form is one fixed field set rather than profile-specific;
+- three document profiles are implemented (Ukrainian invoice, act and delivery note); other
+  markets need a profile each, and the review form is one fixed field set rather than
+  profile-specific;
 - one business workspace and one configured mailbox/CRM at a time; there are no accounts,
   roles or audit yet;
 - the app has no authentication of its own and is published to a private tailnet only;
@@ -165,6 +167,7 @@ memory/            working memory: state, handoff, decision log, plain log
 **По-русски, коротко:** DocFlow — прототип платформы для автоматизации документооборота:
 документы приходят из папки или почты, распознаются, проходят проверку человеком и уходят
 в нужный процесс и CRM. Сервис задуман универсальным: всё, что относится к конкретному
-рынку, живёт в профиле документа, а не в ядре; сейчас реализованы украинские счёт и акт.
+рынку, живёт в профиле документа, а не в ядре; сейчас реализованы украинские счёт, акт и
+видаткова накладна.
 Подробное объяснение простым языком — [`docs/plain-guide.md`](docs/plain-guide.md),
 рабочее состояние — [`memory/handoff.md`](memory/handoff.md).

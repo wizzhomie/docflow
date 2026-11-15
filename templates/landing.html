@@ -316,7 +316,7 @@
 
 <header class="topbar">
   <a class="logo" href="/"><span class="logo-mark"></span> DocFlow</a>
-  <span class="nav-note">Document router for invoices and acts</span>
+  <span class="nav-note">Document router for business documents</span>
   <a class="btn btn-warm" href="/app">Open the app</a>
 </header>
 
@@ -330,7 +330,7 @@
       <span class="line">Every document</span>
       <span class="line warm">finds its own place.</span>
     </h1>
-    <p class="sub">Invoices, acts and scans arrive from a folder, a mailbox or a phone camera. DocFlow reads the whole document, asks a human only when it matters, and delivers the confirmed result to the process that owns it.</p>
+    <p class="sub">Invoices, acts, delivery notes and scans arrive from a folder, a mailbox or a phone camera. DocFlow reads the whole document, asks a human only when it matters, and delivers the confirmed result to the process that owns it.</p>
     <div class="cta">
       <a class="btn btn-warm" href="/app">Open the app</a>
       <a class="btn btn-glass" href="/app#path">See the path</a>
@@ -421,7 +421,7 @@
       <div class="stat"><b id="stat-docs">—</b><span>documents routed</span></div>
       <div class="stat"><b id="stat-saved">—</b><span>time saved</span></div>
       <div class="stat"><b id="stat-auto">—</b><span>auto-pass</span></div>
-      <div class="stat"><b>2 / 2</b><span>document types live</span></div>
+      <div class="stat"><b id="stat-types">—</b><span>document types live</span></div>
     </div>
   </div>
 </section>
@@ -431,7 +431,7 @@
   <span class="sep">·</span>
   <a href="/app#path">Our path</a>
   <span class="sep">·</span>
-  <span>invoices and acts today · more document types are a profile · human review · routed to CRM</span>
+  <span>invoices, acts and delivery notes today · more types are a profile · human review · routed to CRM</span>
 </footer>
 
 <script>
@@ -515,9 +515,10 @@ function initScene() {
 function initStats() {
   (async () => {
     try {
-      const [stats, impact] = await Promise.all([
+      const [stats, impact, config] = await Promise.all([
         fetch('/api/stats').then((r) => r.json()),
         fetch('/api/impact').then((r) => r.json()),
+        fetch('/api/config').then((r) => r.json()),
       ]);
       document.getElementById('stat-docs').textContent = stats.documents ?? '—';
       const saved = impact.time_saved_minutes || 0;
@@ -525,6 +526,8 @@ function initStats() {
         saved >= 60 ? (saved / 60).toFixed(1) + ' h' : Math.round(saved) + ' min';
       document.getElementById('stat-auto').textContent =
         impact.documents ? impact.auto_pass_rate + '%' : '—';
+      const types = (config.document_types || []).length;
+      document.getElementById('stat-types').textContent = types ? `${types} live` : '—';
     } catch (err) {}
   })();
 }

@@ -67,10 +67,17 @@
     },
     {
       "id": "more-types",
-      "title": "Contracts and delivery notes",
+      "title": "Delivery notes",
+      "status": "done",
+      "summary": "Third document type on the same profile registry: goods arrive and the delivery note is booked.",
+      "decision": "The next breadth step is a new type, not perfection of one; the delivery note shares the invoice field set."
+    },
+    {
+      "id": "contracts",
+      "title": "Contracts",
       "status": "next",
-      "summary": "Third and fourth document types on the same profile registry.",
-      "decision": "The next breadth step is new types, not perfection of one."
+      "summary": "Fourth document type: parties, subject, term and amount — a different field set from an invoice.",
+      "decision": "Contracts need a profile-specific review form; do it when the first client asks, not to grow the list."
     },
     {
       "id": "sources",

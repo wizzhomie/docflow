@@ -45,6 +45,13 @@ def test_act_goes_to_accounting():
     assert 'act' in result['reason']
 
 
+def test_delivery_note_goes_to_accounting():
+    result = routing.route('delivery_ua', {'total': 21000})
+    assert result['destination'] == 'Accounting'
+    assert result['destination_code'] == 'accounting'
+    assert 'delivery note' in result['reason']
+
+
 def test_unknown_document_type_falls_back_to_crm():
     result = routing.route('something_else', {'total': 100})
     assert result['destination'] == 'CRM'

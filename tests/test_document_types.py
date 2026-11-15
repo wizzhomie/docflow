@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import app  # noqa: E402
 from extractor import parse_invoice  # noqa: E402
-from profiles import act_ua, detect_profile, invoice_ua  # noqa: E402
+from profiles import act_ua, delivery_ua, detect_profile, invoice_ua  # noqa: E402
 
 
 def isolate_storage():
@@ -45,6 +45,30 @@ def test_uppercase_act_title_is_detected():
 
 def test_invoice_is_still_detected():
     assert detect_profile('Рахунок на оплату № 55 від 10.11.2026') is invoice_ua
+
+
+def test_delivery_note_is_detected_by_title():
+    assert detect_profile('Видаткова накладна № 2026-77 від 12.11.2026') is delivery_ua
+
+
+def test_delivery_note_fields_are_parsed():
+    text = (
+        'Видаткова накладна № 2026-77 від 12.11.2026\n'
+        'Постачальник: ТОВ «Терра-Буд», ЄДРПОУ 33445566\n'
+        'Покупець: ТОВ «Смак-Дистрибуція», ЄДРПОУ 41234567\n'
+        'Разом: 21 000,00\n'
+        'ПДВ 20%: 3 500,00\n'
+        'Всього: 21 000,00 грн\n'
+    )
+    parsed = parse_invoice(text)
+    values = {key: field['value'] for key, field in parsed['fields'].items()}
+    assert parsed['type'] == 'delivery_ua'
+    assert parsed['doc_title'] == 'Видаткова накладна'
+    assert values['supplier'] == 'ТОВ «Терра-Буд»'
+    assert values['number'] == '2026-77'
+    assert values['total'] == 21000.0
+    assert values['vat'] == 3500.0
+    assert parsed['issues'] == []
 
 
 def test_unknown_document_falls_back_to_invoice():
@@ -80,6 +104,19 @@ def test_act_confirm_names_the_deal_as_an_act():
         assert result['crm']['deal']['title'].startswith('Акт №2026-14')
         history = client.get('/api/documents').json()
         assert history[0]['doc_type'].startswith('Ukrainian act')
+
+
+def test_delivery_note_confirm_names_the_deal_as_a_delivery_note():
+    isolate_storage()
+    with TestClient(app.app) as client:
+        meta = client.post('/api/samples/delivery_01_2026-77.pdf').json()
+        assert meta['parsed']['type'] == 'delivery_ua'
+        fields = {key: value['value'] for key, value in meta['parsed']['fields'].items()}
+        result = client.post('/api/confirm', json={'id': meta['id'], 'fields': fields}).json()
+        assert result['crm']['simulated'] is True
+        assert result['crm']['deal']['title'].startswith('Видаткова накладна №2026-77')
+        history = client.get('/api/documents').json()
+        assert history[0]['doc_type'].startswith('Ukrainian delivery note')
 
 
 def test_invoice_confirm_keeps_the_invoice_title():

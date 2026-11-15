@@ -23,6 +23,7 @@ DESTINATIONS = {
 _BY_DOCUMENT_TYPE = {
     'invoice_ua': ('payments', 'invoice goes to the payment queue'),
     'act_ua': ('accounting', 'an act closes completed work, so accounting owns it'),
+    'delivery_ua': ('accounting', 'a delivery note confirms goods received, so accounting books it'),
 }
 
 

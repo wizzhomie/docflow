@@ -10,7 +10,39 @@ Levels of the invariant tree:
 3. fields    - label synonyms (Постачальник/Продавець/Виконавець, ...)
 4. values    - date/money/tax-id formats, currency markers
 5. noise     - common OCR misreads (№ -> N/Mo/Ne, spaces inside dates)
+
+The market facts behind levels 2-4 — currency, formats, label vocabulary, OCR
+language — come from ``profiles/market_ua.py`` and are shared with the act and
+the delivery note. This module only states what makes an invoice an invoice.
 """
+
+from profiles.market_ua import (
+    COMMENT_LABELS,
+    CORE_FIELD_KEYS,
+    CURRENCY,
+    DATE_PREFIXES,
+    DEFAULT_CURRENCY,
+    FIELD_KEYS,
+    IBAN_CANDIDATE_RE,
+    IBAN_RE,
+    INVARIANTS,
+    LABELS,
+    LEGAL_FORMS,
+    NUMBER_CHARS,
+    NUMBER_MARKERS,
+    OCR_LANGS,
+    OPTIONAL_FIELD_KEYS,
+    PHONE_COUNTRY_CODE,
+    PHONE_LOCAL_RE,
+    PHONE_RE,
+    PHONE_TRUNK_PREFIX,
+    TAX_ID_PREFIXES,
+    TAX_ID_RE,
+    VAT_DETAIL_RE,
+    VAT_LABELS,
+    VAT_RATE,
+    VAT_ZERO_RE,
+)
 
 CODE = 'invoice_ua'
 NAME = 'Ukrainian invoice (Рахунок на оплату)'
@@ -21,54 +53,15 @@ TITLE_RE = r'(?:Рахунок|Сч[её]т)'
 # Markers that decide which profile owns a document. Checked on the first lines.
 DETECT_MARKERS = [r'^\s*рахунок\b', r'^\s*сч[её]т\b', r'рахунок\s+на\s+оплату']
 
-# Order-independent label synonyms.
-LABELS = {
-    'supplier': [r'постачальник', r'продавець', r'виконавець', r'поставщик'],
-    'buyer': [r'покупець', r'покупатель', r'замовник', r'заказчик', r'платник', r'плательщик'],
-    'address': [r'адреса', r'адрес'],
-    'phone': [r'тел\.?', r'телефон', r'моб\.?'],
-    'email': [r'e-?mail', r'ел\.\s*пошта', r'эл\.\s*почта'],
-    'bank': [r'банк'],
-    'iban': [r'iban', r'р/р', r'розрахунковий\s+рахунок'],
-    'contact': [r'контактна\s+особа', r'контактное\s+лицо', r'менеджер'],
-}
-
-# Includes OCR look-alikes: tesseract renders «ІПН» as «INH» and «ЄДРПОУ» as
-# «ЕДРПОУ» often enough that the tax id must survive the mangling.
-TAX_ID_PREFIXES = [r'єдрпоу', r'едрпоу', r'іпн', r'инн', r'inh']
-
-# Invoice number/date markers (OCR-tolerant).
-NUMBER_MARKERS = [r'№', r'n[oоeе]?', r'м[оo0О]']
-DATE_PREFIXES = [r'від', r'от']
+# «Рахунок на оплату № 55»: the words between the document title and the number.
+NUMBER_CONTEXT_RE = r'(?:\s+на\s+оплату)?'
 
 # Grand total vs subtotal labels.
 TOTAL_LABELS = [r'(?:всього|усього)\s+до\s+сплати', r'до\s+сплати', r'всего\s+к\s+оплате']
 SUBTOTAL_LABELS = [r'ітого', r'итого', r'разом', r'усього', r'всього']
 
-VAT_LABELS = [r'пдв', r'ндс']
-VAT_ZERO_RE = r'без\s+(?:пдв|ндс)'
-VAT_DETAIL_RE = r'%|тому\s+числі|в\s+том\s+числе'
+# --- The profile's passport: presentation the core must not decide.
 
-# Currency markers, checked in order. Default for the target market is UAH.
-CURRENCY = {
-    'USD': [r'\bUSD\b', r'\$'],
-    'EUR': [r'\bEUR\b', r'€'],
-    'UAH': [r'\bгрн\b', r'₴', r'\bUAH\b', r'гривн'],
-}
-DEFAULT_CURRENCY = 'UAH'
-
-# Fields that decide whether the document was understood. Optional requisites
-# (address, phone, email, bank, IBAN, contact) never lower the overall score:
-# their absence is normal, only a malformed value is a problem.
-CORE_FIELD_KEYS = ['number', 'date', 'supplier', 'tax_id', 'total', 'vat', 'currency']
-OPTIONAL_FIELD_KEYS = ['address', 'phone', 'email', 'bank', 'iban', 'contact_person']
-FIELD_KEYS = CORE_FIELD_KEYS + OPTIONAL_FIELD_KEYS
-
-VAT_RATE = 20
-
-# --- The profile's passport: everything the core must not know about a market.
-# The review workspace shows fields with these labels; the evidence label says
-# where a value was taken from; the CRM comment repeats the local requisites.
 UI_LABELS = {
     'number': 'Invoice number',
     'date': 'Invoice date',
@@ -97,38 +90,3 @@ SOURCE_LABELS = {
     'bank': 'Банк',
     'contact_person': 'Контактна особа',
 }
-
-COMMENT_LABELS = {'tax_id': 'ЄДРПОУ/ІПН', 'bank': 'Банк'}
-
-# Language of the documents; the OCR reads the union of all profiles.
-OCR_LANGS = 'ukr+eng'
-
-# «Рахунок на оплату № 55»: the words between the document title and the number.
-NUMBER_CONTEXT_RE = r'(?:\s+на\s+оплату)?'
-
-# Value formats of this market.
-TAX_ID_RE = r'\d{8}|\d{10,12}'
-IBAN_RE = r'UA\d{27}'
-IBAN_CANDIDATE_RE = r'\bUA[\s\d]{26,45}'
-PHONE_RE = r'\+?380[\s\-]?\(?\d{2,3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}'
-PHONE_LOCAL_RE = r'\(?0\d{2,3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}'
-PHONE_COUNTRY_CODE = '38'
-PHONE_TRUNK_PREFIX = '8'
-
-# Names are matched in the CRM after legal forms are removed.
-LEGAL_FORMS = ('тов', 'фоп', 'пп', 'дп', 'ат', 'ооо')
-NUMBER_CHARS = '0-9a-zа-яіїєґ'
-
-INVARIANTS = [
-    'number is present',
-    'date is a valid calendar date',
-    'supplier is present',
-    'tax_id is 8 digits (ЄДРПОУ) or 10-12 digits (ІПН)',
-    'total is a non-negative number',
-    'vat is 0 or ~20/120 of total when present',
-    'currency is one of UAH, USD, EUR',
-    'sum(items) approx equals total when items are parsed',
-    'email is present or absent, but never malformed',
-    'phone is present or absent, but never a random number from the text',
-    'iban is UA + 27 digits when present',
-]

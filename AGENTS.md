@@ -2,7 +2,7 @@
 
 ## Project
 
-DocFlow extracts fields from documents, sends them through human review, and creates CRM deals (Uspacy or Bitrix24). The service is market-neutral: a document profile carries everything that belongs to one market — field labels, default currency, OCR language, tax-ID and IBAN formats, legal forms for CRM matching. Two profiles ship today, the first implemented: a Ukrainian invoice and a Ukrainian act of completed work. Adding a document type or a second market is a new profile, not a rewrite of the core. UI in English.
+DocFlow extracts fields from documents, sends them through human review, and creates CRM deals (Uspacy or Bitrix24). The service is market-neutral: a document profile carries everything that belongs to one market — field labels, default currency, OCR language, tax-ID and IBAN formats, legal forms for CRM matching. Three profiles ship today: a Ukrainian invoice, a Ukrainian act of completed work and a Ukrainian delivery note. Adding a document type or a second market is a new profile, not a rewrite of the core. UI in English.
 
 ## Mandatory context
 
@@ -31,9 +31,12 @@ Load additional context only when relevant:
 - `app.py` — FastAPI orchestration, persistence, review workflow and reporting.
 - `extractor.py` — text acquisition, OCR fallback and field interpretation.
 - `mailbox.py` — IMAP intake: attachments of new mail go through the same pipeline as an upload.
+- `profiles/market_ua.py` — the shared facts of the Ukrainian market: currency, VAT,
+  label vocabulary, tax-ID/IBAN/phone formats, legal forms, OCR language.
 - `profiles/invoice_ua.py` — executable Ukrainian invoice profile: anchors, plus the
-  passport (UI/source/comment labels, default currency, OCR language, value formats).
+  passport (UI/source labels, totals, number context).
 - `profiles/act_ua.py` — the same tree for a Ukrainian act of completed work.
+- `profiles/delivery_ua.py` — the same tree for a Ukrainian delivery note.
 - `profiles/__init__.py` — registry: the first lines of a document decide which profile owns
   it, and the core asks the registry for labels, currency, OCR languages, legal forms and
   number characters instead of hardcoding one market.
@@ -45,7 +48,8 @@ Load additional context only when relevant:
   (intake → read → human review → route → CRM) plus live stats from `/api/stats` and `/api/impact`.
 - `templates/index.html` — English review workspace (upload/review/history UI), served at `/app`.
 - `tests/run_eval.py` — deterministic regression baseline.
-- `tests/document_cases.json` — compact labelled fixtures for every document type (invoice, act).
+- `tests/document_cases.json` — compact labelled fixtures for every document type
+  (invoice, act, delivery note).
 - `docs/roadmap.json` + `/api/roadmap` — the product path shown on the site: stages with a decision each.
 - `app.py` serves the review queue: `/api/inbox` lists uploaded-but-unconfirmed
   documents, so a document survives a page reload until someone decides on it.
@@ -89,6 +93,8 @@ technical debt in his head, even when the code is correct.
 - `python3 tools/make_pilot_batch.py` regenerates the four `pilot_*` invoices used
   for a hands-on walkthrough: new numbers, dates and tax IDs, so a first upload
   goes through the normal confirm path instead of hitting duplicate protection.
+- `python3 tools/make_delivery_sample.py` regenerates `delivery_01_2026-77.pdf`,
+  the delivery-note sample of the third profile.
 - `DOCFLOW_CRM=uspacy|bitrix24|none` picks the active connector. Bitrix24 works
   through an incoming webhook: `BITRIX24_WEBHOOK_URL=https://<portal>/rest/1/<token>/`.
 - Documents dropped into `data/inbox/` are picked up by a background watcher and
@@ -98,10 +104,10 @@ technical debt in his head, even when the code is correct.
   after a successful ingest, and seen Message-IDs are persisted in
   `data/mailbox_state.json`. Empty settings disable the mailbox. Verify with
   `GET /api/mailbox` and `python3 tests/test_mailbox.py`.
-- Every confirmation is routed: invoice to Payments, act to Accounting, anything
-  above `DOCFLOW_APPROVAL_THRESHOLD` (default 100 000) to Approval. The
-  destination and its reason go into the record, the result card and the CRM
-  comment, so the route is auditable.
+- Every confirmation is routed: invoice to Payments, act and delivery note to
+  Accounting, anything above `DOCFLOW_APPROVAL_THRESHOLD` (default 100 000) to
+  Approval. The destination and its reason go into the record, the result card
+  and the CRM comment, so the route is auditable.
 - OCR runs from a portable Tesseract in `.tools/ocr` (gitignored); `.env` puts it
   on `PATH`, so scans parse without root. The language set is the union of the registered
   profiles; `DOCFLOW_OCR_LANGS` overrides it for a market that is not registered yet.

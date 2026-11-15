@@ -65,10 +65,10 @@ def _code_strings(path: Path):
             yield node.value
 
 
-def test_catalog_lists_both_profiles():
+def test_catalog_lists_every_profile():
     catalog = profiles.catalog()
     codes = {item['code'] for item in catalog}
-    assert codes == {'invoice_ua', 'act_ua'}
+    assert codes == {'invoice_ua', 'act_ua', 'delivery_ua'}
     for item in catalog:
         assert item['default_currency'] == 'UAH'
         labels = {field['key']: field['label'] for field in item['fields']}
@@ -82,6 +82,9 @@ def test_act_carries_its_own_labels():
     assert invoice_labels['number'].startswith('Invoice')
     assert act_labels['number'].startswith('Act')
     assert act_labels['supplier'] == 'Executor'
+    delivery_labels = profiles.ui_labels('delivery_ua')
+    assert delivery_labels['number'] == 'Delivery note number'
+    assert delivery_labels['total'] == 'Total'
 
 
 def test_comment_labels_come_from_the_profile():

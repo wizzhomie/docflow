@@ -1,8 +1,8 @@
-"""Fast local regression check for the Ukrainian invoice parser.
+"""Fast local regression check for the document-profile parser.
 
 No model, no network, no heavy runs. Compares extracted fields against a small
-set of hand-labelled cases that encode the invariant tree (synonyms, block
-order, OCR noise, currency, Russian fallback).
+set of hand-labelled cases that encode the invariant tree of the registered
+document types (synonyms, block order, OCR noise, currency, Russian fallback).
 """
 
 import json
