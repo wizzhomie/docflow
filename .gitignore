@@ -18,3 +18,12 @@ data/keys/
 
 # Runtime polling state of the mailbox watcher
 data/mailbox_state.json
+
+# Internal working notes and operations material: local only, never published.
+memory/
+knowledge/
+.opencode/
+opencode.json
+docs/demo-script.md
+docs/plain-guide.md
+docs/stack-and-operations.md

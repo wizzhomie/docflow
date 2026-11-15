@@ -215,11 +215,9 @@ memory/            working memory: state, handoff, decision log, plain log
 ```
 
 - Architecture in detail: [`docs/architecture.md`](docs/architecture.md) · process map:
-  [`docs/process-map.md`](docs/process-map.md) · operations:
-  [`docs/stack-and-operations.md`](docs/stack-and-operations.md).
+  [`docs/process-map.md`](docs/process-map.md) · case-study structure:
+  [`docs/case-study.md`](docs/case-study.md).
 - Product path: [`docs/roadmap.json`](docs/roadmap.json) (rendered as “Our path” on the site).
-- Plain-language guide (Russian): [`docs/plain-guide.md`](docs/plain-guide.md).
-- Working state and next steps (Russian): [`memory/handoff.md`](memory/handoff.md).
 
 ---
 
@@ -227,5 +225,5 @@ memory/            working memory: state, handoff, decision log, plain log
 документы приходят из папки или почты, распознаются, проходят проверку человеком и уходят
 в нужный процесс и CRM. Сервис задуман универсальным: всё, что относится к конкретному
 рынку, живёт в профиле документа, а не в ядре; сейчас реализованы украинские счёт, акт и
-видаткова накладна. Подробное объяснение простым языком — [`docs/plain-guide.md`](docs/plain-guide.md),
-рабочее состояние — [`memory/handoff.md`](memory/handoff.md).
+видаткова накладна.
+архитектура — [`docs/architecture.md`](docs/architecture.md).

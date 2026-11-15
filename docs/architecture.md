@@ -146,8 +146,7 @@ forms, OCR language) are a profile module; the parser and the CRM connectors are
 generic. A new type is a new profile plus fixtures, not a new branch in the core.
 
 **Error classes are the unit of work.** A defect is fixed by root cause → invariant →
-test → fix → regression, not by patching one example. `docs/` and `memory/error-catalog.md`
-record the class; `tests/` is the executable expectation.
+test → fix → regression, not by patching one example. `docs/` records the class; `tests/` is the executable expectation.
 
 ## R&D
 
@@ -163,16 +162,10 @@ record the class; `tests/` is the executable expectation.
 
 | Concern | Source |
 |---|---|
-| Agent entry point | `AGENTS.md` |
-| Product and domain | `knowledge/` |
-| Transferable AI-engineering experience | `knowledge/ai-engineering.md` |
+| Entry point and engineering rules | `AGENTS.md` |
+| Product overview | `README.md` |
 | Process as-is / to-be | `docs/process-map.md` |
-| Case study structure | `docs/case-study.md` |
-| Customer demo walkthrough | `docs/demo-script.md` |
-| Current operational state | `memory/current-state.md` |
-| Planned work | `memory/next-steps.md` |
-| Decisions | `memory/decision-log.md` |
-| Defect classes | `memory/error-catalog.md` |
-| Change history | `memory/development-log.md` |
+| Case-study structure | `docs/case-study.md` |
+| Product path | `docs/roadmap.json` |
+| Architecture and decisions | `docs/architecture.md` |
 | Executable expectations | `tests/` |
-| Runtime state | `data/` |
