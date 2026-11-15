@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DocFlow design system — v0.1</title>
+<style>
+  :root {
+    /* surfaces */
+    --color-bg: #07080d;
+    --color-surface: #0e1018;
+    --color-surface-raised: #12141f;
+    --color-surface-hover: #181b29;
+    --color-line: rgba(255,255,255,.09);
+    --color-line-strong: rgba(255,255,255,.16);
+
+    /* text */
+    --color-text: #eceef5;
+    --color-text-2: #b4b9cb;
+    --color-text-3: #9aa0b4;
+    --color-text-4: #7f8599;
+
+    /* action and semantics */
+    --color-accent: #7c5cff;
+    --color-accent-fill: #7454ff;
+    --color-accent-fill-hover: #6f4cf5;
+    --color-accent-fill-press: #6445ee;
+    --color-accent-text: #b9a7ff;
+    --color-accent-soft: rgba(124,92,255,.14);
+    --color-on-accent: #fff;
+    --color-attention: #fbbf24;
+    --color-attention-text: #fcd34d;
+    --color-attention-soft: rgba(251,191,36,.14);
+    --color-on-attention: #221604;
+    --color-flow: #22d3ee;
+    --color-flow-soft: rgba(34,211,238,.12);
+    --color-success: #34d399;
+    --color-success-text: #6ee7b7;
+    --color-success-soft: rgba(52,211,153,.12);
+    --color-danger: #f87171;
+    --color-danger-text: #fca5a5;
+    --color-danger-soft: rgba(248,113,113,.12);
+
+    /* type */
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    /* spacing */
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+    --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+    --space-12: 48px; --space-16: 64px; --space-20: 80px;
+
+    /* shape */
+    --radius-xs: 6px; --radius-sm: 10px; --radius-md: 12px;
+    --radius-lg: 16px; --radius-xl: 24px; --radius-pill: 999px;
+    --shadow-1: 0 8px 24px -16px rgba(0,0,0,.9);
+    --shadow-2: 0 20px 50px -20px rgba(0,0,0,.9);
+    --focus-ring: 2px solid var(--color-accent);
+
+    /* motion */
+    --dur-1: 120ms; --dur-2: 180ms; --dur-3: 260ms; --dur-4: 800ms;
+    --ease-out: cubic-bezier(.22,.8,.28,1);
+    --ease-in-out: cubic-bezier(.4,0,.2,1);
+    --ease-spring: cubic-bezier(.34,1.15,.64,1);
+
+    /* layout */
+    --container: 1320px;
+    --gutter: 24px;
+    --topbar-height: 60px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--color-accent-soft); color: var(--color-text); }
+
+  a { color: var(--color-accent-text); }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: var(--space-3);
+    height: var(--topbar-height); padding: 0 var(--gutter);
+    border-bottom: 1px solid var(--color-line);
+    background: rgba(7,8,13,.72);
+    backdrop-filter: blur(12px);
+  }
+  .mark {
+    width: 26px; height: 26px; border-radius: 8px; position: relative;
+    background: conic-gradient(from 180deg, var(--color-accent), var(--color-flow), #ff5c9d, var(--color-accent));
+    box-shadow: 0 0 18px rgba(124,92,255,.45);
+  }
+  .mark::after {
+    content: ""; position: absolute; inset: 6px; border-radius: 50%;
+    background: var(--color-bg); border: 2px solid rgba(255,255,255,.72);
+  }
+  .wordmark { font-size: 15px; font-weight: 700; letter-spacing: -.02em; }
+  .topbar-note { color: var(--color-text-3); font-size: 13px; }
+  .topbar .stamp {
+    margin-left: auto; font-size: 12px; color: var(--color-text-3);
+    padding: 4px 10px; border: 1px solid var(--color-line); border-radius: var(--radius-pill);
+  }
+
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 var(--gutter) 96px; }
+
+  .intro { padding: 64px 0 40px; }
+  .intro h1 {
+    font-size: 48px; line-height: 1.05; font-weight: 700; letter-spacing: -.03em;
+    max-width: 760px;
+  }
+  .intro p { margin-top: var(--space-4); max-width: 640px; color: var(--color-text-2); font-size: 16px; }
+  .intro-facts { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-6); }
+  .fact {
+    font-size: 12px; font-weight: 500; color: var(--color-text-2);
+    padding: 5px 10px; border: 1px solid var(--color-line); border-radius: var(--radius-pill);
+  }
+
+  section { padding-top: 56px; }
+  .section-head { display: flex; align-items: baseline; gap: var(--space-4); border-bottom: 1px solid var(--color-line); padding-bottom: var(--space-3); margin-bottom: var(--space-6); }
+  .section-head h2 { font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+  .section-head p { color: var(--color-text-3); font-size: 13px; }
+  .section-head .count { margin-left: auto; color: var(--color-text-4); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  h3.group { font-size: 13px; font-weight: 600; color: var(--color-text-3); margin: var(--space-6) 0 var(--space-3); }
+  h3.group:first-of-type { margin-top: 0; }
+
+  /* color */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: var(--space-3); }
+  .swatch {
+    border: 1px solid var(--color-line); border-radius: var(--radius-md);
+    overflow: hidden; background: var(--color-surface);
+  }
+  .swatch .chip { height: 64px; border-bottom: 1px solid var(--color-line); }
+  .swatch .meta { padding: 10px 12px; }
+  .swatch .name { font-size: 13px; font-weight: 600; }
+  .swatch code { display: block; margin-top: 2px; font-family: var(--font-mono); font-size: 11px; color: var(--color-text-3); }
+  .swatch .ratio { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--color-text-3); font-variant-numeric: tabular-nums; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: var(--color-success); }
+  .dot.bad { background: var(--color-danger); }
+  .swatch .swatch-text { display: grid; place-items: center; height: 64px; font-size: 15px; font-weight: 600; border-bottom: 1px solid var(--color-line); }
+
+  /* type */
+  .type-row { display: grid; grid-template-columns: 220px 1fr; gap: var(--space-4); align-items: baseline; padding: var(--space-4) 0; border-bottom: 1px solid var(--color-line); }
+  .type-row:last-child { border-bottom: none; }
+  .type-spec { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-3); line-height: 1.6; }
+  .type-spec b { display: block; font-family: var(--font-sans); font-size: 13px; font-weight: 600; color: var(--color-text-2); letter-spacing: 0; }
+  .sample { color: var(--color-text); }
+  .s-display { font-size: 48px; line-height: 1.05; font-weight: 700; letter-spacing: -.03em; }
+  .s-display-sm { font-size: 32px; line-height: 1.1; font-weight: 700; letter-spacing: -.025em; }
+  .s-stat { font-size: 24px; line-height: 1.1; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .s-heading { font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: -.02em; }
+  .s-title { font-size: 16px; line-height: 1.3; font-weight: 600; letter-spacing: -.01em; }
+  .s-body-lg { font-size: 16px; line-height: 1.6; }
+  .s-body { font-size: 14px; line-height: 1.6; }
+  .s-ui { font-size: 14px; line-height: 1.4; font-weight: 500; }
+  .s-small { font-size: 13px; line-height: 1.45; }
+  .s-caption { font-size: 12px; line-height: 1.4; font-weight: 500; }
+  .s-micro { font-size: 11px; line-height: 1.2; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; font-family: var(--font-mono); color: var(--color-text-3); }
+  .type-note { margin-top: var(--space-4); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-surface); font-size: 13px; color: var(--color-text-3); }
+
+  /* spacing */
+  .spacing-list { display: flex; flex-direction: column; gap: 6px; }
+  .space-row { display: grid; grid-template-columns: 80px 1fr 56px; align-items: center; gap: var(--space-3); }
+  .space-row .label { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-3); }
+  .space-row .bar { height: 16px; border-radius: 4px; background: var(--color-accent-soft); border: 1px solid rgba(124,92,255,.35); }
+  .space-row .val { text-align: right; font-size: 12px; color: var(--color-text-3); font-variant-numeric: tabular-nums; }
+
+  /* shape */
+  .shape-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-3); }
+  .shape {
+    display: grid; place-items: center; height: 104px; background: var(--color-surface);
+    border: 1px solid var(--color-line); font-family: var(--font-mono); font-size: 11px; color: var(--color-text-3);
+  }
+  .elevation-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3); }
+  .elevation { padding: var(--space-5); background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-md); font-size: 13px; color: var(--color-text-3); }
+  .elevation b { display: block; color: var(--color-text-2); font-weight: 600; margin-bottom: 2px; }
+
+  /* motion */
+  .motion-list { display: flex; flex-direction: column; gap: var(--space-2); }
+  .motion-row { display: grid; grid-template-columns: 90px 1fr 70px; align-items: center; gap: var(--space-3); }
+  .motion-row .label { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-3); }
+  .motion-row .track { height: 10px; border-radius: 999px; background: rgba(255,255,255,.05); overflow: hidden; }
+  .motion-row .fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--color-accent), var(--color-flow)); width: 10%; transition: width var(--dur-3) var(--ease-out); }
+  .motion-row:hover .fill { width: 100%; }
+  .motion-row .val { text-align: right; font-size: 12px; color: var(--color-text-3); }
+  .motion-note { margin-top: var(--space-4); font-size: 13px; color: var(--color-text-3); }
+
+  /* components */
+  .demo {
+    border: 1px solid var(--color-line); border-radius: var(--radius-lg);
+    background: var(--color-surface); padding: var(--space-5);
+  }
+  .demo + .demo { margin-top: var(--space-3); }
+  .demo-title { font-size: 12px; font-weight: 500; color: var(--color-text-3); margin-bottom: var(--space-4); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    height: 40px; padding: 0 16px; border-radius: var(--radius-sm);
+    border: 1px solid var(--color-line); background: transparent; color: var(--color-text);
+    font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--color-accent-fill); border-color: transparent; color: var(--color-on-accent); }
+  .btn.primary:hover { background: var(--color-accent-fill-hover); }
+  .btn.primary:active { background: var(--color-accent-fill-press); }
+  .btn.secondary { background: var(--color-surface-raised); }
+  .btn.secondary:hover { background: var(--color-surface-hover); border-color: var(--color-line-strong); }
+  .btn.ghost { border-color: transparent; color: var(--color-text-2); }
+  .btn.ghost:hover { background: var(--color-surface-hover); color: var(--color-text); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.sm { height: 32px; padding: 0 12px; font-size: 13px; }
+  .btn.lg { height: 44px; padding: 0 20px; }
+  .btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+  .btn.warm { background: linear-gradient(135deg, #fcd34d, #fbbf24 45%, #f59e0b); color: var(--color-on-attention); border-color: transparent; }
+  .btn.warm:hover { background: linear-gradient(135deg, #fde047, #fcd34d 45%, #fbbf24); }
+
+  .field { display: flex; flex-direction: column; gap: 5px; width: 240px; }
+  .field label { font-size: 12px; font-weight: 500; color: var(--color-text-3); display: flex; gap: 6px; align-items: center; }
+  .field input {
+    height: 40px; padding: 0 12px; border-radius: var(--radius-sm);
+    background: var(--color-surface-raised); border: 1px solid var(--color-line);
+    color: var(--color-text); font-family: inherit; font-size: 14px; outline: none;
+    transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+  }
+  .field input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-soft); }
+  .field input.low { border-color: rgba(251,191,36,.55); }
+  .field input.missing { border-color: rgba(248,113,113,.6); }
+  .field .help { font-size: 12px; color: var(--color-text-4); }
+
+  .conf { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--color-text-3); font-variant-numeric: tabular-nums; }
+  .conf i { width: 6px; height: 6px; border-radius: 50%; background: var(--color-text-4); display: inline-block; }
+  .conf.high i { background: var(--color-success); }
+  .conf.mid i { background: var(--color-attention); }
+  .conf.low i { background: var(--color-danger); }
+
+  .chip {
+    display: inline-flex; align-items: center; height: 32px; padding: 0 12px;
+    border: 1px solid var(--color-line); border-radius: var(--radius-pill);
+    font-size: 12px; font-weight: 500; color: var(--color-text-3); cursor: pointer;
+    background: transparent; transition: background var(--dur-1), border-color var(--dur-1), color var(--dur-1);
+  }
+  .chip:hover { background: var(--color-accent-soft); border-color: rgba(124,92,255,.5); color: var(--color-text); }
+  .chip:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 8px;
+    border-radius: var(--radius-pill); font-size: 12px; font-weight: 600;
+  }
+  .pill.neutral { background: rgba(255,255,255,.08); color: var(--color-text-2); }
+  .pill.attention { background: var(--color-attention-soft); color: var(--color-attention-text); }
+  .pill.success { background: var(--color-success-soft); color: var(--color-success-text); }
+  .pill.danger { background: var(--color-danger-soft); color: var(--color-danger-text); }
+  .pill.flow { background: var(--color-flow-soft); color: var(--color-flow); }
+
+  .card-demo { border: 1px solid var(--color-line); border-radius: var(--radius-lg); background: var(--color-surface); overflow: hidden; }
+  .card-demo .head { display: flex; align-items: center; height: 56px; padding: 0 20px; border-bottom: 1px solid var(--color-line); }
+  .card-demo .head h4 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+  .card-demo .head .hint { margin-left: auto; font-size: 12px; color: var(--color-text-3); }
+  .card-demo .body { padding: 20px; font-size: 14px; color: var(--color-text-2); }
+
+  .toast-demo {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    border-radius: var(--radius-md); background: rgba(22,25,39,.98);
+    border: 1px solid rgba(52,211,153,.4); box-shadow: var(--shadow-2);
+    font-size: 14px; max-width: 420px;
+  }
+
+  .table-wrap { overflow-x: auto; }
+  .table-demo { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 520px; }
+  .table-demo th { text-align: left; font-size: 12px; font-weight: 500; color: var(--color-text-3); padding: 10px 14px; border-bottom: 1px solid var(--color-line); }
+  .table-demo td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.05); color: var(--color-text-2); }
+  .table-demo td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .table-demo tbody tr:hover { background: var(--color-surface-hover); }
+  .table-demo tbody tr:last-child td { border-bottom: none; }
+
+  .empty { padding: 40px 20px; text-align: center; color: var(--color-text-4); font-size: 14px; }
+
+  .layout-diagram { display: grid; grid-template-columns: 52fr 48fr; gap: 20px; }
+  .layout-diagram .col { height: 92px; border: 1px dashed var(--color-line-strong); border-radius: var(--radius-md); display: grid; place-items: center; font-size: 13px; color: var(--color-text-3); background: var(--color-surface); }
+  .breakpoints { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
+
+  .footer { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--color-line); display: flex; flex-wrap: wrap; gap: var(--space-4); font-size: 13px; color: var(--color-text-3); }
+  .footer code { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-2); }
+
+  @media (max-width: 900px) {
+    .type-row { grid-template-columns: 1fr; gap: 8px; }
+    .layout-diagram { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .demo { padding: var(--space-4); }
+    .swatch .meta code { overflow-wrap: anywhere; }
+    .intro { padding-top: 40px; }
+    .intro h1 { font-size: 32px; line-height: 1.1; letter-spacing: -.025em; }
+    .s-display { font-size: 34px; }
+    .section-head { flex-wrap: wrap; gap: 6px; }
+    .space-row { grid-template-columns: 64px 1fr 44px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .motion-row .fill { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <span class="mark" aria-hidden="true"></span>
+  <span class="wordmark">DocFlow</span>
+  <span class="topbar-note">design system</span>
+  <span class="stamp">v0.1 · dark only</span>
+</header>
+
+<main class="wrap">
+
+  <section class="intro">
+    <h1>One system for the route.</h1>
+    <p>Tokens for the showcase page and the review workspace: color, type, spacing, shape,
+      motion and the components built from them. A rendered reference for
+      <code>docs/design-system.md</code>.</p>
+    <div class="intro-facts">
+      <span class="fact">4-point spacing grid</span>
+      <span class="fact">12 px text floor</span>
+      <span class="fact">one accent per meaning</span>
+      <span class="fact">AA contrast, 44 px touch</span>
+      <span class="fact">reduced motion respected</span>
+    </div>
+  </section>
+
+  <section id="color">
+    <div class="section-head">
+      <h2>Color</h2>
+      <p>One accent, one meaning</p>
+      <span class="count" id="contrast-count"></span>
+    </div>
+
+    <h3 class="group">Surfaces and lines</h3>
+    <div class="swatches">
+      <div class="swatch"><div class="chip" style="background:#07080d"></div><div class="meta"><div class="name">Background</div><code>#07080d</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#0e1018"></div><div class="meta"><div class="name">Surface</div><code>#0e1018</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#12141f"></div><div class="meta"><div class="name">Surface raised</div><code>#12141f</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#181b29"></div><div class="meta"><div class="name">Surface hover</div><code>#181b29</code></div></div>
+      <div class="swatch"><div class="chip" style="background:rgba(255,255,255,.09)"></div><div class="meta"><div class="name">Line</div><code>rgba(255,255,255,.09)</code></div></div>
+      <div class="swatch"><div class="chip" style="background:rgba(255,255,255,.16)"></div><div class="meta"><div class="name">Line strong</div><code>rgba(255,255,255,.16)</code></div></div>
+    </div>
+
+    <h3 class="group">Text</h3>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-text" style="color:#eceef5;background:#0e1018">Document №2026-114</div>
+        <div class="meta"><div class="name">Text</div><code>#eceef5</code><div class="ratio" data-fg="#eceef5" data-bg="#0e1018"><span class="dot"></span><span>16.4:1</span></div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-text" style="color:#b4b9cb;background:#0e1018;font-weight:400">Reads the whole document</div>
+        <div class="meta"><div class="name">Text 2</div><code>#b4b9cb</code><div class="ratio" data-fg="#b4b9cb" data-bg="#0e1018"><span class="dot"></span><span>9.7:1</span></div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-text" style="color:#9aa0b4;background:#0e1018;font-weight:400;font-size:13px">Supplier · confidence 85%</div>
+        <div class="meta"><div class="name">Text 3</div><code>#9aa0b4</code><div class="ratio" data-fg="#9aa0b4" data-bg="#0e1018"><span class="dot"></span><span>7.3:1</span></div></div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-text" style="color:#7f8599;background:#0e1018;font-weight:400;font-size:13px">Nothing is waiting for review</div>
+        <div class="meta"><div class="name">Text 4 · floor</div><code>#7f8599</code><div class="ratio" data-fg="#7f8599" data-bg="#0e1018"><span class="dot"></span><span>5.2:1</span></div></div>
+      </div>
+    </div>
+
+    <h3 class="group">Action and semantics</h3>
+    <div class="swatches">
+      <div class="swatch"><div class="chip" style="background:#7c5cff"></div><div class="meta"><div class="name">Accent · decision</div><code>#7c5cff</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#7454ff"></div><div class="meta"><div class="name">Accent fill · action</div><code>#7454ff</code><div class="ratio" data-fg="#ffffff" data-bg="#7454ff"><span class="dot"></span><span></span></div></div></div>
+      <div class="swatch"><div class="chip" style="background:#b9a7ff"></div><div class="meta"><div class="name">Accent text</div><code>#b9a7ff</code><div class="ratio" data-fg="#b9a7ff" data-bg="#0e1018"><span class="dot"></span><span></span></div></div></div>
+      <div class="swatch"><div class="chip" style="background:#fbbf24"></div><div class="meta"><div class="name">Attention · human</div><code>#fbbf24</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#22d3ee"></div><div class="meta"><div class="name">Flow · destination</div><code>#22d3ee</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#34d399"></div><div class="meta"><div class="name">Success · confirmed</div><code>#34d399</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#f87171"></div><div class="meta"><div class="name">Danger · blocked</div><code>#f87171</code></div></div>
+    </div>
+    <p class="type-note">Amber is the attention color inside the product: a human has to look. The landing
+      page may keep its warm hero glow as atmosphere, but its CTA uses the violet action fill — decision D1.</p>
+  </section>
+
+  <section id="type">
+    <div class="section-head">
+      <h2>Typography</h2>
+      <p>Inter, one family, 12 px floor</p>
+      <span class="count">11 roles</span>
+    </div>
+
+    <div class="type-row">
+      <div class="type-spec"><b>Display</b>48 / 1.05 / 700 / -0.03em</div>
+      <div class="sample s-display">Every document finds its own place.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-spec"><b>Display small</b>32 / 1.1 / 700 / -0.025em</div>
+      <div class="sample s-display-sm">Every document finds its own place.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-spec"><b>Stat</b>24 / 1.1 / 700 / tabular</div>
+      <div class="sample s-stat">42 documents · 1.1 h saved · 94.4%</div>
+    </div>
+    <div class="type-row">
+      <div class="type-spec"><b>Heading</b>20 / 1.25 / 600</div>
+      <div class="sample s-heading">Needs attention</div>
+    </div>
+    <div class="type-row">
+      <div class="type-spec"><b>Title</b>16 / 1.3 / 600</div>
+      <div class="sample s-title">Extracted fields · Ukrainian act of completed work</div>
+    </div>
+    <div class="type-row">
+      <div class="type-spec"><b>Body large</b>16 / 1.6 / 400</div>
+      <div class="sample s-body-lg">DocFlow reads the whole document, asks a human only when it matters, and delivers the confirmed result to the process that owns it.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-spec"><b>Body</b>14 / 1.6 / 400</div>
+      <div class="sample s-body">Amount = sum of items, VAT ≈ 20/120 of the total. A failed invariant lowers confidence and puts the document in front of a human.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-spec"><b>UI</b>14 / 1.4 / 500</div>
+      <div class="sample s-ui">Confirm and save · 8,600.00 ₴ · 11 Nov 2026</div>
+    </div>
+    <div class="type-row">
+      <div class="type-spec"><b>Small</b>13 / 1.45 / 400</div>
+      <div class="sample s-small">delivery_01_2026-77.pdf · routed to Accounting · 2.3 min review</div>
+    </div>
+    <div class="type-row">
+      <div class="type-spec"><b>Caption</b>12 / 1.4 / 500</div>
+      <div class="sample s-caption">Tax ID (ЄДРПОУ / ІПН) · confidence 85%</div>
+    </div>
+    <div class="type-row">
+      <div class="type-spec"><b>Micro</b>11 / 1.2 / 600 / 0.12em · mono, scene only</div>
+      <div class="sample s-micro">Intake · parsing · routing</div>
+    </div>
+    <p class="type-note">Rendered with the fallback stack: Inter is not installed in this container. Decision D2 adds the self-hosted Inter woff2 (Latin + Cyrillic) and the samples above switch to it.</p>
+  </section>
+
+  <section id="spacing">
+    <div class="section-head">
+      <h2>Spacing</h2>
+      <p>4-point grid, 11 steps</p>
+      <span class="count">0 arbitrary values</span>
+    </div>
+    <div class="spacing-list" id="spacing-list"></div>
+    <p class="type-note">Page gutter 24 (16 on mobile) · card gap 20 · card padding 20 · field grid gap 16 ·
+      section rhythm 48–64. Nothing else is a spacing value.</p>
+  </section>
+
+  <section id="shape">
+    <div class="section-head">
+      <h2>Shape</h2>
+      <p>Radius carries hierarchy</p>
+      <span class="count">6 steps + pill</span>
+    </div>
+    <div class="shape-grid">
+      <div class="shape" style="border-radius:6px">xs · 6 · icon tile</div>
+      <div class="shape" style="border-radius:10px">sm · 10 · control</div>
+      <div class="shape" style="border-radius:12px">md · 12 · inner panel</div>
+      <div class="shape" style="border-radius:16px">lg · 16 · card</div>
+      <div class="shape" style="border-radius:24px">xl · 24 · scene</div>
+      <div class="shape" style="border-radius:999px">pill · 999</div>
+    </div>
+    <div class="elevation-grid" style="margin-top:16px">
+      <div class="elevation" style="box-shadow:var(--shadow-1)"><b>Shadow 1 · raised</b>cards on cards, dropdowns</div>
+      <div class="elevation" style="box-shadow:var(--shadow-2)"><b>Shadow 2 · overlay</b>toasts, dialogs</div>
+    </div>
+  </section>
+
+  <section id="motion">
+    <div class="section-head">
+      <h2>Motion</h2>
+      <p>Only what answers a person</p>
+      <span class="count">hover a bar</span>
+    </div>
+    <div class="motion-list">
+      <div class="motion-row"><span class="label">120 ms</span><span class="track"><span class="fill" style="width:12%"></span></span><span class="val">hover</span></div>
+      <div class="motion-row"><span class="label">180 ms</span><span class="track"><span class="fill" style="width:20%"></span></span><span class="val">state</span></div>
+      <div class="motion-row"><span class="label">260 ms</span><span class="track"><span class="fill" style="width:32%"></span></span><span class="val">panel</span></div>
+      <div class="motion-row"><span class="label">800 ms</span><span class="track"><span class="fill" style="width:46%"></span></span><span class="val">hero loop</span></div>
+    </div>
+    <p class="motion-note">The workspace animates hover, press, focus, toast, row open and the spinner —
+      nothing else. The landing page gets one orchestrated loop. With
+      <code>prefers-reduced-motion: reduce</code> the scene renders its final state and transitions become instant.</p>
+  </section>
+
+  <section id="components">
+    <div class="section-head">
+      <h2>Components</h2>
+      <p>Built from tokens only</p>
+      <span class="count">states shown</span>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Buttons · primary, secondary, ghost; marketing warm pending D1. Sizes sm / md / lg</div>
+      <div class="row">
+        <button class="btn primary">Confirm and save</button>
+        <button class="btn secondary">Check now</button>
+        <button class="btn ghost">Reset</button>
+        <button class="btn warm">Open the app</button>
+        <button class="btn primary" disabled>Confirm and save</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary sm">sm · 32</button>
+        <button class="btn primary">md · 40</button>
+        <button class="btn primary lg">lg · 44 · touch</button>
+      </div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Inputs · default, low confidence, missing, focused</div>
+      <div class="row" style="align-items:flex-start">
+        <div class="field"><label>Supplier <span class="conf high"><i></i>85%</span></label><input value="ТОВ «Клін-Сервіс»" /></div>
+        <div class="field"><label>Currency <span class="conf mid"><i></i>60%</span></label><input class="low" value="UAH" /></div>
+        <div class="field"><label>Tax ID <span class="conf low"><i></i>0%</span></label><input class="missing" placeholder="Missing" /><span class="help">Check the document and fill it in</span></div>
+        <div class="field"><label>Document date <span class="conf high"><i></i>90%</span></label><input value="11 Nov 2026" style="border-color:var(--color-accent);box-shadow:0 0 0 3px var(--color-accent-soft)" /></div>
+      </div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Chips and status pills</div>
+      <div class="row">
+        <button class="chip">act_01_2026-14</button>
+        <button class="chip">delivery_01_2026-77</button>
+        <button class="chip">08_2026-601-amount-mismatch</button>
+        <span class="pill neutral">no edits</span>
+        <span class="pill attention">2 issues</span>
+        <span class="pill success">confirmed</span>
+        <span class="pill danger">CRM error</span>
+        <span class="pill flow">Payments</span>
+      </div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Card · header 56, body 20</div>
+      <div class="card-demo">
+        <div class="head"><h4>Extracted fields</h4><span class="hint">Act of completed work · confidence 83%</span></div>
+        <div class="body">Three fields are below 70%. Check the amount and the currency before saving.</div>
+      </div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Table · 44 px rows, sentence-case header, tabular numbers</div>
+      <div class="table-wrap"><table class="table-demo">
+        <thead><tr><th>Document</th><th>Supplier</th><th>Route</th><th class="num">Amount</th><th class="num">Review</th></tr></thead>
+        <tbody>
+          <tr><td>delivery_01_2026-77.pdf</td><td>ТОВ «Терра-Буд»</td><td style="color:var(--color-flow)">Accounting</td><td class="num">21,000.00 ₴</td><td class="num">2.3 min</td></tr>
+          <tr><td>act_01_2026-14.pdf</td><td>ТОВ «Клін-Сервіс»</td><td style="color:var(--color-flow)">Accounting</td><td class="num">8,600.00 ₴</td><td class="num">1.4 min</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="demo">
+      <div class="demo-title">Toast · bottom center, state border, 3.2 s</div>
+      <div class="toast-demo"><span class="dot"></span> Document saved · routed to Payments · deal #4821</div>
+      <div style="margin-top:16px" class="empty">Nothing is waiting for review</div>
+    </div>
+  </section>
+
+  <section id="layout">
+    <div class="section-head">
+      <h2>Layout</h2>
+      <p>1320 container, 24 gutter, 60 topbar</p>
+      <span class="count">breakpoints 560 / 960 / 1100 / 1280</span>
+    </div>
+    <div class="layout-diagram">
+      <div class="col">Document 52%</div>
+      <div class="col">Extracted fields 48%</div>
+    </div>
+    <div class="breakpoints">
+      <span class="fact">560 · mobile gutter 16</span>
+      <span class="fact">960 · workspace stacks</span>
+      <span class="fact">1100 · landing scene stacks</span>
+      <span class="fact">1280 · wide spacing</span>
+    </div>
+  </section>
+
+  <section id="decisions">
+    <div class="section-head">
+      <h2>Decisions to take</h2>
+      <p>What the tokens cannot settle</p>
+    </div>
+    <div class="table-wrap"><table class="table-demo">
+      <thead><tr><th>#</th><th>Decision</th><th>Recommendation</th></tr></thead>
+      <tbody>
+        <tr><td>D1</td><td>Primary accent</td><td>violet action fill everywhere; amber stays attention</td></tr>
+        <tr><td>D2</td><td>Typeface asset</td><td>self-host Inter variable, Latin + Cyrillic</td></tr>
+        <tr><td>D3</td><td>Container</td><td>one 1320 container for both pages</td></tr>
+        <tr><td>D4</td><td>Theme</td><td>dark only</td></tr>
+        <tr><td>D5</td><td>Queue placement</td><td>queue becomes the workspace entry point</td></tr>
+        <tr><td>D6</td><td>Icons</td><td>inline SVG set replaces glyphs and emoji</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <footer class="footer">
+    <span>Spec: <code>docs/design-system.md</code></span>
+    <span>Rendered reference: <code>docs/design-system.html</code></span>
+    <span>v0.1 · 2026-11-16</span>
+  </footer>
+
+</main>
+
+<script>
+  // Spacing rulers.
+  const spaces = [
+    ['--space-1', 4], ['--space-2', 8], ['--space-3', 12], ['--space-4', 16],
+    ['--space-5', 20], ['--space-6', 24], ['--space-8', 32], ['--space-10', 40],
+    ['--space-12', 48], ['--space-16', 64], ['--space-20', 80],
+  ];
+  const list = document.getElementById('spacing-list');
+  for (const [name, px] of spaces) {
+    const row = document.createElement('div');
+    row.className = 'space-row';
+    row.innerHTML = `<span class="label">${name}</span>
+      <span class="bar" style="width:${(px / 80) * 100}%"></span>
+      <span class="val">${px} px</span>`;
+    list.appendChild(row);
+  }
+
+  // Contrast readouts.
+  function luminance(hex) {
+    const rgb = hex.replace('#', '').match(/../g).map((h) => parseInt(h, 16) / 255);
+    const lin = rgb.map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)));
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+  }
+  function contrast(a, b) {
+    const l1 = luminance(a);
+    const l2 = luminance(b);
+    const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
+    return (hi + 0.05) / (lo + 0.05);
+  }
+  let tested = 0;
+  let failed = 0;
+  document.querySelectorAll('.ratio').forEach((el) => {
+    const fg = el.dataset.fg;
+    const bg = el.dataset.bg;
+    const value = contrast(fg, bg);
+    const ok = value >= 4.5;
+    tested += 1;
+    if (!ok) failed += 1;
+    el.innerHTML = `<span class="dot${ok ? '' : ' bad'}"></span><span>${value.toFixed(1)}:1 · ${ok ? 'AA' : 'below AA'}</span>`;
+  });
+  document.getElementById('contrast-count').textContent =
+    tested ? `${tested - failed}/${tested} text pairs AA` : '';
+</script>
+
+</body>
+</html>
