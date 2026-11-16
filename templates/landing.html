@@ -68,19 +68,13 @@
     content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 120px;
     background: linear-gradient(180deg, transparent, var(--bg)); z-index: -1; pointer-events: none;
   }
-  .glow { position: absolute; border-radius: 50%; filter: blur(72px); pointer-events: none; z-index: -2; will-change: transform; }
+  .glow { position: absolute; border-radius: 50%; filter: blur(72px); pointer-events: none; z-index: -2; }
   .glow.warm { width: 760px; height: 520px; right: -120px; top: -200px;
-    background: radial-gradient(circle at 58% 42%, rgba(251,191,36,.82), rgba(249,115,22,.44) 44%, transparent 72%);
-    animation: drift-a 28s ease-in-out infinite alternate; }
+    background: radial-gradient(circle at 58% 42%, rgba(251,191,36,.82), rgba(249,115,22,.44) 44%, transparent 72%); }
   .glow.violet { width: 640px; height: 460px; left: -160px; top: 20px;
-    background: radial-gradient(circle at 50% 50%, rgba(124,92,255,.8), rgba(124,92,255,.18) 48%, transparent 72%);
-    animation: drift-b 33s ease-in-out infinite alternate; }
+    background: radial-gradient(circle at 50% 50%, rgba(124,92,255,.8), rgba(124,92,255,.18) 48%, transparent 72%); }
   .glow.cyan { width: 520px; height: 400px; left: 34%; bottom: -220px;
-    background: radial-gradient(circle at 50% 50%, rgba(34,211,238,.4), transparent 70%);
-    animation: drift-c 24s ease-in-out infinite alternate; }
-  @keyframes drift-a { from { transform: translate3d(0,0,0) scale(1); } to { transform: translate3d(-70px,50px,0) scale(1.14); } }
-  @keyframes drift-b { from { transform: translate3d(0,0,0) scale(1.05); } to { transform: translate3d(60px,30px,0) scale(1); } }
-  @keyframes drift-c { from { transform: translate3d(0,0,0) scale(1); } to { transform: translate3d(40px,-40px,0) scale(1.12); } }
+    background: radial-gradient(circle at 50% 50%, rgba(34,211,238,.4), transparent 70%); }
 
   .hero-inner { position: relative; max-width: 1360px; margin: 0 auto; text-align: center; }
   .eyebrow {
@@ -90,7 +84,7 @@
   }
   h1 {
     margin: 18px auto 0; max-width: 900px;
-    font-size: clamp(2rem, 4.1vw, 3.05rem); line-height: 1.04; letter-spacing: -.045em; font-weight: 700;
+    font-size: clamp(2rem, 4.1vw, 3.05rem); line-height: 1.09; letter-spacing: -.045em; font-weight: 700;
   }
   h1 .line { display: block; }
   h1 .warm {
@@ -102,10 +96,10 @@
 
   /* ---------- Router scene ---------- */
   .scene {
-    position: relative; margin: 26px auto 0; padding: 30px 26px; min-height: 320px;
+    position: relative; margin: 26px auto 0; padding: 26px 26px 40px; min-height: 300px;
     display: grid;
-    grid-template-columns: minmax(0,1.15fr) 44px minmax(0,1fr) 44px minmax(0,.95fr) 56px minmax(0,1fr) 44px minmax(0,1.05fr);
-    align-items: stretch;
+    grid-template-columns: minmax(0,1.15fr) minmax(0,1fr) minmax(0,.95fr) minmax(0,1.05fr) minmax(0,1.05fr);
+    column-gap: 24px; align-items: stretch;
     border-radius: 26px; border: 1px solid rgba(255,255,255,.1);
     background:
       radial-gradient(560px 300px at 0% 110%, rgba(124,92,255,.14), transparent 62%),
@@ -113,10 +107,6 @@
       linear-gradient(180deg, rgba(18,20,32,.78), rgba(9,11,18,.9));
     box-shadow: 0 60px 130px -60px #000, inset 0 1px 0 rgba(255,255,255,.05);
     overflow: hidden;
-  }
-  .scene::after {
-    content: ""; position: absolute; left: 26px; right: 26px; top: 50%; height: 1px; pointer-events: none;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.1) 8%, rgba(255,255,255,.1) 92%, transparent);
   }
   .scene::before {
     content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -135,51 +125,56 @@
   }
   .zone-head::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.25); }
   .zone-head b { font-family: inherit; font-size: .7rem; font-weight: 600; letter-spacing: .02em; text-transform: none; color: #dfe3f2; }
+  .zone-head::before { transition: background .35s, box-shadow .35s; }
+  .zone.is-on .zone-head::before { background: #22d3ee; box-shadow: 0 0 9px rgba(34,211,238,.9); }
 
-  .doc-stack { display: flex; flex-direction: column; gap: 8px; }
+  .doc-stack { display: flex; flex-direction: column; gap: 8px; max-width: 340px; }
   .doc {
     position: relative; display: flex; align-items: center; gap: 10px; padding: 11px 12px;
     border-radius: 11px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03);
-    transition: border-color .35s, background .35s, opacity .35s;
+    transition: border-color .45s, background .45s, box-shadow .45s;
   }
-  .doc.ghost { opacity: .45; }
-  .doc.incoming { animation: doc-in .55s cubic-bezier(.2,.8,.2,1) both; }
-  .doc.incoming { border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.07); }
-  @keyframes doc-in { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: none; } }
   .doc-ico {
     flex: none; width: 27px; height: 33px; border-radius: 5px; display: grid; place-items: center;
     font-size: .5rem; font-weight: 700; letter-spacing: .02em; color: #fff;
-    background: linear-gradient(160deg, #f87171, #dc2626);
+    background: linear-gradient(160deg, #818cf8, #6366f1);
   }
-  .doc-ico.act { background: linear-gradient(160deg, #818cf8, #6366f1); }
-  .doc-body { min-width: 0; }
+  .doc-body { flex: 1; min-width: 0; text-align: left; }
   .doc-body b { display: block; font-size: .72rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .doc-body i { display: block; font-style: normal; font-size: .63rem; color: #8f95ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .doc-new {
     position: absolute; top: -7px; right: 8px; font-size: .5rem; letter-spacing: .1em; text-transform: uppercase;
-    padding: 1px 6px; border-radius: 999px; color: #fcd34d;
-    background: rgba(251,191,36,.16); border: 1px solid rgba(251,191,36,.4);
-    opacity: 0; transition: opacity .3s;
+    padding: 1px 6px; border-radius: 999px; color: #d7ccff;
+    background: rgba(124,92,255,.2); border: 1px solid rgba(124,92,255,.45);
+    opacity: 0; transition: opacity .4s;
   }
-  .doc.incoming .doc-new { opacity: 1; }
+  .zone[data-stage="intake"].is-on .doc {
+    border-color: rgba(124,92,255,.5);
+    background: linear-gradient(120deg, rgba(124,92,255,.14), rgba(124,92,255,.03));
+    box-shadow: 0 0 34px -14px rgba(124,92,255,.9);
+  }
+  .zone[data-stage="intake"].is-on .doc-new { opacity: 1; }
 
   .core-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .core {
-    position: relative; width: 112px; height: 112px; border-radius: 50%; display: grid; place-items: center;
-    border: 1px solid rgba(124,92,255,.42);
-    background: radial-gradient(circle at 50% 38%, rgba(124,92,255,.34), rgba(7,8,13,.92) 72%);
-    box-shadow: 0 0 46px -10px rgba(124,92,255,.7);
-    transition: border-color .4s, box-shadow .4s;
+    position: relative; width: 108px; height: 108px; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid rgba(124,92,255,.34);
+    background: radial-gradient(circle at 50% 42%, rgba(124,92,255,.2), rgba(9,11,18,.96) 70%);
+    box-shadow: 0 0 42px -16px rgba(124,92,255,.7);
+    transition: border-color .45s, box-shadow .45s;
   }
   .core::before {
-    content: ""; position: absolute; inset: -7px; border-radius: 50%;
-    background: conic-gradient(from 0deg, transparent 0 62%, rgba(34,211,238,.85) 82%, transparent 100%);
-    -webkit-mask: radial-gradient(circle, transparent 63%, #000 64%);
-    mask: radial-gradient(circle, transparent 63%, #000 64%);
-    animation: spin 5s linear infinite;
+    content: ""; position: absolute; inset: -9px; border-radius: 50%;
+    background: conic-gradient(from 200deg, rgba(34,211,238,.8), rgba(124,92,255,.5) 40%, rgba(124,92,255,.05) 62%, rgba(34,211,238,.8));
+    -webkit-mask: radial-gradient(circle, transparent calc(100% - 2px), #000 calc(100% - 1px));
+    mask: radial-gradient(circle, transparent calc(100% - 2px), #000 calc(100% - 1px));
+    opacity: .55; transition: opacity .45s;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .core.pulse { border-color: rgba(251,191,36,.75); box-shadow: 0 0 70px -6px rgba(251,191,36,.7); }
+  .zone[data-stage="read"].is-on .core {
+    border-color: rgba(124,92,255,.62);
+    box-shadow: 0 0 68px -8px rgba(124,92,255,.85);
+  }
+  .zone[data-stage="read"].is-on .core::before { opacity: 1; }
   .core-glyph {
     position: relative; width: 34px; height: 34px; border-radius: 11px;
     background: conic-gradient(from 180deg, var(--accent), var(--accent-2), #ff5c9d, var(--accent));
@@ -192,31 +187,29 @@
     border: 1px solid rgba(34,211,238,.3); background: rgba(34,211,238,.08); color: #a5eef8;
     transition: opacity .3s, transform .3s;
   }
-  .core-chips span.on { opacity: 1; transform: none; }
+  .zone[data-stage="read"].is-on .core-chips span { opacity: 1; transform: none; }
+  .zone[data-stage="read"].is-on .core-chips span:nth-child(2) { transition-delay: .07s; }
+  .zone[data-stage="read"].is-on .core-chips span:nth-child(3) { transition-delay: .14s; }
+  .zone[data-stage="read"].is-on .core-chips span:nth-child(4) { transition-delay: .21s; }
 
   .review-node {
     display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
     padding: 16px 12px; border-radius: 14px; border: 1px solid rgba(255,255,255,.08);
     background: rgba(255,255,255,.025);
+    transition: border-color .45s, background .45s;
   }
   .check {
     width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: .95rem;
     color: #34d399; border: 1px solid rgba(52,211,153,.35); background: rgba(52,211,153,.08);
-    opacity: .3; transform: scale(.9); transition: opacity .35s, transform .35s, box-shadow .35s;
+    opacity: .3; transform: scale(.92); transition: opacity .35s, transform .35s, box-shadow .35s;
   }
-  .review-node.on .check { opacity: 1; transform: none; box-shadow: 0 0 26px -4px rgba(52,211,153,.75); }
+  .zone[data-stage="review"].is-on .review-node { border-color: rgba(52,211,153,.32); background: rgba(52,211,153,.05); }
+  .zone[data-stage="review"].is-on .check { opacity: 1; transform: none; box-shadow: 0 0 26px -4px rgba(52,211,153,.75); }
   .review-node b { font-size: .7rem; font-weight: 600; }
   .review-node i { font-style: normal; font-size: .63rem; color: #8f95ab; }
 
-  .split { width: 100%; height: 100%; min-height: 220px; align-self: center; }
-  .split path {
-    fill: none; stroke: rgba(255,255,255,.22); stroke-width: 1.3;
-    vector-effect: non-scaling-stroke; stroke-dasharray: 3 5;
-    animation: dash 1.8s linear infinite;
-  }
-  @keyframes dash { to { stroke-dashoffset: -16; } }
-
   .routes .zone-body { gap: 8px; }
+  .route-item { display: flex; flex-direction: column; min-width: 0; }
   .route-chip {
     display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-radius: 10px;
     border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025);
@@ -224,12 +217,19 @@
   }
   .route-chip b { font-size: .72rem; font-weight: 600; }
   .route-chip i { font-style: normal; margin-left: auto; font-size: .6rem; color: #8f95ab; white-space: nowrap; }
-  .route-chip.active {
+  .zone[data-stage="route"].is-on .route-chip[data-route="payments"] {
     opacity: 1; transform: translateX(3px);
-    border-color: rgba(251,191,36,.5);
-    background: linear-gradient(120deg, rgba(251,191,36,.18), rgba(251,191,36,.04));
-    box-shadow: 0 0 28px -10px rgba(251,191,36,.6);
+    border-color: rgba(124,92,255,.55);
+    background: linear-gradient(120deg, rgba(124,92,255,.22), rgba(124,92,255,.04));
+    box-shadow: 0 0 28px -10px rgba(124,92,255,.85);
   }
+  .route-why {
+    display: block; height: 1.2em; margin: 5px 0 0 6px; text-align: left;
+    font-family: var(--mono); font-size: .57rem; letter-spacing: .08em;
+    text-transform: uppercase; color: #b9a7ff;
+    opacity: 0; transform: translateY(3px); transition: opacity .4s, transform .4s;
+  }
+  .zone[data-stage="route"].is-on .route-why { opacity: 1; transform: none; }
 
   .crm-card {
     padding: 13px 14px; border-radius: 12px;
@@ -238,40 +238,46 @@
   }
   .crm-head { display: flex; align-items: center; gap: 6px; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: #6ee7b7; }
   .crm-head::after { content: ""; margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px rgba(52,211,153,.85); }
+  .crm-lines { text-align: left; }
   .crm-lines > * { opacity: 0; transform: translateY(3px); transition: opacity .35s, transform .35s; }
-  .crm-lines.on > * { opacity: 1; transform: none; }
+  .zone[data-stage="deliver"].is-on .crm-lines > * { opacity: 1; transform: none; }
   .crm-lines b { display: block; margin-top: 6px; font-size: .73rem; }
   .crm-lines i { display: block; margin-top: 4px; font-style: normal; font-size: .63rem; color: #9fb8ad; }
   .crm-alt { margin-top: 8px; font-size: .61rem; color: #7d8399; }
   .crm-alt span { color: #b9c0d4; }
 
-  .link { position: relative; height: 1px; align-self: center; }
-  .link::before {
-    content: ""; position: absolute; inset: 0;
-    background: linear-gradient(90deg, rgba(255,255,255,.03), rgba(255,255,255,.24), rgba(255,255,255,.03));
+  /* Progress rail: geometry is measured by JS, the fill and the token ride on it. */
+  .rail { position: absolute; z-index: 2; left: 26px; right: 26px; bottom: 16px; height: 2px; pointer-events: none; }
+  .rail-base {
+    position: absolute; inset: 0; border-radius: 2px;
+    background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.15) 12%, rgba(255,255,255,.15) 88%, rgba(255,255,255,.05));
   }
-  .link em {
-    position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
-    font-family: var(--mono); font-style: normal; font-size: .54rem; letter-spacing: .1em;
-    text-transform: uppercase; color: #6f768d; white-space: nowrap;
+  .rail-fill {
+    position: absolute; inset: 0; border-radius: 2px; transform-origin: 0 50%; transform: scaleX(0);
+    background: linear-gradient(90deg, rgba(124,92,255,.6), rgba(34,211,238,.95));
+    box-shadow: 0 0 14px rgba(34,211,238,.35);
   }
-  .link::after {
-    content: ""; position: absolute; top: -2.5px; left: 0; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent-2); box-shadow: 0 0 12px rgba(34,211,238,.95);
-    animation: travel 2.8s linear infinite;
+  .rail-stop {
+    position: absolute; top: 50%; left: 0; width: 1px; height: 7px; margin-top: -3.5px;
+    background: rgba(255,255,255,.16); transition: background .3s, box-shadow .3s;
   }
-  @keyframes travel { 0% { transform: translateX(0); opacity: 0; } 16% { opacity: 1; } 84% { opacity: 1; } 100% { transform: translateX(40px); opacity: 0; } }
-
-  .traveler {
-    position: absolute; left: 0; top: 0; z-index: 6; width: 27px; height: 33px; border-radius: 5px;
-    display: grid; place-items: center; font-size: .5rem; font-weight: 700; color: #fff;
-    background: linear-gradient(160deg, #f87171, #dc2626);
-    box-shadow: 0 0 26px -2px rgba(251,191,36,.75);
-    pointer-events: none; will-change: transform; opacity: 0; transition: opacity .3s;
-    margin: -16.5px 0 0 -13.5px;
+  .rail-stop.is-hit { background: #22d3ee; box-shadow: 0 0 9px rgba(34,211,238,.9); }
+  .rail-dot {
+    position: absolute; top: 50%; left: 0; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%;
+    background: #22d3ee; box-shadow: 0 0 0 3px rgba(34,211,238,.16), 0 0 18px rgba(34,211,238,.9);
+    opacity: 0; transition: opacity .35s;
   }
 
-  .caption { margin-top: 14px; font-family: var(--mono); font-size: .68rem; color: #7b8199; }
+  .demo-bar { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+  .caption { font-family: var(--mono); font-size: .68rem; color: #7b8199; }
+  .demo-toggle {
+    font-family: var(--mono); font-size: .62rem; letter-spacing: .12em; text-transform: uppercase;
+    color: #9aa0b4; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.13);
+    border-radius: 999px; padding: 6px 13px; cursor: pointer;
+    transition: color .2s, background .2s, border-color .2s;
+  }
+  .demo-toggle:hover { color: #eceef5; background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.2); }
+  .demo-toggle:focus-visible { outline: 2px solid #b9a7ff; outline-offset: 2px; }
   .stats { display: flex; justify-content: center; gap: 46px; flex-wrap: wrap; margin-top: 26px; }
   .stat b { display: block; font-size: 1.55rem; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
   .stat span { display: block; margin-top: 3px; font-size: .6rem; letter-spacing: .13em; text-transform: uppercase; color: #8f95ab; }
@@ -285,18 +291,28 @@
 
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
-    .glow, .core::before, .split path, .link::after { animation: none; }
-    .link::after { opacity: 0; }
-    .core-chips span, .crm-lines > * { transition: none; }
+    .glow { animation: none; }
+    .scene .doc, .scene .doc-new, .scene .core, .scene .core::before,
+    .scene .core-chips span, .scene .check, .scene .review-node,
+    .scene .route-chip, .scene .route-why, .scene .crm-lines > *,
+    .scene .zone-head::before { transition: none; }
+    .rail-dot { display: none; }
+  }
+  @media (max-width: 1366px) {
+    .core-chips { display: grid; grid-template-columns: repeat(2, auto); gap: 5px; justify-content: center; }
   }
   @media (max-width: 1100px) {
-    .scene { grid-template-columns: 1fr; gap: 14px; padding: 22px 18px; min-height: 0; }
-    .link, .split { display: none; }
+    .scene { grid-template-columns: 1fr; gap: 14px; padding: 22px 18px; min-height: 0; max-width: 600px; }
     .zone { align-items: stretch; }
     .zone-head { justify-content: flex-start; }
-    .core-wrap { flex-direction: row; justify-content: flex-start; gap: 16px; }
+    .core { width: 92px; height: 92px; }
+    .core::before { inset: -7px; }
+    .core-glyph { width: 30px; height: 30px; }
+    .core-wrap { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .core-chips { justify-content: flex-start; }
     .review-node { flex-direction: row; text-align: left; }
     .doc-stack { gap: 7px; }
+    .rail { display: none; }
   }
   @media (max-width: 640px) {
     .topbar { padding: 12px 16px; gap: 12px; }
@@ -304,7 +320,10 @@
     .hero { padding: 24px 14px 18px; }
     h1 { font-size: clamp(1.8rem, 8vw, 2.4rem); }
     .sub { font-size: .9rem; }
-    .stats { gap: 26px; }
+    .stats {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 20px 26px;
+      max-width: 340px; margin-left: auto; margin-right: auto;
+    }
     .stat b { font-size: 1.3rem; }
     .footer { padding: 16px 4px 34px; }
     .glow.warm { right: -220px; top: -230px; width: 520px; height: 420px; }
@@ -337,16 +356,12 @@
       <a class="btn btn-glass" href="/app#path">See the path</a>
     </div>
 
-    <div class="scene" id="scene" aria-hidden="true">
-      <div class="zone">
+    <div class="scene" id="scene" role="img" aria-label="An invoice arrives in the inbox. DocFlow reads the whole document: supplier, amount, tax ID and VAT. A human confirms the fields. The rule routes the document to Payments by document type, and the CRM receives a deal with the company card and the linked contact.">
+      <div class="zone" data-stage="intake">
         <div class="zone-head">Inbox <b>intake</b></div>
         <div class="zone-body">
         <div class="doc-stack">
-          <div class="doc ghost" data-doc="act">
-            <span class="doc-ico act">PDF</span>
-            <span class="doc-body"><b>Act №2026-15</b><i>scan · 2 pages</i></span>
-          </div>
-          <div class="doc" data-doc="invoice">
+          <div class="doc">
             <span class="doc-ico">PDF</span>
             <span class="doc-body"><b>Invoice №2026-114</b><i>from mailbox</i></span>
             <span class="doc-new">new</span>
@@ -355,9 +370,7 @@
         </div>
       </div>
 
-      <div class="link"><em>parse</em></div>
-
-      <div class="zone">
+      <div class="zone" data-stage="read">
         <div class="zone-head">Read <b>whole document</b></div>
         <div class="zone-body">
         <div class="core-wrap">
@@ -369,9 +382,7 @@
         </div>
       </div>
 
-      <div class="link"><em>check</em></div>
-
-      <div class="zone">
+      <div class="zone" data-stage="review">
         <div class="zone-head">Review <b>human</b></div>
         <div class="zone-body">
         <div class="review-node" id="review">
@@ -382,24 +393,19 @@
         </div>
       </div>
 
-      <svg class="split" viewBox="0 0 60 260" preserveAspectRatio="none">
-        <path d="M0 130 C 28 130, 32 40, 60 40" />
-        <path d="M0 130 L 60 130" />
-        <path d="M0 130 C 28 130, 32 220, 60 220" />
-      </svg>
-
-      <div class="zone routes">
+      <div class="zone routes" data-stage="route">
         <div class="zone-head">Route <b>by rule</b></div>
         <div class="zone-body">
-        <div class="route-chip" data-route="payments"><b>Payments</b><i>invoice</i></div>
+        <div class="route-item">
+          <div class="route-chip" data-route="payments"><b>Payments</b><i>invoice</i></div>
+          <span class="route-why">reason · document type</span>
+        </div>
         <div class="route-chip" data-route="accounting"><b>Accounting</b><i>act</i></div>
         <div class="route-chip" data-route="approval"><b>Approval</b><i>amount ≥ threshold</i></div>
         </div>
       </div>
 
-      <div class="link"><em>deliver</em></div>
-
-      <div class="zone">
+      <div class="zone" data-stage="deliver">
         <div class="zone-head">CRM <b>delivery</b></div>
         <div class="zone-body">
         <div class="crm-card">
@@ -413,10 +419,20 @@
         </div>
       </div>
 
-      <div class="traveler" id="traveler">PDF</div>
+      <div class="rail" id="rail">
+        <div class="rail-base"></div>
+        <div class="rail-fill" id="rail-fill"></div>
+        <div class="rail-stops">
+          <i class="rail-stop"></i><i class="rail-stop"></i><i class="rail-stop"></i><i class="rail-stop"></i><i class="rail-stop"></i>
+        </div>
+        <div class="rail-dot" id="rail-dot"></div>
+      </div>
     </div>
 
-    <p class="caption">↳ a looping demo of the real flow · every route carries its reason</p>
+    <div class="demo-bar">
+      <p class="caption">↳ one invoice through the whole flow · ~6 s</p>
+      <button class="demo-toggle" id="demo-toggle" type="button">Pause</button>
+    </div>
 
     <div class="stats">
       <div class="stat"><b id="stat-docs">—</b><span>documents routed</span></div>
@@ -436,81 +452,216 @@
 </footer>
 
 <script>
-const scene = document.getElementById('scene');
-
 function initScene() {
+  const scene = document.getElementById('scene');
   if (!scene) return;
-  const core = document.getElementById('core');
-  const chips = Array.from(document.querySelectorAll('#core-chips span'));
-  const review = document.getElementById('review');
-  const routes = Array.from(document.querySelectorAll('.route-chip'));
-  const crm = document.getElementById('crm-lines');
-  const traveler = document.getElementById('traveler');
-  const invoiceDoc = scene.querySelector('[data-doc="invoice"]');
-  const payment = scene.querySelector('.route-chip[data-route="payments"]');
-  if (!core || !traveler || !invoiceDoc || !payment) return;
+  const zones = Array.from(scene.querySelectorAll('.zone[data-stage]'));
+  const rail = document.getElementById('rail');
+  const fill = document.getElementById('rail-fill');
+  const dot = document.getElementById('rail-dot');
+  const stops = Array.from(rail.querySelectorAll('.rail-stop'));
+  const toggle = document.getElementById('demo-toggle');
+  const caption = scene.parentElement.querySelector('.caption');
+  if (!zones.length || !rail || !fill || !dot || !toggle) return;
 
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const setAll = (on) => {
-    core.classList.toggle('pulse', on);
-    chips.forEach((c) => c.classList.toggle('on', on));
-    review.classList.toggle('on', on);
-    routes.forEach((r) => r.classList.toggle('active', on));
-    crm.classList.toggle('on', on);
-    invoiceDoc.classList.toggle('incoming', on);
-  };
-  if (reduce) {
-    setAll(true);
-    return;
+  const reduceMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const stackMq = window.matchMedia('(max-width: 1100px)');
+
+  // One run of the demo: the intake beat, the token crossing the rail, the hold, the fade back.
+  const ARRIVE = 500;
+  const TRAVEL = 2800;
+  const HOLD = 1300;
+  const RESET = 450;
+  const IDLE = 700;
+  const CYCLE = ARRIVE + TRAVEL + HOLD + RESET + IDLE;
+
+  let geo = { vertical: false, start: 0, span: 1 };
+  let limits = zones.map(() => 0);
+  let elapsed = 0;
+  let playing = false;
+  let manual = false;
+  let onScreen = false;
+  let frame = 0;
+  let last = 0;
+
+  const clamp01 = (value) => Math.min(1, Math.max(0, value));
+
+  function measure() {
+    const box = scene.getBoundingClientRect();
+    const vertical = stackMq.matches;
+    const centers = zones.map((zone) => {
+      const rect = zone.getBoundingClientRect();
+      return vertical ? rect.top - box.top + rect.height / 2 : rect.left - box.left + rect.width / 2;
+    });
+    const start = centers[0];
+    const end = centers[centers.length - 1];
+    geo = { vertical, start, span: Math.max(1, end - start) };
+    limits = centers.map((center) => clamp01((center - start) / geo.span));
+    if (vertical) {
+      rail.style.left = '11px';
+      rail.style.right = 'auto';
+      rail.style.width = '2px';
+      rail.style.top = start + 'px';
+      rail.style.height = geo.span + 'px';
+      rail.style.bottom = 'auto';
+    } else {
+      rail.style.left = start + 'px';
+      rail.style.right = 'auto';
+      rail.style.width = geo.span + 'px';
+      rail.style.top = 'auto';
+      rail.style.height = '2px';
+      rail.style.bottom = '16px';
+    }
+    stops.forEach((stop, index) => {
+      const offset = Math.max(0, centers[index] - start);
+      if (vertical) {
+        stop.style.left = '';
+        stop.style.top = offset + 'px';
+      } else {
+        stop.style.top = '';
+        stop.style.left = offset + 'px';
+      }
+    });
   }
 
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const relCenter = (node) => {
-    const s = scene.getBoundingClientRect();
-    const r = node.getBoundingClientRect();
-    return { x: r.left - s.left + r.width / 2, y: r.top - s.top + r.height / 2 };
-  };
-  const place = (p) => { traveler.style.transform = `translate(${p.x}px, ${p.y}px)`; };
-  const move = (from, to, ms) => new Promise((resolve) => {
-    const a = relCenter(from);
-    const b = relCenter(to);
-    const t0 = performance.now();
-    const step = (t) => {
-      const k = Math.min(1, (t - t0) / ms);
-      const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-      place({ x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e });
-      if (k < 1) requestAnimationFrame(step);
-      else resolve();
-    };
-    requestAnimationFrame(step);
+  // Every reveal is a class on its stage zone; the CSS does the rest.
+  function setStages(count) {
+    zones.forEach((zone, index) => zone.classList.toggle('is-on', index < count));
+  }
+
+  function setStops(progress) {
+    stops.forEach((stop, index) => stop.classList.toggle('is-hit', limits[index] <= progress));
+  }
+
+  function drawRail(progress, visible) {
+    fill.style.transform = geo.vertical ? 'scaleY(' + progress + ')' : 'scaleX(' + progress + ')';
+    const offset = progress * geo.span;
+    dot.style.transform = geo.vertical ? 'translateY(' + offset + 'px)' : 'translateX(' + offset + 'px)';
+    dot.style.opacity = visible ? '1' : '0';
+  }
+
+  function render(time) {
+    if (time < ARRIVE) {
+      setStages(1);
+      setStops(0);
+      drawRail(0, time > 80);
+      return;
+    }
+    if (time < ARRIVE + TRAVEL) {
+      const progress = (time - ARRIVE) / TRAVEL;
+      let count = 0;
+      for (let i = 0; i < limits.length; i += 1) {
+        if (limits[i] <= progress) count = i + 1;
+      }
+      setStages(count);
+      setStops(progress);
+      drawRail(progress, true);
+      return;
+    }
+    if (time < CYCLE - RESET - IDLE) {
+      setStages(zones.length);
+      setStops(1);
+      drawRail(1, true);
+      return;
+    }
+    setStages(0);
+    setStops(-1);
+    drawRail(time < CYCLE - IDLE ? 1 : 0, false);
+  }
+
+  function tick(now) {
+    if (!playing) return;
+    const delta = Math.min(now - last, 80);
+    last = now;
+    elapsed = (elapsed + delta) % CYCLE;
+    render(elapsed);
+    frame = requestAnimationFrame(tick);
+  }
+
+  function start() {
+    if (playing || reduceMq.matches) return;
+    playing = true;
+    last = performance.now();
+    frame = requestAnimationFrame(tick);
+  }
+
+  function stop() {
+    playing = false;
+    if (frame) cancelAnimationFrame(frame);
+    frame = 0;
+  }
+
+  // Play only while the scene is on screen, the tab is visible and the owner did not pause it.
+  function sync() {
+    if (reduceMq.matches) return;
+    if (!manual && onScreen && !document.hidden) start();
+    else stop();
+  }
+
+  function setToggle() {
+    toggle.textContent = manual ? 'Play' : 'Pause';
+    toggle.setAttribute('aria-label', manual ? 'Play the flow animation' : 'Pause the flow animation');
+  }
+
+  function applyReduced() {
+    measure();
+    if (caption) caption.textContent = reduceMq.matches
+      ? '↳ one invoice through the whole flow'
+      : '↳ one invoice through the whole flow · ~6 s';
+    if (reduceMq.matches) {
+      stop();
+      manual = false;
+      setToggle();
+      toggle.hidden = true;
+      setStages(zones.length);
+      setStops(1);
+      fill.style.transform = geo.vertical ? 'scaleY(1)' : 'scaleX(1)';
+      dot.style.opacity = '0';
+      return;
+    }
+    toggle.hidden = false;
+    setToggle();
+    elapsed = 0;
+    setStages(0);
+    drawRail(0, false);
+    sync();
+  }
+
+  toggle.addEventListener('click', () => {
+    manual = !manual;
+    setToggle();
+    sync();
   });
 
-  (async () => {
-    while (true) {
-      setAll(false);
-      traveler.style.opacity = '0';
-      await sleep(420);
-      invoiceDoc.classList.add('incoming');
-      place(relCenter(invoiceDoc));
-      traveler.style.opacity = '1';
-      await sleep(620);
-      await move(invoiceDoc, core, 900);
-      core.classList.add('pulse');
-      for (const chip of chips) { chip.classList.add('on'); await sleep(160); }
-      await sleep(280);
-      await move(core, review, 780);
-      review.classList.add('on');
-      await sleep(480);
-      await move(review, payment, 820);
-      payment.classList.add('active');
-      await sleep(380);
-      await move(payment, crm, 780);
-      crm.classList.add('on');
-      traveler.style.opacity = '0';
-      await sleep(2100);
-      await sleep(900);
-    }
-  })();
+  const observer = new IntersectionObserver((entries) => {
+    onScreen = entries.some((entry) => entry.isIntersecting);
+    sync();
+  }, { threshold: 0.15 });
+  observer.observe(scene);
+
+  document.addEventListener('visibilitychange', sync);
+
+  let resizeFrame = 0;
+  function onResize() {
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      measure();
+      if (reduceMq.matches) {
+        fill.style.transform = geo.vertical ? 'scaleY(1)' : 'scaleX(1)';
+        return;
+      }
+      render(elapsed);
+    });
+  }
+  window.addEventListener('resize', onResize);
+
+  if (reduceMq.addEventListener) {
+    reduceMq.addEventListener('change', applyReduced);
+    stackMq.addEventListener('change', onResize);
+  }
+
+  applyReduced();
 }
 
 function initStats() {
