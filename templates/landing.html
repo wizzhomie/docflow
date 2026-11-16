@@ -96,7 +96,7 @@
 
   /* ---------- Router scene ---------- */
   .scene {
-    position: relative; margin: 26px auto 0; padding: 26px 26px 40px; min-height: 300px;
+    position: relative; margin: 26px auto 0; padding: 26px; min-height: 300px;
     display: grid;
     grid-template-columns: minmax(0,1.15fr) minmax(0,1fr) minmax(0,.95fr) minmax(0,1.05fr) minmax(0,1.05fr);
     column-gap: 24px; align-items: stretch;
@@ -128,30 +128,36 @@
   .zone-head::before { transition: background .35s, box-shadow .35s; }
   .zone.is-on .zone-head::before { background: #22d3ee; box-shadow: 0 0 9px rgba(34,211,238,.9); }
 
-  .doc-stack { display: flex; flex-direction: column; gap: 8px; max-width: 340px; }
+  .doc-stack { display: flex; flex-direction: column; gap: 7px; }
   .doc {
-    position: relative; display: flex; align-items: center; gap: 10px; padding: 11px 12px;
-    border-radius: 11px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03);
-    transition: border-color .45s, background .45s, box-shadow .45s;
-  }
-  .doc-ico {
-    flex: none; width: 27px; height: 33px; border-radius: 5px; display: grid; place-items: center;
-    font-size: .5rem; font-weight: 700; letter-spacing: .02em; color: #fff;
-    background: linear-gradient(160deg, #818cf8, #6366f1);
-  }
-  .doc-body { flex: 1; min-width: 0; text-align: left; }
-  .doc-body b { display: block; font-size: .72rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .doc-body i { display: block; font-style: normal; font-size: .63rem; color: #8f95ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .doc-new {
-    position: absolute; top: -7px; right: 8px; font-size: .5rem; letter-spacing: .1em; text-transform: uppercase;
-    padding: 1px 6px; border-radius: 999px; color: #d7ccff;
-    background: rgba(124,92,255,.2); border: 1px solid rgba(124,92,255,.45);
-    opacity: 0; transition: opacity .4s;
+    position: relative; display: flex; align-items: center; gap: 9px; padding: 8px 9px;
+    border-radius: 10px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.025);
+    opacity: .38; transform: translateY(5px);
+    transition:
+      opacity .38s ease, transform .38s cubic-bezier(.23,1,.32,1),
+      border-color .45s, background .45s, box-shadow .45s;
   }
   .zone[data-stage="intake"].is-on .doc {
-    border-color: rgba(124,92,255,.5);
-    background: linear-gradient(120deg, rgba(124,92,255,.14), rgba(124,92,255,.03));
-    box-shadow: 0 0 34px -14px rgba(124,92,255,.9);
+    opacity: 1; transform: none;
+    border-color: rgba(124,92,255,.34);
+    background: linear-gradient(120deg, rgba(124,92,255,.12), rgba(124,92,255,.02));
+  }
+  .zone[data-stage="intake"].is-on .doc:nth-child(2) { transition-delay: .07s; }
+  .zone[data-stage="intake"].is-on .doc:nth-child(3) { transition-delay: .14s; }
+  .zone[data-stage="intake"].is-on .doc:nth-child(4) { transition-delay: .21s; }
+  .doc-ico {
+    flex: none; width: 27px; height: 31px; border-radius: 6px; display: grid; place-items: center;
+    font-family: var(--mono); font-size: .46rem; font-weight: 600; letter-spacing: .04em; color: #c3c8d8;
+    background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.13);
+  }
+  .doc-body { flex: 1; min-width: 0; text-align: left; }
+  .doc-body b { display: block; font-size: .68rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc-body i { display: block; font-style: normal; font-size: .57rem; color: #8f95ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc-new {
+    position: absolute; top: -7px; right: 7px; font-size: .48rem; letter-spacing: .1em; text-transform: uppercase;
+    padding: 1px 5px; border-radius: 999px; color: #d7ccff;
+    background: rgba(124,92,255,.2); border: 1px solid rgba(124,92,255,.45);
+    opacity: 0; transition: opacity .4s;
   }
   .zone[data-stage="intake"].is-on .doc-new { opacity: 1; }
 
@@ -207,29 +213,39 @@
   .zone[data-stage="review"].is-on .check { opacity: 1; transform: none; box-shadow: 0 0 26px -4px rgba(52,211,153,.75); }
   .review-node b { font-size: .7rem; font-weight: 600; }
   .review-node i { font-style: normal; font-size: .63rem; color: #8f95ab; }
+  .review-node b, .review-node i { opacity: .5; transition: opacity .4s; }
+  .zone[data-stage="review"].is-on .review-node b,
+  .zone[data-stage="review"].is-on .review-node i { opacity: 1; }
 
   .routes .zone-body { gap: 8px; }
-  .route-item { display: flex; flex-direction: column; min-width: 0; }
-  .route-chip {
-    display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-radius: 10px;
-    border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025);
-    opacity: .5; transition: opacity .35s, border-color .35s, background .35s, transform .35s, box-shadow .35s;
+  .route-item {
+    padding: 8px 10px; border-radius: 10px; text-align: left;
+    border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.02);
+    opacity: .45; transition: opacity .35s, border-color .35s, background .35s, box-shadow .35s;
   }
-  .route-chip b { font-size: .72rem; font-weight: 600; }
-  .route-chip i { font-style: normal; margin-left: auto; font-size: .6rem; color: #8f95ab; white-space: nowrap; }
-  .zone[data-stage="route"].is-on .route-chip[data-route="payments"] {
-    opacity: 1; transform: translateX(3px);
-    border-color: rgba(124,92,255,.55);
-    background: linear-gradient(120deg, rgba(124,92,255,.22), rgba(124,92,255,.04));
-    box-shadow: 0 0 28px -10px rgba(124,92,255,.85);
+  .route-item.is-hit {
+    opacity: 1;
+    border-color: rgba(34,211,238,.42);
+    background: linear-gradient(120deg, rgba(34,211,238,.12), rgba(34,211,238,.015));
+    box-shadow: 0 0 26px -12px rgba(34,211,238,.85);
   }
+  .route-chip b { font-size: .7rem; font-weight: 600; }
+  .route-docs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .route-docs span {
+    font-family: var(--mono); font-size: .49rem; letter-spacing: .05em;
+    padding: 1px 5px; border-radius: 4px;
+    color: #a5eef8; background: rgba(34,211,238,.09); border: 1px solid rgba(34,211,238,.22);
+    opacity: 0; transform: translateY(3px); transition: opacity .3s, transform .3s;
+  }
+  .route-item.is-hit .route-docs span { opacity: 1; transform: none; }
+  .route-item.is-hit .route-docs span:nth-child(2) { transition-delay: .08s; }
   .route-why {
-    display: block; height: 1.2em; margin: 5px 0 0 6px; text-align: left;
-    font-family: var(--mono); font-size: .57rem; letter-spacing: .08em;
-    text-transform: uppercase; color: #b9a7ff;
-    opacity: 0; transform: translateY(3px); transition: opacity .4s, transform .4s;
+    display: block; margin-top: 5px;
+    font-family: var(--mono); font-size: .51rem; letter-spacing: .07em;
+    text-transform: uppercase; color: #8b93a8;
+    opacity: 0; transition: opacity .35s;
   }
-  .zone[data-stage="route"].is-on .route-why { opacity: 1; transform: none; }
+  .route-item.is-hit .route-why { opacity: 1; }
 
   .crm-card {
     padding: 13px 14px; border-radius: 12px;
@@ -237,7 +253,8 @@
     background: linear-gradient(150deg, rgba(52,211,153,.12), rgba(52,211,153,.03));
   }
   .crm-head { display: flex; align-items: center; gap: 6px; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase; color: #6ee7b7; }
-  .crm-head::after { content: ""; margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px rgba(52,211,153,.85); }
+  .crm-head::after { content: ""; margin-left: auto; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px rgba(52,211,153,.85); opacity: .35; transition: opacity .4s; }
+  .zone[data-stage="deliver"].is-on .crm-head::after { opacity: 1; }
   .crm-lines { text-align: left; }
   .crm-lines > * { opacity: 0; transform: translateY(3px); transition: opacity .35s, transform .35s; }
   .zone[data-stage="deliver"].is-on .crm-lines > * { opacity: 1; transform: none; }
@@ -245,28 +262,6 @@
   .crm-lines i { display: block; margin-top: 4px; font-style: normal; font-size: .63rem; color: #9fb8ad; }
   .crm-alt { margin-top: 8px; font-size: .61rem; color: #7d8399; }
   .crm-alt span { color: #b9c0d4; }
-
-  /* Progress rail: geometry is measured by JS, the fill and the token ride on it. */
-  .rail { position: absolute; z-index: 2; left: 26px; right: 26px; bottom: 16px; height: 2px; pointer-events: none; }
-  .rail-base {
-    position: absolute; inset: 0; border-radius: 2px;
-    background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.15) 12%, rgba(255,255,255,.15) 88%, rgba(255,255,255,.05));
-  }
-  .rail-fill {
-    position: absolute; inset: 0; border-radius: 2px; transform-origin: 0 50%; transform: scaleX(0);
-    background: linear-gradient(90deg, rgba(124,92,255,.6), rgba(34,211,238,.95));
-    box-shadow: 0 0 14px rgba(34,211,238,.35);
-  }
-  .rail-stop {
-    position: absolute; top: 50%; left: 0; width: 1px; height: 7px; margin-top: -3.5px;
-    background: rgba(255,255,255,.16); transition: background .3s, box-shadow .3s;
-  }
-  .rail-stop.is-hit { background: #22d3ee; box-shadow: 0 0 9px rgba(34,211,238,.9); }
-  .rail-dot {
-    position: absolute; top: 50%; left: 0; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%;
-    background: #22d3ee; box-shadow: 0 0 0 3px rgba(34,211,238,.16), 0 0 18px rgba(34,211,238,.9);
-    opacity: 0; transition: opacity .35s;
-  }
 
   .demo-bar { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
   .caption { font-family: var(--mono); font-size: .68rem; color: #7b8199; }
@@ -294,12 +289,16 @@
     .glow { animation: none; }
     .scene .doc, .scene .doc-new, .scene .core, .scene .core::before,
     .scene .core-chips span, .scene .check, .scene .review-node,
-    .scene .route-chip, .scene .route-why, .scene .crm-lines > *,
-    .scene .zone-head::before { transition: none; }
-    .rail-dot { display: none; }
+    .scene .review-node b, .scene .review-node i, .scene .crm-head::after,
+    .scene .route-item, .scene .route-docs span, .scene .route-why,
+    .scene .crm-lines > *, .scene .zone-head::before { transition: none; }
   }
   @media (max-width: 1366px) {
     .core-chips { display: grid; grid-template-columns: repeat(2, auto); gap: 5px; justify-content: center; }
+  }
+  @media (min-width: 1101px) and (max-width: 1220px) {
+    .doc-body b { font-size: .64rem; }
+    .doc-body i { font-size: .55rem; }
   }
   @media (max-width: 1100px) {
     .scene { grid-template-columns: 1fr; gap: 14px; padding: 22px 18px; min-height: 0; max-width: 600px; }
@@ -312,7 +311,6 @@
     .core-chips { justify-content: flex-start; }
     .review-node { flex-direction: row; text-align: left; }
     .doc-stack { gap: 7px; }
-    .rail { display: none; }
   }
   @media (max-width: 640px) {
     .topbar { padding: 12px 16px; gap: 12px; }
@@ -356,81 +354,93 @@
       <a class="btn btn-glass" href="/app#path">See the path</a>
     </div>
 
-    <div class="scene" id="scene" role="img" aria-label="An invoice arrives in the inbox. DocFlow reads the whole document: supplier, amount, tax ID and VAT. A human confirms the fields. The rule routes the document to Payments by document type, and the CRM receives a deal with the company card and the linked contact.">
+    <div class="scene" id="scene" role="img" aria-label="Four documents land in the inbox: two invoices, an act of completed work and a delivery note. DocFlow reads each whole document, a person confirms the batch, and the rules split the flow — the invoice to Payments, the act and the delivery note to Accounting, and the large invoice to Approval because its amount is above the threshold. The CRM receives the deals with the company cards and the linked contacts.">
       <div class="zone" data-stage="intake">
         <div class="zone-head">Inbox <b>intake</b></div>
         <div class="zone-body">
-        <div class="doc-stack">
-          <div class="doc">
-            <span class="doc-ico">PDF</span>
-            <span class="doc-body"><b>Invoice №2026-114</b><i>from mailbox</i></span>
-            <span class="doc-new">new</span>
+          <div class="doc-stack">
+            <div class="doc">
+              <span class="doc-ico">INV</span>
+              <span class="doc-body"><b>Invoice №2026-114</b><i>42 000 UAH · mailbox</i></span>
+              <span class="doc-new">new</span>
+            </div>
+            <div class="doc">
+              <span class="doc-ico">ACT</span>
+              <span class="doc-body"><b>Act №2026-14</b><i>8 600 UAH · scan</i></span>
+            </div>
+            <div class="doc">
+              <span class="doc-ico">DN</span>
+              <span class="doc-body"><b>Delivery note №2026-77</b><i>21 000 UAH · mailbox</i></span>
+            </div>
+            <div class="doc">
+              <span class="doc-ico">INV</span>
+              <span class="doc-body"><b>Invoice №2026-455</b><i>192 000 UAH · scan</i></span>
+            </div>
           </div>
-        </div>
         </div>
       </div>
 
       <div class="zone" data-stage="read">
         <div class="zone-head">Read <b>whole document</b></div>
         <div class="zone-body">
-        <div class="core-wrap">
-          <div class="core" id="core"><span class="core-glyph"></span></div>
-          <div class="core-chips" id="core-chips">
-            <span>Supplier</span><span>Amount</span><span>Tax ID</span><span>VAT</span>
+          <div class="core-wrap">
+            <div class="core" id="core"><span class="core-glyph"></span></div>
+            <div class="core-chips" id="core-chips">
+              <span>Supplier</span><span>Amount</span><span>Tax ID</span><span>VAT</span>
+            </div>
           </div>
-        </div>
         </div>
       </div>
 
       <div class="zone" data-stage="review">
         <div class="zone-head">Review <b>human</b></div>
         <div class="zone-body">
-        <div class="review-node" id="review">
-          <div class="check">✓</div>
-          <b>Confirmed in 6 s</b>
-          <i>0 edits · 97% confident</i>
-        </div>
+          <div class="review-node" id="review">
+            <div class="check">✓</div>
+            <b>4 confirmed</b>
+            <i>0 edits · 96% confident</i>
+          </div>
         </div>
       </div>
 
       <div class="zone routes" data-stage="route">
         <div class="zone-head">Route <b>by rule</b></div>
         <div class="zone-body">
-        <div class="route-item">
-          <div class="route-chip" data-route="payments"><b>Payments</b><i>invoice</i></div>
-          <span class="route-why">reason · document type</span>
-        </div>
-        <div class="route-chip" data-route="accounting"><b>Accounting</b><i>act</i></div>
-        <div class="route-chip" data-route="approval"><b>Approval</b><i>amount ≥ threshold</i></div>
+          <div class="route-item" data-chip="payments">
+            <div class="route-chip"><b>Payments</b></div>
+            <div class="route-docs"><span>INV 2026-114</span></div>
+            <span class="route-why">by document type</span>
+          </div>
+          <div class="route-item" data-chip="accounting">
+            <div class="route-chip"><b>Accounting</b></div>
+            <div class="route-docs"><span>ACT 2026-14</span><span>DN 2026-77</span></div>
+            <span class="route-why">by document type</span>
+          </div>
+          <div class="route-item" data-chip="approval">
+            <div class="route-chip"><b>Approval</b></div>
+            <div class="route-docs"><span>INV 2026-455</span></div>
+            <span class="route-why">amount ≥ 100 000</span>
+          </div>
         </div>
       </div>
 
       <div class="zone" data-stage="deliver">
         <div class="zone-head">CRM <b>delivery</b></div>
         <div class="zone-body">
-        <div class="crm-card">
-          <div class="crm-head">Uspacy</div>
-          <div class="crm-lines" id="crm-lines">
-            <b>Deal created</b>
-            <i>company card · contact linked</i>
+          <div class="crm-card" id="deliver-card">
+            <div class="crm-head">Uspacy</div>
+            <div class="crm-lines" id="crm-lines">
+              <b>4 deals created</b>
+              <i>company cards · contacts linked</i>
+            </div>
           </div>
+          <div class="crm-alt">or <span>Bitrix24</span>, same interface</div>
         </div>
-        <div class="crm-alt">or <span>Bitrix24</span>, same interface</div>
-        </div>
-      </div>
-
-      <div class="rail" id="rail">
-        <div class="rail-base"></div>
-        <div class="rail-fill" id="rail-fill"></div>
-        <div class="rail-stops">
-          <i class="rail-stop"></i><i class="rail-stop"></i><i class="rail-stop"></i><i class="rail-stop"></i><i class="rail-stop"></i>
-        </div>
-        <div class="rail-dot" id="rail-dot"></div>
       </div>
     </div>
 
     <div class="demo-bar">
-      <p class="caption">↳ one invoice through the whole flow · ~6 s</p>
+      <p class="caption">↳ four documents in · three routes out · ~6 s</p>
       <button class="demo-toggle" id="demo-toggle" type="button">Pause</button>
     </div>
 
@@ -456,27 +466,32 @@ function initScene() {
   const scene = document.getElementById('scene');
   if (!scene) return;
   const zones = Array.from(scene.querySelectorAll('.zone[data-stage]'));
-  const rail = document.getElementById('rail');
-  const fill = document.getElementById('rail-fill');
-  const dot = document.getElementById('rail-dot');
-  const stops = Array.from(rail.querySelectorAll('.rail-stop'));
+  const byStage = (name) => scene.querySelector('.zone[data-stage="' + name + '"]');
+  const intake = byStage('intake');
+  const readZone = byStage('read');
+  const reviewZone = byStage('review');
+  const routeZone = byStage('route');
+  const deliverZone = byStage('deliver');
+  const chips = Array.from(scene.querySelectorAll('.route-item'));
   const toggle = document.getElementById('demo-toggle');
   const caption = scene.parentElement.querySelector('.caption');
-  if (!zones.length || !rail || !fill || !dot || !toggle) return;
+  if (!zones.length || !chips.length || !toggle) return;
 
   const reduceMq = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const stackMq = window.matchMedia('(max-width: 1100px)');
 
-  // One run of the demo: the intake beat, the token crossing the rail, the hold, the fade back.
-  const ARRIVE = 500;
-  const TRAVEL = 2800;
-  const HOLD = 1300;
+  // One run: the documents land, each stage takes the batch in turn, the rules split
+  // it into three destinations and the record lands in the CRM.
+  const READ = 1250;
+  const REVIEW = 2100;
+  const ROUTE = 2750;
+  const CHIP_STEP = 200;
+  const DELIVER = 3550;
+  const HOLD = 1550;
   const RESET = 450;
-  const IDLE = 700;
-  const CYCLE = ARRIVE + TRAVEL + HOLD + RESET + IDLE;
+  const IDLE = 650;
+  const T_RESET = DELIVER + HOLD;
+  const CYCLE = T_RESET + RESET + IDLE;
 
-  let geo = { vertical: false, start: 0, span: 1 };
-  let limits = zones.map(() => 0);
   let elapsed = 0;
   let playing = false;
   let manual = false;
@@ -484,89 +499,28 @@ function initScene() {
   let frame = 0;
   let last = 0;
 
-  const clamp01 = (value) => Math.min(1, Math.max(0, value));
-
-  function measure() {
-    const box = scene.getBoundingClientRect();
-    const vertical = stackMq.matches;
-    const centers = zones.map((zone) => {
-      const rect = zone.getBoundingClientRect();
-      return vertical ? rect.top - box.top + rect.height / 2 : rect.left - box.left + rect.width / 2;
-    });
-    const start = centers[0];
-    const end = centers[centers.length - 1];
-    geo = { vertical, start, span: Math.max(1, end - start) };
-    limits = centers.map((center) => clamp01((center - start) / geo.span));
-    if (vertical) {
-      rail.style.left = '11px';
-      rail.style.right = 'auto';
-      rail.style.width = '2px';
-      rail.style.top = start + 'px';
-      rail.style.height = geo.span + 'px';
-      rail.style.bottom = 'auto';
-    } else {
-      rail.style.left = start + 'px';
-      rail.style.right = 'auto';
-      rail.style.width = geo.span + 'px';
-      rail.style.top = 'auto';
-      rail.style.height = '2px';
-      rail.style.bottom = '16px';
-    }
-    stops.forEach((stop, index) => {
-      const offset = Math.max(0, centers[index] - start);
-      if (vertical) {
-        stop.style.left = '';
-        stop.style.top = offset + 'px';
-      } else {
-        stop.style.top = '';
-        stop.style.left = offset + 'px';
-      }
-    });
+  function stage(el, on) {
+    if (el) el.classList.toggle('is-on', on);
   }
 
-  // Every reveal is a class on its stage zone; the CSS does the rest.
-  function setStages(count) {
-    zones.forEach((zone, index) => zone.classList.toggle('is-on', index < count));
-  }
-
-  function setStops(progress) {
-    stops.forEach((stop, index) => stop.classList.toggle('is-hit', limits[index] <= progress));
-  }
-
-  function drawRail(progress, visible) {
-    fill.style.transform = geo.vertical ? 'scaleY(' + progress + ')' : 'scaleX(' + progress + ')';
-    const offset = progress * geo.span;
-    dot.style.transform = geo.vertical ? 'translateY(' + offset + 'px)' : 'translateX(' + offset + 'px)';
-    dot.style.opacity = visible ? '1' : '0';
+  function clearRun() {
+    zones.forEach((el) => el.classList.remove('is-on'));
+    chips.forEach((el) => el.classList.remove('is-hit'));
   }
 
   function render(time) {
-    if (time < ARRIVE) {
-      setStages(1);
-      setStops(0);
-      drawRail(0, time > 80);
+    if (time >= T_RESET) {
+      clearRun();
       return;
     }
-    if (time < ARRIVE + TRAVEL) {
-      const progress = (time - ARRIVE) / TRAVEL;
-      let count = 0;
-      for (let i = 0; i < limits.length; i += 1) {
-        if (limits[i] <= progress) count = i + 1;
-      }
-      setStages(count);
-      setStops(progress);
-      drawRail(progress, true);
-      return;
-    }
-    if (time < CYCLE - RESET - IDLE) {
-      setStages(zones.length);
-      setStops(1);
-      drawRail(1, true);
-      return;
-    }
-    setStages(0);
-    setStops(-1);
-    drawRail(time < CYCLE - IDLE ? 1 : 0, false);
+    stage(intake, true);
+    stage(readZone, time >= READ);
+    stage(reviewZone, time >= REVIEW);
+    stage(routeZone, time >= ROUTE);
+    chips.forEach((el, index) => {
+      el.classList.toggle('is-hit', time >= ROUTE + 120 + index * CHIP_STEP);
+    });
+    stage(deliverZone, time >= DELIVER);
   }
 
   function tick(now) {
@@ -604,26 +558,24 @@ function initScene() {
   }
 
   function applyReduced() {
-    measure();
-    if (caption) caption.textContent = reduceMq.matches
-      ? '↳ one invoice through the whole flow'
-      : '↳ one invoice through the whole flow · ~6 s';
+    if (caption) {
+      caption.textContent = reduceMq.matches
+        ? '↳ four documents in · three routes out'
+        : '↳ four documents in · three routes out · ~6 s';
+    }
     if (reduceMq.matches) {
       stop();
       manual = false;
       setToggle();
       toggle.hidden = true;
-      setStages(zones.length);
-      setStops(1);
-      fill.style.transform = geo.vertical ? 'scaleY(1)' : 'scaleX(1)';
-      dot.style.opacity = '0';
+      zones.forEach((el) => el.classList.add('is-on'));
+      chips.forEach((el) => el.classList.add('is-hit'));
       return;
     }
     toggle.hidden = false;
     setToggle();
     elapsed = 0;
-    setStages(0);
-    drawRail(0, false);
+    clearRun();
     sync();
   }
 
@@ -641,25 +593,7 @@ function initScene() {
 
   document.addEventListener('visibilitychange', sync);
 
-  let resizeFrame = 0;
-  function onResize() {
-    if (resizeFrame) cancelAnimationFrame(resizeFrame);
-    resizeFrame = requestAnimationFrame(() => {
-      resizeFrame = 0;
-      measure();
-      if (reduceMq.matches) {
-        fill.style.transform = geo.vertical ? 'scaleY(1)' : 'scaleX(1)';
-        return;
-      }
-      render(elapsed);
-    });
-  }
-  window.addEventListener('resize', onResize);
-
-  if (reduceMq.addEventListener) {
-    reduceMq.addEventListener('change', applyReduced);
-    stackMq.addEventListener('change', onResize);
-  }
+  if (reduceMq.addEventListener) reduceMq.addEventListener('change', applyReduced);
 
   applyReduced();
 }
