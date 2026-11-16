@@ -263,6 +263,19 @@
   .crm-alt { margin-top: 8px; font-size: .61rem; color: #7d8399; }
   .crm-alt span { color: #b9c0d4; }
 
+  /* Laser: the path exists only while the run draws it, so nothing is wired up in advance. */
+  .flow { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; pointer-events: none; opacity: 1; transition: opacity .45s; }
+  .flow path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .flow .bright { stroke: url(#flow-grad); stroke-width: 1.7; filter: drop-shadow(0 0 4px rgba(34,211,238,.55)); }
+  .flow-dot {
+    position: absolute; left: 0; top: 0; z-index: 2; width: 9px; height: 9px;
+    margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: #eafdff;
+    pointer-events: none; opacity: 0; transition: opacity .18s;
+    box-shadow: 0 0 0 3px rgba(34,211,238,.16), 0 0 18px 2px rgba(34,211,238,.85);
+  }
+  .flow-dot.small { width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; }
+  .flow-dot.is-live { opacity: 1; }
+
   .demo-bar { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
   .caption { font-family: var(--mono); font-size: .68rem; color: #7b8199; }
   .demo-toggle {
@@ -292,6 +305,7 @@
     .scene .review-node b, .scene .review-node i, .scene .crm-head::after,
     .scene .route-item, .scene .route-docs span, .scene .route-why,
     .scene .crm-lines > *, .scene .zone-head::before { transition: none; }
+    .flow-dot { display: none; }
   }
   @media (max-width: 1366px) {
     .core-chips { display: grid; grid-template-columns: repeat(2, auto); gap: 5px; justify-content: center; }
@@ -311,6 +325,7 @@
     .core-chips { justify-content: flex-start; }
     .review-node { flex-direction: row; text-align: left; }
     .doc-stack { gap: 7px; }
+    .flow, .flow-dot { display: none; }
   }
   @media (max-width: 640px) {
     .topbar { padding: 12px 16px; gap: 12px; }
@@ -355,6 +370,17 @@
     </div>
 
     <div class="scene" id="scene" role="img" aria-label="Four documents land in the inbox: two invoices, an act of completed work and a delivery note. DocFlow reads each whole document, a person confirms the batch, and the rules split the flow — the invoice to Payments, the act and the delivery note to Accounting, and the large invoice to Approval because its amount is above the threshold. The CRM receives the deals with the company cards and the linked contacts.">
+      <svg class="flow" id="flow" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="flow-grad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1400" y2="0">
+            <stop offset="0" stop-color="#b9a7ff" />
+            <stop offset=".38" stop-color="#8b7bff" />
+            <stop offset=".7" stop-color="#3fd8ef" />
+            <stop offset="1" stop-color="#22d3ee" />
+          </linearGradient>
+        </defs>
+      </svg>
+
       <div class="zone" data-stage="intake">
         <div class="zone-head">Inbox <b>intake</b></div>
         <div class="zone-body">
@@ -436,11 +462,15 @@
           </div>
           <div class="crm-alt">or <span>Bitrix24</span>, same interface</div>
         </div>
+      <i class="flow-dot" id="flow-dot"></i>
+      <i class="flow-dot small" data-dot="0"></i>
+      <i class="flow-dot small" data-dot="1"></i>
+      <i class="flow-dot small" data-dot="2"></i>
       </div>
     </div>
 
     <div class="demo-bar">
-      <p class="caption">↳ four documents in · three routes out · ~6 s</p>
+      <p class="caption">↳ four documents in · three routes out · ~7 s</p>
       <button class="demo-toggle" id="demo-toggle" type="button">Pause</button>
     </div>
 
@@ -465,6 +495,7 @@
 function initScene() {
   const scene = document.getElementById('scene');
   if (!scene) return;
+  const flow = document.getElementById('flow');
   const zones = Array.from(scene.querySelectorAll('.zone[data-stage]'));
   const byStage = (name) => scene.querySelector('.zone[data-stage="' + name + '"]');
   const intake = byStage('intake');
@@ -472,26 +503,71 @@ function initScene() {
   const reviewZone = byStage('review');
   const routeZone = byStage('route');
   const deliverZone = byStage('deliver');
-  const chips = Array.from(scene.querySelectorAll('.route-item'));
+  const docEls = Array.from(scene.querySelectorAll('.doc'));
+  const chipEls = Array.from(scene.querySelectorAll('.route-item'));
+  const coreEl = document.getElementById('core');
+  const reviewEl = document.getElementById('review');
+  const crmEl = document.getElementById('deliver-card');
+  const dots = [
+    document.getElementById('flow-dot'),
+    ...Array.from(scene.querySelectorAll('.flow-dot[data-dot]')),
+  ];
   const toggle = document.getElementById('demo-toggle');
   const caption = scene.parentElement.querySelector('.caption');
-  if (!zones.length || !chips.length || !toggle) return;
+  if (!flow || !zones.length || !docEls.length || !chipEls.length || !toggle) return;
 
   const reduceMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const stackMq = window.matchMedia('(max-width: 1100px)');
+  const NS = 'http://www.w3.org/2000/svg';
+  const clamp01 = (value) => Math.min(1, Math.max(0, value));
 
-  // One run: the documents land, each stage takes the batch in turn, the rules split
-  // it into three destinations and the record lands in the CRM.
-  const READ = 1250;
-  const REVIEW = 2100;
-  const ROUTE = 2750;
-  const CHIP_STEP = 200;
-  const DELIVER = 3550;
-  const HOLD = 1550;
+  // One run: the documents land, the laser picks the inbox up, crosses read and review,
+  // forks into three destinations, merges back and delivers the deals.
+  // Nothing is drawn ahead of the laser — every path is painted by the run itself.
+  const ARRIVE = 620;
+  const PICKUP = 300;
+  const BUS = 240;
+  const TRAVEL = 2100;
+  const BRANCH_STEP = 230;
+  const BRANCH_DUR = 210;
+  const FORK = BRANCH_STEP * 2 + BRANCH_DUR;
+  const MERGE = 340;
+  const HOLD = 1500;
   const RESET = 450;
-  const IDLE = 650;
-  const T_RESET = DELIVER + HOLD;
+  const IDLE = 600;
+  const T_PICKUP = ARRIVE;
+  const T_BUS = T_PICKUP + PICKUP;
+  const T_TRAVEL = T_BUS + BUS;
+  const T_FORK = T_TRAVEL + TRAVEL;
+  const T_MERGE = T_FORK + FORK;
+  const T_LIT = T_MERGE + MERGE;
+  const T_RESET = T_LIT + HOLD;
   const CYCLE = T_RESET + RESET + IDLE;
 
+  const svgPath = () => {
+    const el = document.createElementNS(NS, 'path');
+    el.setAttribute('class', 'bright');
+    flow.appendChild(el);
+    return el;
+  };
+  const pair = () => ({ b: svgPath(), len: 0 });
+  const parts = {
+    docLeads: docEls.map(pair),
+    intakeBus: pair(),
+    trunk: pair(),
+    branches: chipEls.map(pair),
+    mergeLeads: chipEls.map(pair),
+    mergeBus: pair(),
+    deliver: pair(),
+  };
+  const all = [];
+  Object.keys(parts).forEach((key) => {
+    const value = parts[key];
+    (Array.isArray(value) ? value : [value]).forEach((item) => all.push(item));
+  });
+  const grad = document.getElementById('flow-grad');
+
+  const geo = { stacked: false, marks: { read: .38, review: .72 } };
   let elapsed = 0;
   let playing = false;
   let manual = false;
@@ -499,13 +575,122 @@ function initScene() {
   let frame = 0;
   let last = 0;
 
+  const round = (value) => Math.round(value * 10) / 10;
+
+  // A polyline with rounded corners — used for the small turns of the laser.
+  function rounded(points, radius) {
+    let d = 'M ' + round(points[0].x) + ' ' + round(points[0].y);
+    for (let i = 1; i < points.length - 1; i += 1) {
+      const prev = points[i - 1];
+      const cur = points[i];
+      const next = points[i + 1];
+      const v1 = { x: prev.x - cur.x, y: prev.y - cur.y };
+      const v2 = { x: next.x - cur.x, y: next.y - cur.y };
+      const l1 = Math.hypot(v1.x, v1.y) || 1;
+      const l2 = Math.hypot(v2.x, v2.y) || 1;
+      const rr = Math.min(radius, l1 / 2, l2 / 2);
+      const a = { x: cur.x + (v1.x / l1) * rr, y: cur.y + (v1.y / l1) * rr };
+      const b = { x: cur.x + (v2.x / l2) * rr, y: cur.y + (v2.y / l2) * rr };
+      d += ' L ' + round(a.x) + ' ' + round(a.y) + ' Q ' + round(cur.x) + ' ' + round(cur.y) + ' ' + round(b.x) + ' ' + round(b.y);
+    }
+    const end = points[points.length - 1];
+    return d + ' L ' + round(end.x) + ' ' + round(end.y);
+  }
+
+  function measure() {
+    const stacked = stackMq.matches;
+    geo.stacked = stacked;
+    const box = scene.getBoundingClientRect();
+    const ox = box.left + scene.clientLeft;
+    const oy = box.top + scene.clientTop;
+    const rect = (el) => {
+      const q = el.getBoundingClientRect();
+      return {
+        l: q.left - ox, r: q.right - ox, t: q.top - oy, b: q.bottom - oy,
+        cx: (q.left + q.right) / 2 - ox, cy: (q.top + q.bottom) / 2 - oy,
+      };
+    };
+    flow.setAttribute('viewBox', '0 0 ' + scene.clientWidth + ' ' + scene.clientHeight);
+    if (grad) grad.setAttribute('x2', scene.clientWidth);
+    if (stacked) {
+      flow.style.display = 'none';
+      all.forEach((item) => { item.b.style.strokeDashoffset = item.len; });
+      return;
+    }
+    flow.style.display = '';
+    const docs = docEls.map(rect);
+    const chips = chipEls.map(rect);
+    const core = rect(coreEl);
+    const review = rect(reviewEl);
+    const crm = rect(crmEl);
+    const readBox = rect(readZone);
+    const routeBox = rect(routeZone);
+    const deliverBox = rect(deliverZone);
+
+    const intakeBusX = readBox.l - 12;
+    const forkX = routeBox.l - 12;
+    const mergeBusX = deliverBox.l - 12;
+    const busY = (docs[0].t + docs[docs.length - 1].b) / 2;
+    const midY = chips[1].cy;
+
+    const set = (item, points, radius) => {
+      const d = rounded(points, radius);
+      item.b.setAttribute('d', d);
+      item.len = item.b.getTotalLength();
+      item.b.style.strokeDasharray = String(item.len);
+      item.b.style.strokeDashoffset = String(item.len);
+    };
+
+    docs.forEach((doc, k) => {
+      set(parts.docLeads[k], [{ x: doc.r, y: doc.cy }, { x: intakeBusX, y: doc.cy }], 0);
+    });
+    set(parts.intakeBus, [{ x: intakeBusX, y: docs[0].cy }, { x: intakeBusX, y: docs[docs.length - 1].cy }], 0);
+    set(parts.trunk, [
+      { x: intakeBusX, y: busY },
+      { x: core.cx, y: core.cy },
+      { x: review.cx, y: review.cy },
+      { x: forkX, y: midY },
+    ], 10);
+    chips.forEach((chip, k) => {
+      const flat = Math.abs(chip.cy - midY) < 1;
+      const points = flat
+        ? [{ x: forkX, y: midY }, { x: chip.l, y: midY }]
+        : [{ x: forkX, y: midY }, { x: forkX, y: chip.cy }, { x: chip.l, y: chip.cy }];
+      set(parts.branches[k], points, 8);
+    });
+    chips.forEach((chip, k) => {
+      set(parts.mergeLeads[k], [{ x: chip.r, y: chip.cy }, { x: mergeBusX, y: chip.cy }], 0);
+    });
+    set(parts.mergeBus, [{ x: mergeBusX, y: chips[0].cy }, { x: mergeBusX, y: chips[chips.length - 1].cy }], 0);
+    set(parts.deliver, [{ x: mergeBusX, y: midY }, { x: crm.l, y: midY }], 0);
+
+    const span = Math.max(1, forkX - intakeBusX);
+    geo.marks = {
+      read: clamp01((core.l - intakeBusX) / span),
+      review: clamp01((review.l - intakeBusX) / span),
+    };
+  }
+
+  function draw(item, progress) {
+    item.b.style.strokeDashoffset = String(item.len * (1 - clamp01(progress)));
+  }
+
+  function place(dot, item, progress) {
+    if (!item.len) return;
+    const point = item.b.getPointAtLength(item.len * clamp01(progress));
+    dot.style.transform = 'translate3d(' + point.x.toFixed(1) + 'px,' + point.y.toFixed(1) + 'px,0)';
+  }
+
   function stage(el, on) {
     if (el) el.classList.toggle('is-on', on);
   }
 
   function clearRun() {
     zones.forEach((el) => el.classList.remove('is-on'));
-    chips.forEach((el) => el.classList.remove('is-hit'));
+    chipEls.forEach((el) => el.classList.remove('is-hit'));
+    dots.forEach((dot) => dot.classList.remove('is-live'));
+    flow.style.opacity = '0';
+    if (!geo.stacked) all.forEach((item) => { item.b.style.strokeDashoffset = String(item.len); });
   }
 
   function render(time) {
@@ -513,14 +698,47 @@ function initScene() {
       clearRun();
       return;
     }
+    const phase = (start, dur) => clamp01((time - start) / dur);
+    flow.style.opacity = '1';
     stage(intake, true);
-    stage(readZone, time >= READ);
-    stage(reviewZone, time >= REVIEW);
-    stage(routeZone, time >= ROUTE);
-    chips.forEach((el, index) => {
-      el.classList.toggle('is-hit', time >= ROUTE + 120 + index * CHIP_STEP);
+    const leadP = docEls.map((_, k) => phase(T_PICKUP + k * 55, 130));
+    const busP = phase(T_BUS, BUS);
+    const trunkP = phase(T_TRAVEL, TRAVEL);
+    const chipP = chipEls.map((_, k) => phase(T_FORK + k * BRANCH_STEP, BRANCH_DUR));
+    const mergeP = phase(T_MERGE, 220);
+    const deliverP = phase(T_MERGE + 120, 220);
+    chipEls.forEach((el, k) => el.classList.toggle('is-hit', chipP[k] >= 1));
+    stage(readZone, trunkP >= geo.marks.read);
+    stage(reviewZone, trunkP >= geo.marks.review);
+    stage(routeZone, time >= T_FORK);
+    stage(deliverZone, deliverP >= 0.9);
+    if (geo.stacked) {
+      dots.forEach((dot) => dot.classList.remove('is-live'));
+      return;
+    }
+    parts.docLeads.forEach((item, k) => draw(item, leadP[k]));
+    draw(parts.intakeBus, busP);
+    draw(parts.trunk, trunkP);
+    parts.branches.forEach((item, k) => draw(item, chipP[k]));
+    parts.mergeLeads.forEach((item) => draw(item, mergeP));
+    draw(parts.mergeBus, mergeP);
+    draw(parts.deliver, deliverP);
+    // The laser rides the trunk; at the fork it splits into three heads.
+    if (trunkP > 0.02 && trunkP < 0.995) {
+      place(dots[0], parts.trunk, trunkP);
+      dots[0].classList.add('is-live');
+    } else {
+      dots[0].classList.remove('is-live');
+    }
+    chipEls.forEach((_, k) => {
+      const dot = dots[k + 1];
+      if (chipP[k] > 0.02 && chipP[k] < 0.995) {
+        place(dot, parts.branches[k], chipP[k]);
+        dot.classList.add('is-live');
+      } else {
+        dot.classList.remove('is-live');
+      }
     });
-    stage(deliverZone, time >= DELIVER);
   }
 
   function tick(now) {
@@ -558,10 +776,11 @@ function initScene() {
   }
 
   function applyReduced() {
+    measure();
     if (caption) {
       caption.textContent = reduceMq.matches
         ? '↳ four documents in · three routes out'
-        : '↳ four documents in · three routes out · ~6 s';
+        : '↳ four documents in · three routes out · ~7 s';
     }
     if (reduceMq.matches) {
       stop();
@@ -569,7 +788,10 @@ function initScene() {
       setToggle();
       toggle.hidden = true;
       zones.forEach((el) => el.classList.add('is-on'));
-      chips.forEach((el) => el.classList.add('is-hit'));
+      chipEls.forEach((el) => el.classList.add('is-hit'));
+      dots.forEach((dot) => dot.classList.remove('is-live'));
+      flow.style.opacity = '1';
+      all.forEach((item) => { item.b.style.strokeDashoffset = 0; });
       return;
     }
     toggle.hidden = false;
@@ -593,7 +815,25 @@ function initScene() {
 
   document.addEventListener('visibilitychange', sync);
 
-  if (reduceMq.addEventListener) reduceMq.addEventListener('change', applyReduced);
+  let resizeFrame = 0;
+  function onResize() {
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      measure();
+      if (reduceMq.matches) {
+        all.forEach((item) => { item.b.style.strokeDashoffset = 0; });
+        return;
+      }
+      render(elapsed);
+    });
+  }
+  window.addEventListener('resize', onResize);
+
+  if (reduceMq.addEventListener) {
+    reduceMq.addEventListener('change', applyReduced);
+    stackMq.addEventListener('change', onResize);
+  }
 
   applyReduced();
 }
