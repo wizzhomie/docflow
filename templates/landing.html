@@ -118,7 +118,7 @@
     mask-image: radial-gradient(76% 86% at 50% 50%, #000, transparent 88%);
   }
   .zone { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-  .zone-body { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; gap: 10px; min-width: 0; padding-top: 30px; }
+  .zone-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 10px; min-width: 0; }
   .zone-head {
     display: flex; align-items: center; gap: 6px;
     font-family: var(--mono); font-size: .56rem; letter-spacing: .17em; text-transform: uppercase; color: #7d8399;
@@ -130,7 +130,7 @@
 
   .doc-stack { display: flex; flex-direction: column; gap: 7px; }
   .doc {
-    position: relative; display: flex; align-items: center; gap: 9px; padding: 6px 9px;
+    position: relative; display: flex; align-items: center; gap: 9px; padding: 8px 9px;
     border-radius: 10px; border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.025);
     opacity: .38; transform: translateY(5px);
     transition:
@@ -146,7 +146,7 @@
   .zone[data-stage="intake"].is-on .doc:nth-child(3) { transition-delay: .14s; }
   .zone[data-stage="intake"].is-on .doc:nth-child(4) { transition-delay: .21s; }
   .doc-ico {
-    flex: none; width: 26px; height: 27px; border-radius: 6px; display: grid; place-items: center;
+    flex: none; width: 27px; height: 31px; border-radius: 6px; display: grid; place-items: center;
     font-family: var(--mono); font-size: .46rem; font-weight: 600; letter-spacing: .04em; color: #c3c8d8;
     background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.13);
   }
@@ -219,7 +219,7 @@
 
   .routes .zone-body { gap: 8px; }
   .route-item {
-    padding: 6px 9px; border-radius: 10px; text-align: left;
+    padding: 8px 10px; border-radius: 10px; text-align: left;
     border: 1px solid rgba(255,255,255,.07); background: rgba(255,255,255,.02);
     opacity: .45; transition: opacity .35s, border-color .35s, background .35s, box-shadow .35s;
   }
@@ -230,7 +230,7 @@
     box-shadow: 0 0 26px -12px rgba(34,211,238,.85);
   }
   .route-chip b { font-size: .7rem; font-weight: 600; }
-  .route-docs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .route-docs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
   .route-docs span {
     font-family: var(--mono); font-size: .49rem; letter-spacing: .05em;
     padding: 1px 5px; border-radius: 4px;
@@ -240,7 +240,7 @@
   .route-item.is-hit .route-docs span { opacity: 1; transform: none; }
   .route-item.is-hit .route-docs span:nth-child(2) { transition-delay: .08s; }
   .route-why {
-    display: block; margin-top: 4px;
+    display: block; margin-top: 5px;
     font-family: var(--mono); font-size: .51rem; letter-spacing: .07em;
     text-transform: uppercase; color: #8b93a8;
     opacity: 0; transition: opacity .35s;
@@ -325,7 +325,6 @@
     .core-chips { justify-content: flex-start; }
     .review-node { flex-direction: row; text-align: left; }
     .doc-stack { gap: 7px; }
-    .zone-body { padding-top: 0; }
     .flow, .flow-dot { display: none; }
   }
   @media (max-width: 640px) {
@@ -531,7 +530,7 @@ function initScene() {
   const TRAVEL = 2100;
   const BRANCH_STEP = 230;
   const BRANCH_DUR = 210;
-  const FORK = BRANCH_STEP * 2 + BRANCH_DUR + 100;
+  const FORK = BRANCH_STEP * 2 + BRANCH_DUR;
   const MERGE = 340;
   const HOLD = 1500;
   const RESET = 450;
@@ -631,7 +630,8 @@ function initScene() {
     const intakeBusX = readBox.l - 12;
     const forkX = routeBox.l - 12;
     const mergeBusX = deliverBox.l - 12;
-    const railY = Math.min(docs[0].t, core.t, review.t, chips[0].t, crm.t) - 20;
+    const busY = (docs[0].t + docs[docs.length - 1].b) / 2;
+    const midY = chips[1].cy;
 
     const set = (item, points, radius) => {
       const d = rounded(points, radius);
@@ -644,23 +644,25 @@ function initScene() {
     docs.forEach((doc, k) => {
       set(parts.docLeads[k], [{ x: doc.r, y: doc.cy }, { x: intakeBusX, y: doc.cy }], 0);
     });
-    set(parts.intakeBus, [{ x: intakeBusX, y: railY }, { x: intakeBusX, y: docs[docs.length - 1].cy }], 0);
-    set(parts.trunk, [{ x: intakeBusX, y: railY }, { x: forkX, y: railY }], 0);
+    set(parts.intakeBus, [{ x: intakeBusX, y: docs[0].cy }, { x: intakeBusX, y: docs[docs.length - 1].cy }], 0);
+    set(parts.trunk, [
+      { x: intakeBusX, y: busY },
+      { x: core.cx, y: core.cy },
+      { x: review.cx, y: review.cy },
+      { x: forkX, y: midY },
+    ], 10);
     chips.forEach((chip, k) => {
-      set(parts.branches[k], [
-        { x: forkX, y: railY },
-        { x: forkX, y: chip.cy },
-        { x: chip.l, y: chip.cy },
-      ], 8);
+      const flat = Math.abs(chip.cy - midY) < 1;
+      const points = flat
+        ? [{ x: forkX, y: midY }, { x: chip.l, y: midY }]
+        : [{ x: forkX, y: midY }, { x: forkX, y: chip.cy }, { x: chip.l, y: chip.cy }];
+      set(parts.branches[k], points, 8);
     });
     chips.forEach((chip, k) => {
       set(parts.mergeLeads[k], [{ x: chip.r, y: chip.cy }, { x: mergeBusX, y: chip.cy }], 0);
     });
-    set(parts.mergeBus, [
-      { x: mergeBusX, y: Math.min(chips[0].cy, crm.cy) },
-      { x: mergeBusX, y: Math.max(chips[chips.length - 1].cy, crm.cy) },
-    ], 0);
-    set(parts.deliver, [{ x: mergeBusX, y: crm.cy }, { x: crm.l, y: crm.cy }], 0);
+    set(parts.mergeBus, [{ x: mergeBusX, y: chips[0].cy }, { x: mergeBusX, y: chips[chips.length - 1].cy }], 0);
+    set(parts.deliver, [{ x: mergeBusX, y: midY }, { x: crm.l, y: midY }], 0);
 
     const span = Math.max(1, forkX - intakeBusX);
     geo.marks = {
