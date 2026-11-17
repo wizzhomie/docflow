@@ -97,6 +97,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title='DocFlow', lifespan=lifespan)
 
+# The PostgreSQL report is a pilot next to the file-based demo: it is mounted when
+# psycopg2 is installed, and its absence never stops the demo from starting.
+try:
+    from pg_report import router as pg_router
+except ImportError:  # pragma: no cover - depends on the environment
+    pg_router = None
+if pg_router is not None:
+    app.include_router(pg_router)
+
 
 class ConfirmPayload(BaseModel):
     id: str

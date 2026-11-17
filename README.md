@@ -185,6 +185,42 @@ connector layer (Bitrix24 over a local fake HTTP server) and mailbox intake (MIM
 retries, dedupe, login errors — over a local fake IMAP server). CI runs the same suites
 plus a Docker build on manual dispatch and on pull requests.
 
+## Data model in PostgreSQL
+
+The demo persists to files (`data/pending/*.json`, `data/confirmed.jsonl`). A PostgreSQL
+schema sits next to them as the destination for the same records, and `/api/pg/summary`
+answers straight from the database, so the two can be compared side by side.
+
+```text
+sql/001_schema.sql          suppliers, supplier_contacts, documents, document_items,
+                            deals, document_events
+sql/002_service_tables.sql  settings: named values with an explicit type
+tools/import_demo_to_pg.py  loads the demo files into the schema
+pg_report.py                /api/pg/summary and /api/pg/
+```
+
+The decisions worth naming:
+
+- one `documents` table with a `doc_type` column instead of a table per document type;
+- the row key is a surrogate `id`, and duplicates are caught by a partial unique index on
+  `supplier_id + number + doc_date` — the amount is not part of the key;
+- a deal keeps two statuses: a business `status` and a technical `tech_status` with
+  `attempts`, `last_error` and `external_id`, because "the CRM said nothing" is not "failed";
+- edits are marked (`edited_fields`, `edited_at`, `edited_by`) and the journal lives in
+  `document_events`; derived numbers such as counts and line-item totals are computed on
+  query, never stored;
+- settings are one row per value with a `value_type` column, so the database itself
+  rejects "thirty" in a numeric setting, whoever writes it.
+
+Load and read it:
+
+```bash
+createdb docflow_dev
+psql -d docflow_dev -f sql/001_schema.sql -f sql/002_service_tables.sql
+python3 tools/import_demo_to_pg.py && psql -d docflow_dev -f /tmp/import_pg/import.sql
+curl -s http://127.0.0.1:8765/api/pg/summary
+```
+
 ## Status and limits
 
 This is a prototype for a client demonstration, not a production platform:
@@ -212,6 +248,7 @@ uspacy*.py         Uspacy authentication, client-side matching, deal creation
 templates/         showcase page (/) and review workspace (/app)
 tests/             deterministic suites and labelled fixtures
 docs/              architecture, process map, design system, roadmap
+sql/               PostgreSQL schema of the practice database
 ```
 
 - Architecture in detail: [`docs/architecture.md`](docs/architecture.md) · process map:

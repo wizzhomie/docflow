@@ -12,3 +12,6 @@ pillow==13.0.0
 
 # HTTP-level tests (fastapi.testclient)
 httpx==0.28.1
+
+# PostgreSQL pilot (/api/pg, sql/): optional, the file-based demo runs without it
+psycopg2-binary==2.9.13
