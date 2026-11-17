@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Дизайн-система DocFlow — v0.1</title>
+<title>DocFlow design system — v0.1</title>
 <style>
   :root {
     /* surfaces */
@@ -315,192 +315,192 @@
 <header class="topbar">
   <span class="mark" aria-hidden="true"></span>
   <span class="wordmark">DocFlow</span>
-  <span class="topbar-note">дизайн-система</span>
-  <span class="stamp">v0.1 · только тёмная</span>
+  <span class="topbar-note">design system</span>
+  <span class="stamp">v0.1 · dark only</span>
 </header>
 
 <main class="wrap">
 
   <section class="intro">
-    <h1>Одна система для маршрута.</h1>
-    <p>Токены витрины и рабочего места проверки: цвет, типографика, отступы, форма, движение
-      и компоненты, собранные из них. Отрендеренный справочник к
+    <h1>One system for the route.</h1>
+    <p>Tokens for the showcase and the review workspace: color, typography, spacing, shape, motion,
+      and the components built from them. A rendered reference for
       <code>docs/design-system.md</code>.</p>
     <div class="intro-facts">
-      <span class="fact">сетка 4 pt</span>
-      <span class="fact">пол текста 12 px</span>
-      <span class="fact">один акцент — одно значение</span>
-      <span class="fact">контраст AA, 44 px на тач</span>
-      <span class="fact">reduced motion учтён</span>
+      <span class="fact">4 px grid</span>
+      <span class="fact">12 px text floor</span>
+      <span class="fact">one accent — one meaning</span>
+      <span class="fact">AA contrast, 44 px touch targets</span>
+      <span class="fact">reduced motion covered</span>
     </div>
-    <p class="type-note">Тексты внутри компонентов оставлены на английском: это язык продукта.
-      Подписи, разделы и пояснения справочника — на русском.</p>
+    <p class="type-note">Component copy is in English because that is the product language.
+      This reference uses English throughout.</p>
   </section>
 
   <section id="color">
     <div class="section-head">
-      <h2>Цвет</h2>
-      <p>Один акцент — одно значение</p>
+      <h2>Color</h2>
+      <p>One accent — one meaning</p>
       <span class="count" id="contrast-count"></span>
     </div>
 
-    <h3 class="group">Поверхности и линии</h3>
+    <h3 class="group">Surfaces and lines</h3>
     <div class="swatches">
-      <div class="swatch"><div class="chip" style="background:#07080d"></div><div class="meta"><div class="name">Фон</div><code>#07080d</code></div></div>
-      <div class="swatch"><div class="chip" style="background:#0e1018"></div><div class="meta"><div class="name">Поверхность</div><code>#0e1018</code></div></div>
-      <div class="swatch"><div class="chip" style="background:#12141f"></div><div class="meta"><div class="name">Поверхность приподнятая</div><code>#12141f</code></div></div>
-      <div class="swatch"><div class="chip" style="background:#181b29"></div><div class="meta"><div class="name">Поверхность при наведении</div><code>#181b29</code></div></div>
-      <div class="swatch"><div class="chip" style="background:rgba(255,255,255,.09)"></div><div class="meta"><div class="name">Линия</div><code>rgba(255,255,255,.09)</code></div></div>
-      <div class="swatch"><div class="chip" style="background:rgba(255,255,255,.16)"></div><div class="meta"><div class="name">Линия усиленная</div><code>rgba(255,255,255,.16)</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#07080d"></div><div class="meta"><div class="name">Background</div><code>#07080d</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#0e1018"></div><div class="meta"><div class="name">Surface</div><code>#0e1018</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#12141f"></div><div class="meta"><div class="name">Raised surface</div><code>#12141f</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#181b29"></div><div class="meta"><div class="name">Hover surface</div><code>#181b29</code></div></div>
+      <div class="swatch"><div class="chip" style="background:rgba(255,255,255,.09)"></div><div class="meta"><div class="name">Line</div><code>rgba(255,255,255,.09)</code></div></div>
+      <div class="swatch"><div class="chip" style="background:rgba(255,255,255,.16)"></div><div class="meta"><div class="name">Strong line</div><code>rgba(255,255,255,.16)</code></div></div>
     </div>
 
-    <h3 class="group">Текст</h3>
+    <h3 class="group">Text</h3>
     <div class="swatches">
       <div class="swatch">
-        <div class="swatch-text" style="color:#eceef5;background:#0e1018">Document №2026-114</div>
-        <div class="meta"><div class="name">Текст</div><code>#eceef5</code><div class="ratio" data-fg="#eceef5" data-bg="#0e1018"><span class="dot"></span><span>16.4:1</span></div></div>
+        <div class="swatch-text" style="color:#eceef5;background:#0e1018">Document #2026-114</div>
+        <div class="meta"><div class="name">Text</div><code>#eceef5</code><div class="ratio" data-fg="#eceef5" data-bg="#0e1018"><span class="dot"></span><span>16.4:1</span></div></div>
       </div>
       <div class="swatch">
-        <div class="swatch-text" style="color:#b4b9cb;background:#0e1018;font-weight:400">Читает документ целиком</div>
-        <div class="meta"><div class="name">Текст 2</div><code>#b4b9cb</code><div class="ratio" data-fg="#b4b9cb" data-bg="#0e1018"><span class="dot"></span><span>9.7:1</span></div></div>
+        <div class="swatch-text" style="color:#b4b9cb;background:#0e1018;font-weight:400">Reads the whole document</div>
+        <div class="meta"><div class="name">Text 2</div><code>#b4b9cb</code><div class="ratio" data-fg="#b4b9cb" data-bg="#0e1018"><span class="dot"></span><span>9.7:1</span></div></div>
       </div>
       <div class="swatch">
         <div class="swatch-text" style="color:#9aa0b4;background:#0e1018;font-weight:400;font-size:13px">Supplier · confidence 85%</div>
-        <div class="meta"><div class="name">Текст 3</div><code>#9aa0b4</code><div class="ratio" data-fg="#9aa0b4" data-bg="#0e1018"><span class="dot"></span><span>7.3:1</span></div></div>
+        <div class="meta"><div class="name">Text 3</div><code>#9aa0b4</code><div class="ratio" data-fg="#9aa0b4" data-bg="#0e1018"><span class="dot"></span><span>7.3:1</span></div></div>
       </div>
       <div class="swatch">
         <div class="swatch-text" style="color:#7f8599;background:#0e1018;font-weight:400;font-size:13px">Nothing is waiting for review</div>
-        <div class="meta"><div class="name">Текст 4 · пол</div><code>#7f8599</code><div class="ratio" data-fg="#7f8599" data-bg="#0e1018"><span class="dot"></span><span>5.2:1</span></div></div>
+        <div class="meta"><div class="name">Text 4 · floor</div><code>#7f8599</code><div class="ratio" data-fg="#7f8599" data-bg="#0e1018"><span class="dot"></span><span>5.2:1</span></div></div>
       </div>
     </div>
 
-    <h3 class="group">Действие и семантика</h3>
+    <h3 class="group">Action and semantics</h3>
     <div class="swatches">
-      <div class="swatch"><div class="chip" style="background:#7c5cff"></div><div class="meta"><div class="name">Акцент · решение</div><code>#7c5cff</code></div></div>
-      <div class="swatch"><div class="chip" style="background:#7454ff"></div><div class="meta"><div class="name">Акцент-заливка · действие</div><code>#7454ff</code><div class="ratio" data-fg="#ffffff" data-bg="#7454ff"><span class="dot"></span><span></span></div></div></div>
-      <div class="swatch"><div class="chip" style="background:#b9a7ff"></div><div class="meta"><div class="name">Акцентный текст</div><code>#b9a7ff</code><div class="ratio" data-fg="#b9a7ff" data-bg="#0e1018"><span class="dot"></span><span></span></div></div></div>
-      <div class="swatch"><div class="chip" style="background:#fbbf24"></div><div class="meta"><div class="name">Внимание · человек</div><code>#fbbf24</code></div></div>
-      <div class="swatch"><div class="chip" style="background:#22d3ee"></div><div class="meta"><div class="name">Маршрут · назначение</div><code>#22d3ee</code></div></div>
-      <div class="swatch"><div class="chip" style="background:#34d399"></div><div class="meta"><div class="name">Успех · подтверждено</div><code>#34d399</code></div></div>
-      <div class="swatch"><div class="chip" style="background:#f87171"></div><div class="meta"><div class="name">Ошибка · блок</div><code>#f87171</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#7c5cff"></div><div class="meta"><div class="name">Accent · decision</div><code>#7c5cff</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#7454ff"></div><div class="meta"><div class="name">Accent fill · action</div><code>#7454ff</code><div class="ratio" data-fg="#ffffff" data-bg="#7454ff"><span class="dot"></span><span></span></div></div></div>
+      <div class="swatch"><div class="chip" style="background:#b9a7ff"></div><div class="meta"><div class="name">Accent text</div><code>#b9a7ff</code><div class="ratio" data-fg="#b9a7ff" data-bg="#0e1018"><span class="dot"></span><span></span></div></div></div>
+      <div class="swatch"><div class="chip" style="background:#fbbf24"></div><div class="meta"><div class="name">Attention · human</div><code>#fbbf24</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#22d3ee"></div><div class="meta"><div class="name">Route · destination</div><code>#22d3ee</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#34d399"></div><div class="meta"><div class="name">Success · confirmed</div><code>#34d399</code></div></div>
+      <div class="swatch"><div class="chip" style="background:#f87171"></div><div class="meta"><div class="name">Error · blocked</div><code>#f87171</code></div></div>
     </div>
-    <p class="type-note">Янтарный — цвет внимания внутри продукта: человек должен посмотреть. Витрина
-      сохраняет тёплое свечение героя как атмосферу, но её CTA использует фиолетовую заливку
-      действия — решение D1 принято 16.11, янтарной кнопки больше нет.</p>
+    <p class="type-note">Amber is the attention color inside the product: a human needs to look.
+      The showcase keeps the hero's warm glow as atmosphere, but its CTA uses the purple action
+      fill — decision D1 was made on 16.11, and the amber button is gone.</p>
   </section>
 
   <section id="type">
     <div class="section-head">
-      <h2>Типографика</h2>
-      <p>Inter, одна семья, пол 12 px</p>
-      <span class="count">11 ролей</span>
+      <h2>Typography</h2>
+      <p>Inter, one family, 12 px floor</p>
+      <span class="count">11 roles</span>
     </div>
 
     <div class="type-row">
-      <div class="type-spec"><b>Дисплей</b>48 / 1.05 / 700 / -0.03em</div>
+      <div class="type-spec"><b>Display</b>48 / 1.05 / 700 / -0.03em</div>
       <div class="sample s-display">Every document finds its own place.</div>
     </div>
     <div class="type-row">
-      <div class="type-spec"><b>Дисплей малый</b>32 / 1.1 / 700 / -0.025em</div>
+      <div class="type-spec"><b>Display small</b>32 / 1.1 / 700 / -0.025em</div>
       <div class="sample s-display-sm">Every document finds its own place.</div>
     </div>
     <div class="type-row">
-      <div class="type-spec"><b>Статистика</b>24 / 1.1 / 700 / tabular</div>
+      <div class="type-spec"><b>Stat</b>24 / 1.1 / 700 / tabular</div>
       <div class="sample s-stat">42 documents · 1.1 h saved · 94.4%</div>
     </div>
     <div class="type-row">
-      <div class="type-spec"><b>Заголовок</b>20 / 1.25 / 600</div>
+      <div class="type-spec"><b>Heading</b>20 / 1.25 / 600</div>
       <div class="sample s-heading">Needs attention</div>
     </div>
     <div class="type-row">
-      <div class="type-spec"><b>Титул</b>16 / 1.3 / 600</div>
+      <div class="type-spec"><b>Title</b>16 / 1.3 / 600</div>
       <div class="sample s-title">Extracted fields · Ukrainian act of completed work</div>
     </div>
     <div class="type-row">
-      <div class="type-spec"><b>Основной крупный</b>16 / 1.6 / 400</div>
-      <div class="sample s-body-lg">DocFlow читает документ целиком, зовёт человека только когда это важно и отдаёт подтверждённый результат в тот процесс, которому он принадлежит.</div>
+      <div class="type-spec"><b>Body large</b>16 / 1.6 / 400</div>
+      <div class="sample s-body-lg">DocFlow reads the whole document, calls a human only when it matters, and sends the confirmed result to the process it belongs to.</div>
     </div>
     <div class="type-row">
-      <div class="type-spec"><b>Основной</b>14 / 1.6 / 400</div>
-      <div class="sample s-body">Сумма = сумма позиций, НДС ≈ 20/120 от итога. Не выполнился инвариант — уверенность падает, и документ ждёт человека.</div>
+      <div class="type-spec"><b>Body</b>14 / 1.6 / 400</div>
+      <div class="sample s-body">Total = sum of line items, VAT ≈ 20/120 of the total. If an invariant fails, confidence drops and the document waits for a human.</div>
     </div>
     <div class="type-row">
-      <div class="type-spec"><b>Интерфейс</b>14 / 1.4 / 500</div>
+      <div class="type-spec"><b>UI</b>14 / 1.4 / 500</div>
       <div class="sample s-ui">Confirm and save · 8,600.00 ₴ · 11 Nov 2026</div>
     </div>
     <div class="type-row">
-      <div class="type-spec"><b>Малый</b>13 / 1.45 / 400</div>
+      <div class="type-spec"><b>Small</b>13 / 1.45 / 400</div>
       <div class="sample s-small">delivery_01_2026-77.pdf · routed to Accounting · 2.3 min review</div>
     </div>
     <div class="type-row">
-      <div class="type-spec"><b>Подпись</b>12 / 1.4 / 500</div>
-      <div class="sample s-caption">Tax ID (ЄДРПОУ / ІПН) · confidence 85%</div>
+      <div class="type-spec"><b>Caption</b>12 / 1.4 / 500</div>
+      <div class="sample s-caption">Tax ID (EDRPOU / IPN) · confidence 85%</div>
     </div>
     <div class="type-row">
-      <div class="type-spec"><b>Микро</b>11 / 1.2 / 600 / 0.12em · моно, только сцена</div>
+      <div class="type-spec"><b>Micro</b>11 / 1.2 / 600 / 0.12em · mono, scene only</div>
       <div class="sample s-micro">Intake · parsing · routing</div>
     </div>
-    <p class="type-note">Отрендерено на запасном стеке: Inter не установлен в контейнере. Решение D2 добавляет локальный Inter woff2 (латиница + кириллица), и образцы выше переключаются на него.</p>
+    <p class="type-note">Rendered in the fallback stack: Inter is not installed in the container. Decision D2 adds a local Inter woff2 (Latin + Cyrillic), and the samples above switch to it.</p>
   </section>
 
   <section id="spacing">
     <div class="section-head">
-      <h2>Отступы</h2>
-      <p>сетка 4 pt, 11 шагов</p>
-      <span class="count">0 случайных значений</span>
+      <h2>Spacing</h2>
+      <p>4 px grid, 11 steps</p>
+      <span class="count">0 arbitrary values</span>
     </div>
     <div class="spacing-list" id="spacing-list"></div>
-    <p class="type-note">Поля страницы 24 (16 на мобильном) · зазор карточек 20 · паддинг карточки 20 ·
-      зазор сетки полей 16 · ритм секций 48–64. Ничего другого в отступах нет.</p>
+    <p class="type-note">Page gutters 24 (16 on mobile) · card gap 20 · card padding 20 ·
+      field grid gap 16 · section rhythm 48–64. There are no other spacing values.</p>
   </section>
 
   <section id="shape">
     <div class="section-head">
-      <h2>Форма</h2>
-      <p>Скругления несут иерархию</p>
-      <span class="count">6 шагов + pill</span>
+      <h2>Shape and surfaces</h2>
+      <p>Radius carries hierarchy</p>
+      <span class="count">6 steps + pill</span>
     </div>
     <div class="shape-grid">
-      <div class="shape" style="border-radius:6px">xs · 6 · плитка иконки</div>
-      <div class="shape" style="border-radius:10px">sm · 10 · контрол</div>
-      <div class="shape" style="border-radius:12px">md · 12 · вложенная панель</div>
-      <div class="shape" style="border-radius:16px">lg · 16 · карточка</div>
-      <div class="shape" style="border-radius:24px">xl · 24 · сцена</div>
+      <div class="shape" style="border-radius:6px">xs · 6 · icon tile</div>
+      <div class="shape" style="border-radius:10px">sm · 10 · control</div>
+      <div class="shape" style="border-radius:12px">md · 12 · nested panel</div>
+      <div class="shape" style="border-radius:16px">lg · 16 · card</div>
+      <div class="shape" style="border-radius:24px">xl · 24 · scene</div>
       <div class="shape" style="border-radius:999px">pill · 999</div>
     </div>
     <div class="elevation-grid" style="margin-top:16px">
-      <div class="elevation" style="box-shadow:var(--shadow-1)"><b>Тень 1 · приподнятая</b>карточки на карточках, дропдауны</div>
-      <div class="elevation" style="box-shadow:var(--shadow-2)"><b>Тень 2 · оверлей</b>тосты, диалоги</div>
+      <div class="elevation" style="box-shadow:var(--shadow-1)"><b>Elevation 1 · raised</b>cards on cards, dropdowns</div>
+      <div class="elevation" style="box-shadow:var(--shadow-2)"><b>Elevation 2 · overlay</b>toasts, dialogs</div>
     </div>
   </section>
 
   <section id="motion">
     <div class="section-head">
-      <h2>Движение</h2>
-      <p>Только то, что отвечает человеку</p>
-      <span class="count">наведи на полосу</span>
+      <h2>Motion</h2>
+      <p>Only what responds to a human</p>
+      <span class="count">hover a bar</span>
     </div>
     <div class="motion-list">
-      <div class="motion-row"><span class="label">120 ms</span><span class="track"><span class="fill" style="width:12%"></span></span><span class="val">наведение</span></div>
-      <div class="motion-row"><span class="label">180 ms</span><span class="track"><span class="fill" style="width:20%"></span></span><span class="val">состояние</span></div>
-      <div class="motion-row"><span class="label">260 ms</span><span class="track"><span class="fill" style="width:32%"></span></span><span class="val">панель</span></div>
-      <div class="motion-row"><span class="label">800 ms</span><span class="track"><span class="fill" style="width:46%"></span></span><span class="val">цикл героя</span></div>
+      <div class="motion-row"><span class="label">120 ms</span><span class="track"><span class="fill" style="width:12%"></span></span><span class="val">hover</span></div>
+      <div class="motion-row"><span class="label">180 ms</span><span class="track"><span class="fill" style="width:20%"></span></span><span class="val">state</span></div>
+      <div class="motion-row"><span class="label">260 ms</span><span class="track"><span class="fill" style="width:32%"></span></span><span class="val">panel</span></div>
+      <div class="motion-row"><span class="label">800 ms</span><span class="track"><span class="fill" style="width:46%"></span></span><span class="val">hero cycle</span></div>
     </div>
-    <p class="motion-note">Воркспейс анимирует наведение, нажатие, фокус, тост, раскрытие строки и
-      спиннер — больше ничего. Витрина получает один поставленный цикл. При
-      <code>prefers-reduced-motion: reduce</code> сцена рисует финальное состояние, а переходы
-      становятся мгновенными.</p>
+    <p class="motion-note">The workspace animates hover, press, focus, a toast, row disclosure, and
+      the spinner — nothing else. The showcase gets one choreographed cycle. Under
+      <code>prefers-reduced-motion: reduce</code>, the scene draws its final state and transitions
+      become instant.</p>
   </section>
 
   <section id="components">
     <div class="section-head">
-      <h2>Компоненты</h2>
-      <p>Собраны только из токенов</p>
-      <span class="count">состояния показаны</span>
+      <h2>Components</h2>
+      <p>Built only from tokens</p>
+      <span class="count">states shown</span>
     </div>
 
     <div class="demo">
-      <div class="demo-title">Кнопки · основная, вторичная, призрачная. Размеры sm / md / lg</div>
+      <div class="demo-title">Buttons · primary, secondary, ghost. Sizes sm / md / lg</div>
       <div class="row">
         <button class="btn primary">Confirm and save</button>
         <button class="btn secondary">Check now</button>
@@ -510,14 +510,14 @@
       <div class="row" style="margin-top:12px">
         <button class="btn primary sm">sm · 32</button>
         <button class="btn primary">md · 40</button>
-        <button class="btn primary lg">lg · 44 · тач</button>
+        <button class="btn primary lg">lg · 44 · touch</button>
       </div>
     </div>
 
     <div class="demo">
-      <div class="demo-title">Поля · обычное, низкая уверенность, пропущено, фокус</div>
+      <div class="demo-title">Fields · default, low confidence, missing, focus</div>
       <div class="row" style="align-items:flex-start">
-        <div class="field"><label>Supplier <span class="conf high"><i></i>85%</span></label><input value="ТОВ «Клін-Сервіс»" /></div>
+        <div class="field"><label>Supplier <span class="conf high"><i></i>85%</span></label><input value="Klin-Service LLC" /></div>
         <div class="field"><label>Currency <span class="conf mid"><i></i>60%</span></label><input class="low" value="UAH" /></div>
         <div class="field"><label>Tax ID <span class="conf low"><i></i>0%</span></label><input class="missing" placeholder="Missing" /><span class="help">Check the document and fill it in</span></div>
         <div class="field"><label>Document date <span class="conf high"><i></i>90%</span></label><input value="11 Nov 2026" style="border-color:var(--color-accent);box-shadow:0 0 0 3px var(--color-accent-soft)" /></div>
@@ -525,7 +525,7 @@
     </div>
 
     <div class="demo">
-      <div class="demo-title">Чипы и статусные пилюли</div>
+      <div class="demo-title">Chips and status pills</div>
       <div class="row">
         <button class="chip">act_01_2026-14</button>
         <button class="chip">delivery_01_2026-77</button>
@@ -539,7 +539,7 @@
     </div>
 
     <div class="demo">
-      <div class="demo-title">Карточка · шапка 56, тело 20</div>
+      <div class="demo-title">Card · header 56, body 20</div>
       <div class="card-demo">
         <div class="head"><h4>Extracted fields</h4><span class="hint">Act of completed work · confidence 83%</span></div>
         <div class="body">Three fields are below 70%. Check the amount and the currency before saving.</div>
@@ -547,18 +547,18 @@
     </div>
 
     <div class="demo">
-      <div class="demo-title">Таблица · строки 44 px, шапка в предложениях, табличные цифры</div>
+      <div class="demo-title">Table · 44 px rows, sentence-case header, tabular figures</div>
       <div class="table-wrap"><table class="table-demo">
         <thead><tr><th>Document</th><th>Supplier</th><th>Route</th><th class="num">Amount</th><th class="num">Review</th></tr></thead>
         <tbody>
-          <tr><td>delivery_01_2026-77.pdf</td><td>ТОВ «Терра-Буд»</td><td style="color:var(--color-flow)">Accounting</td><td class="num">21,000.00 ₴</td><td class="num">2.3 min</td></tr>
-          <tr><td>act_01_2026-14.pdf</td><td>ТОВ «Клін-Сервіс»</td><td style="color:var(--color-flow)">Accounting</td><td class="num">8,600.00 ₴</td><td class="num">1.4 min</td></tr>
+          <tr><td>delivery_01_2026-77.pdf</td><td>Terra-Bud LLC</td><td style="color:var(--color-flow)">Accounting</td><td class="num">21,000.00 ₴</td><td class="num">2.3 min</td></tr>
+          <tr><td>act_01_2026-14.pdf</td><td>Klin-Service LLC</td><td style="color:var(--color-flow)">Accounting</td><td class="num">8,600.00 ₴</td><td class="num">1.4 min</td></tr>
         </tbody>
       </table></div>
     </div>
 
     <div class="demo">
-      <div class="demo-title">Тост · снизу по центру, граница по состоянию, 3,2 с</div>
+      <div class="demo-title">Toast · bottom center, state border, 3.2 s</div>
       <div class="toast-demo"><span class="dot"></span> Document saved · routed to Payments · deal #4821</div>
       <div style="margin-top:16px" class="empty">Nothing is waiting for review</div>
     </div>
@@ -566,43 +566,43 @@
 
   <section id="layout">
     <div class="section-head">
-      <h2>Сетка</h2>
-      <p>контейнер 1320, поля 24, топбар 60</p>
-      <span class="count">брейкпоинты 560 / 960 / 1100 / 1280</span>
+      <h2>Grid</h2>
+      <p>container 1320, gutters 24, topbar 60</p>
+      <span class="count">breakpoints 560 / 960 / 1100 / 1280</span>
     </div>
     <div class="layout-diagram">
-      <div class="col">Документ 52%</div>
-      <div class="col">Извлечённые поля 48%</div>
+      <div class="col">Document 52%</div>
+      <div class="col">Extracted fields 48%</div>
     </div>
     <div class="breakpoints">
-      <span class="fact">560 · поля 16 на мобильном</span>
-      <span class="fact">960 · воркспейс складывается</span>
-      <span class="fact">1100 · сцена витрины складывается</span>
-      <span class="fact">1280 · широкие отступы</span>
+      <span class="fact">560 · 16 px gutters on mobile</span>
+      <span class="fact">960 · workspace stacks</span>
+      <span class="fact">1100 · showcase scene stacks</span>
+      <span class="fact">1280 · wide gutters</span>
     </div>
   </section>
 
   <section id="decisions">
     <div class="section-head">
-      <h2>Решения, которые нужно принять</h2>
-      <p>То, что токены не решают</p>
+      <h2>Decisions to make</h2>
+      <p>What tokens do not decide</p>
     </div>
     <div class="table-wrap"><table class="table-demo">
-      <thead><tr><th>#</th><th>Решение</th><th>Рекомендация</th></tr></thead>
+      <thead><tr><th>#</th><th>Decision</th><th>Recommendation</th></tr></thead>
       <tbody>
-        <tr><td>D1</td><td>Основной акцент — принято 16.11</td><td>фиолетовая заливка действия везде, янтарной кнопки нет</td></tr>
-        <tr><td>D2</td><td>Файл шрифта</td><td>Inter переменной на своём хостинге, латиница + кириллица</td></tr>
-        <tr><td>D3</td><td>Контейнер</td><td>один контейнер 1320 для обеих страниц</td></tr>
-        <tr><td>D4</td><td>Тема</td><td>только тёмная</td></tr>
-        <tr><td>D5</td><td>Место очереди</td><td>очередь становится точкой входа воркспейса</td></tr>
-        <tr><td>D6</td><td>Иконки</td><td>inline SVG-набор заменяет глифы и эмодзи</td></tr>
+        <tr><td>D1</td><td>Primary accent — accepted 16.11</td><td>purple action fill everywhere; no amber button</td></tr>
+        <tr><td>D2</td><td>Font file</td><td>self-hosted variable Inter, Latin + Cyrillic</td></tr>
+        <tr><td>D3</td><td>Container</td><td>one 1320 container for both pages</td></tr>
+        <tr><td>D4</td><td>Theme</td><td>dark only</td></tr>
+        <tr><td>D5</td><td>Queue placement</td><td>the queue becomes the workspace entry point</td></tr>
+        <tr><td>D6</td><td>Icons</td><td>an inline SVG set replaces glyphs and emoji</td></tr>
       </tbody>
     </table></div>
   </section>
 
   <footer class="footer">
-    <span>Спецификация: <code>docs/design-system.md</code></span>
-    <span>Отрендеренный справочник: <code>docs/design-system.html</code></span>
+    <span>Specification: <code>docs/design-system.md</code></span>
+    <span>Rendered reference: <code>docs/design-system.html</code></span>
     <span>v0.1 · 16.11.2026</span>
   </footer>
 
@@ -646,10 +646,10 @@
     const ok = value >= 4.5;
     tested += 1;
     if (!ok) failed += 1;
-    el.innerHTML = `<span class="dot${ok ? '' : ' bad'}"></span><span>${value.toFixed(1)}:1 · ${ok ? 'AA' : 'ниже AA'}</span>`;
+    el.innerHTML = `<span class="dot${ok ? '' : ' bad'}"></span><span>${value.toFixed(1)}:1 · ${ok ? 'AA' : 'below AA'}</span>`;
   });
   document.getElementById('contrast-count').textContent =
-    tested ? `${tested - failed}/${tested} пар текста — AA` : '';
+    tested ? `${tested - failed}/${tested} text pairs — AA` : '';
 </script>
 
 </body>

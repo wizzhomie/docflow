@@ -1,121 +1,122 @@
-# Case Study — автоматизация обработки счетов (шаблон)
+# Case Study — invoice processing automation (template)
 
-Рабочий шаблон кейса. Всё, что в квадратных скобках, заполняется реальными
-данными после пилота; выдуманные числа в этом документе недопустимы — они
-проверяются первым же вопросом «а как вы это посчитали».
+A working template for a case study. Everything in square brackets is filled
+with real data after the pilot; invented numbers are not allowed in this
+document — the first question ("and how did you calculate that?") exposes them.
 
-Заголовок в одну строку: **[Компания] — обработка [N] счетов в месяц без ручного ввода в CRM.**
+Headline in one line: **[Company] — [N] invoices a month processed without manual entry into the CRM.**
 
-## 1. Контекст
+## 1. Context
 
-- Компания: [название, отрасль, размер].
-- Объём: [N] счетов в месяц, [M] поставщиков.
-- Кто участвует: [менеджер / бухгалтер / руководитель].
-- Что было до: счета в почте и мессенджерах, ввод в CRM руками.
+- Company: [name, industry, size].
+- Volume: [N] invoices a month, [M] suppliers.
+- Who takes part: [manager / accountant / owner].
+- What it looked like before: invoices in e-mail and messengers, entry into the CRM by hand.
 
-## 2. Процесс «до»
+## 2. The process "before"
 
-Схема: [process-as-is.svg](process-as-is.svg).
+Diagram: [process-as-is.svg](process-as-is.svg).
 
-| Параметр | Значение |
+| Parameter | Value |
 | --- | --- |
-| Время на один документ | [T_manual, мин] (замер по [источник: хронометраж / интервью / таймшиты]) |
-| Ошибок в месяц | [E_manual] (по [источник]) |
-| Дублей в месяц | [D_manual] |
-| Кто страдает | [роль] |
+| Time per document | [T_manual, min] (measured by [source: time study / interview / timesheets]) |
+| Errors per month | [E_manual] (according to [source]) |
+| Duplicates per month | [D_manual] |
+| Who pays for it | [role] |
 
-Что именно болит (3–4 пункта, каждый с ценой):
+What actually hurts (3–4 points, each with a price):
 
-1. [Например: ручной ввод суммы — 2 ошибки в месяц, каждая выясняется на оплате.]
-2. [Например: счета теряются в переписке — 1–2 в месяц.]
-3. [Например: нет истории правок — спор с поставщиком разбирается по памяти.]
+1. [For example: manual amount entry — 2 errors a month, each one surfaces at payment.]
+2. [For example: invoices get lost in the correspondence — 1–2 a month.]
+3. [For example: no edit history — a dispute with a supplier is settled from memory.]
 
-## 3. Почему сделали так, а не иначе
+## 3. Why it was built this way
 
-- **Человек подтверждает, машина проверяет.** В CRM не уходит значение, в
-  котором система не уверена; спорное останавливается на ревью.
-- **Проверки — код, а не модель.** Сумма, НДС, формат ЄДРПОУ, сходимость
-  позиций проверяются детерминированно и одинаково каждый раз.
-- **Профили документов вместо «универсального парсера».** Новый тип документа
-  или поставщик — отдельный профиль, а не заплатка в общем коде.
-- **Синтетика — только для граничных случаев.** Реальные документы остаются
-  основой оценки.
+- **The human confirms, the machine checks.** No value the system is unsure of
+  reaches the CRM; anything doubtful stops at review.
+- **Checks are code, not a model.** Amount, VAT, tax ID format and line-item
+  totals are checked deterministically, the same way every time.
+- **Document profiles instead of a "universal parser".** A new document type or
+  supplier is a separate profile, not a patch in shared code.
+- **Synthetic data only for edge cases.** Real documents remain the basis of the
+  assessment.
 
-Альтернативы, которые сознательно отвергли:
+Alternatives we deliberately rejected:
 
-- Полностью авто-режим без ревью — дешевле, но риск уверенной ошибки в CRM.
-- Универсальная LLM-обвязка «на всё» — непроверяемая и невоспроизводимая.
+- A fully automatic mode without review — cheaper, but the risk of a confident
+  error in the CRM.
+- A universal LLM layer "for everything" — unverifiable and irreproducible.
 
-## 4. Процесс «после»
+## 4. The process "after"
 
-Схема: [process-to-be.svg](process-to-be.svg). Детали — [process-map.md](process-map.md).
+Diagram: [process-to-be.svg](process-to-be.svg). Details in [process-map.md](process-map.md).
 
-Коротко: приём → извлечение + OCR → интерпретация → инварианты → ревью только
-спорного → сделка в CRM → история и метрики.
+In short: intake → extraction + OCR → interpretation → invariants → review of
+the doubtful only → a deal in the CRM → history and metrics.
 
-## 5. Результат
+## 5. Result
 
-| Метрика | До | После | Как измерено |
+| Metric | Before | After | How it was measured |
 | --- | --- | --- | --- |
-| Время на документ | [T_manual] | [T_review] | медиана «загрузка → подтверждение», `GET /api/impact` |
-| Доля без правок | 0% (всё руками) | [A]% | `auto_pass_rate` |
-| Куда правят чаще всего | — | [поле, N раз] | `top_corrections` |
-| Дубли в CRM | [D_manual] в месяц | [D_after] | `duplicate_confirmations`, журнал CRM |
-| Спорные документы | не отслеживались | [R] | `unreviewed_risk_documents` |
+| Time per document | [T_manual] | [T_review] | median "upload → confirmation", `GET /api/impact` |
+| Share confirmed without edits | 0% (all by hand) | [A]% | `auto_pass_rate` |
+| What gets corrected most | — | [field, N times] | `top_corrections` |
+| Duplicates in the CRM | [D_manual] a month | [D_after] | `duplicate_confirmations`, CRM log |
+| Documents with open issues | not tracked | [R] | `unreviewed_risk_documents` |
 
-Объём прогона: [N] документов, период [даты], из них реальных [K].
+Run size: [N] documents, period [dates], of which real [K].
 
-## 6. Экономика
+## 6. Economics
 
-Методика (обязательна, иначе цифра — фантазия):
+The method (mandatory, otherwise the number is fiction):
 
 ```text
-часов в месяц до     = N документов × T_manual / 60
-часов в месяц после  = N документов × T_review / 60
-экономия в месяц     = (часов до − часов после) × ставка часа [ставка, источник]
+hours a month before = N documents × T_manual / 60
+hours a month after  = N documents × T_review / 60
+saving a month       = (hours before − hours after) × hourly rate [rate, source]
 ```
 
-Итог: [X] часов и [Y] денег в месяц; окупаемость внедрения — [Z] месяцев при
-стоимости внедрения [C].
+Bottom line: [X] hours and [Y] per month; the deployment pays for itself in [Z]
+months at a deployment cost of [C].
 
-Отдельно — **стоимость ошибки**: [P(ошибка)] × [цена ошибки: штраф, переплата,
-потеря поставщика].
+Separately — the **cost of an error**: [P(error)] × [cost of the error: penalty,
+overpayment, a lost supplier].
 
-## 7. Риски и контроль
+## 7. Risks and how they are controlled
 
-| Риск | Как закрыт |
+| Risk | How it is closed |
 | --- | --- |
-| Уверенная ошибка в сумме | инвариант + низкий confidence → ревью |
-| Неверный ЄДРПОУ | формат + сверка с компанией в CRM |
-| Дубль сделки | ключ номер + ЄДРПОУ, проверка до создания |
-| Плохой скан | OCR + явная пометка «текст не извлечён» |
-| CRM недоступна | ошибка в записи, повторная отправка |
-| Аудит | какие поля правились и когда — в истории |
+| A confident error in the amount | invariant + low confidence → review |
+| A wrong tax ID | format check + matching against the company in the CRM |
+| A duplicate deal | number + tax ID key, checked before creation |
+| A poor scan | OCR + an explicit "text not extracted" flag |
+| The CRM is unavailable | the error is stored on the record, the send is retried |
+| Audit | which fields were edited and when — kept in the history |
 
-## 8. Что не сработало / что бы сделал иначе
+## 8. What did not work / what I would do differently
 
-- [Честный пункт: например, переоценили качество OCR на фото — пришлось
-  ужесточить приём и требовать PDF.]
-- [Например: первые правила валидации давали ложные срабатывания на
-  поставщиках с нестандартным НДС.]
+- [An honest point: for example, we overestimated OCR quality on photos and had
+  to tighten intake and require a PDF.]
+- [For example: the first validation rules raised false alarms on suppliers with
+  non-standard VAT.]
 
-## 9. Дальше
+## 9. Next
 
-1. [Очередь исключений с SLA — чтобы спорные документы не висели.]
-2. [Приём по почте — сейчас только веб.]
-3. [Прикрепление исходного PDF к сделке и сверка с 1С.]
+1. [An exception queue with an SLA — so doubtful documents do not sit around.]
+2. [Mailbox intake — currently web only.]
+3. [Attaching the source PDF to the deal and reconciling with 1C.]
 
-## 10. Приложение: как проверялось
+## 10. Appendix: how it was verified
 
-- Регрессия: `python3 tests/run_eval.py` — [X/Y] кейсов, [K] confident errors.
-- Проверки отчёта: `python3 tests/test_impact.py` — [N] детерминированных кейсов.
-- Метрики: `GET /api/impact` на боевых подтверждениях, период [даты].
-- Стек: FastAPI, Tesseract (ukr+eng), Uspacy API, Docker, Tailscale.
+- Regression: `python3 tests/run_eval.py` — [X/Y] cases, [K] confident errors.
+- Report checks: `python3 tests/test_impact.py` — [N] deterministic cases.
+- Metrics: `GET /api/impact` on real confirmations, period [dates].
+- Stack: FastAPI, Tesseract (ukr+eng), Uspacy API, Docker, Tailscale.
 
-## Чек-лист перед публикацией
+## Checklist before publishing
 
-- [ ] Все числа из этого документа можно пересчитать по данным системы или замерам.
-- [ ] Указано, какие документы реальные, а какие синтетические.
-- [ ] Есть хотя бы один пункт «что не сработало» — без него кейс не выглядит правдой.
-- [ ] Экономика показана с методикой расчёта и допущениями.
-- [ ] Схемы вставлены как картинки, а не «см. приложение».
+- [ ] Every number in this document can be recomputed from the system data or from a measurement.
+- [ ] It states which documents are real and which are synthetic.
+- [ ] There is at least one "what did not work" point — without it the case does not read as true.
+- [ ] The economics are shown with the calculation method and the assumptions.
+- [ ] Diagrams are embedded as images, not left as "see appendix".

@@ -1,120 +1,128 @@
-# Process Map — обработка счёта от получения до сделки в CRM
+# Process Map — an invoice from arrival to a CRM deal
 
-Документ описывает процесс целиком, а не только ту часть, которую закрывает DocFlow.
-Он нужен для двух вещей: показать заказчику, где именно теряются деньги, и явно
-зафиксировать границу между «автоматизировали» и «оставили человеку».
+This document describes the whole process, not only the part DocFlow covers. It
+serves two purposes: show the client where money is actually lost, and state
+explicitly where the line runs between "automated" and "left to the human".
 
-Схемы: [as-is](process-as-is.svg) и [to-be](process-to-be.svg).
+Diagrams: [as-is](process-as-is.svg) and [to-be](process-to-be.svg).
 
-## 1. As-is: как это работает без автоматизации
+## 1. As-is: how it works without automation
 
-Триггер: поставщик присылает счёт на оплату — почтой, в мессенджер, иногда бумагой.
-Дальше документ живёт в переписке и в голове исполнителя.
+Trigger: a supplier sends an invoice — by e-mail, in a messenger, sometimes on
+paper. From then on the document lives in the correspondence and in the
+operator's head.
 
-| Шаг | Кто | Что происходит | Где риск |
+| Step | Who | What happens | Where the risk is |
 | --- | --- | --- | --- |
-| 1. Получение счёта | менеджер / офис | Письмо, вложение, фото | Документ теряется, нет единого реестра |
-| 2. Ввод в CRM | менеджер | Вручную: номер, дата, поставщик, сумма, ЄДРПОУ | Опечатки в сумме и коде, перепутанные поставщики |
-| 3. Проверка | бухгалтер | Сверяет сумму, НДС, реквизиты глазами | Проверка «на глаз», без правил и без следа |
-| 4. Согласование | руководитель | Переписка, устные договорённости | Нет истории решений |
-| 5. Оплата | бухгалтер | 1С / банк | Дубли и просрочки обнаруживаются поздно |
+| 1. Invoice arrives | manager / back office | E-mail, attachment, photo | The document is lost; there is no single register |
+| 2. Entry into the CRM | manager | By hand: number, date, supplier, amount, tax ID | Typos in the amount and the tax ID, suppliers mixed up |
+| 3. Check | accountant | Compares amount, VAT and bank details by eye | A look-over with no rules and no trace |
+| 4. Approval | manager in charge | Correspondence, verbal agreements | No history of decisions |
+| 5. Payment | accountant | 1C / bank | Duplicates and late payments surface late |
 
-Ключевые потери процесса:
+Where the process loses money:
 
-- **Ошибки ввода.** Сумма, НДС и ЄДРПОУ вводятся руками; расхождение выясняется
-  на этапе оплаты или позже.
-- **Дубли.** Повторная отправка того же счёта создаёт вторую сделку; в CRM это
-  две записи на один документ.
-- **Нет аудита.** Нельзя ответить, кто и когда изменил сумму и на каком основании.
-- **Нет метрики.** Объём, время и доля ошибок неизвестны — улучшать нечего.
+- **Entry errors.** Amount, VAT and tax ID are typed by hand; the mismatch
+  surfaces at payment or later.
+- **Duplicates.** The same invoice sent twice creates a second deal; in the CRM
+  that is two records for one document.
+- **No audit.** Nobody can say who changed the amount, when, and on what basis.
+- **No measurement.** Volume, time and error rate are unknown — nothing to
+  improve.
 
-Стоимость: **3–10 минут на документ** плюс цена ошибки, которая всплывает
-в финансах, а не в CRM.
+Cost: **3–10 minutes per document**, plus the price of an error, which surfaces
+in finance rather than in the CRM.
 
-## 2. To-be: процесс после автоматизации
+## 2. To-be: the process after automation
 
-Триггер тот же, но документ попадает в систему, а не в переписку.
+The trigger is the same, but the document lands in the system instead of in the
+correspondence.
 
-1. **Приём** — upload в интерфейс, API или почтовый адрес; файл в неизменяемом виде.
-2. **Извлечение текста** — PDF (цифровой) или OCR для сканов; фиксируется, каким путём получен текст.
-3. **Интерпретация** — профиль типа документа вытаскивает поля и позиции.
-4. **Валидация** — детерминированные инварианты, без модели; сомнительное получает низкий confidence.
-5. **Ревью** — оператор видит только спорное; правит, подтверждает.
-6. **CRM** — сделка с суммой, валютой, комментарием и привязкой к компании по ЄДРПОУ.
-7. **История и метрики** — что было извлечено, что человек изменил, сколько времени заняло.
+1. **Intake** — upload in the interface, an API call or a mailbox; the file is
+   stored unchanged.
+2. **Text extraction** — digital PDF, or OCR for scans; how the text was obtained
+   is recorded.
+3. **Interpretation** — the document-type profile pulls out fields and line items.
+4. **Validation** — deterministic invariants, no model; anything doubtful gets a
+   low confidence.
+5. **Review** — the operator sees only what is doubtful; edits it, confirms it.
+6. **CRM** — a deal with amount, currency, comment and a link to the company by
+   tax ID.
+7. **History and metrics** — what was extracted, what the human changed, how long
+   it took.
 
-Роли меняются: оператор перестаёт быть вводчиком и становится арбитром
-исключений. Владелец процесса получает метрики. Никто не «просто вводит данные».
+Roles shift: the operator stops being a data-entry clerk and becomes an arbiter
+of exceptions. The process owner gets metrics. Nobody "just types data in".
 
-### Точки контроля
+### Control points
 
-| Проверка | Что ловит | Поведение системы |
+| Check | What it catches | What the system does |
 | --- | --- | --- |
-| Дата в ISO | нераспознанную дату | confidence вниз, документ помечается |
-| Формат ЄДРПОУ / ІПН | мусор в реквизитах | confidence вниз |
-| Total ≥ 0 и число | перепутанную сумму | confidence вниз |
-| НДС = 0 или ≈ 20/120 от суммы | неверный НДС | confidence вниз |
-| Валюта ∈ {UAH, USD, EUR} | неверную валюту | confidence вниз |
-| Σ позиций ≈ total | несходящийся счёт | приоритетное ревью |
-| Дубль по номеру + ЄДРПОУ | повторную отправку | сделка не создаётся, показывается найденная |
+| Date in ISO format | an unreadable date | confidence down, the document is flagged |
+| Tax ID format | junk in the company details | confidence down |
+| Total ≥ 0 and numeric | a swapped amount | confidence down |
+| VAT = 0 or ≈ 20/120 of the total | wrong VAT | confidence down |
+| Currency ∈ {UAH, USD, EUR} | a wrong currency | confidence down |
+| Σ line items ≈ total | an invoice that does not add up | priority review |
+| Duplicate by number + tax ID | a repeated submission | no deal is created; the existing one is shown |
 
-Принцип: проверка **сообщает и снижает доверие**, но никогда не «исправляет»
-значение молча — иначе ошибка станет уверенной.
+The principle: a check **reports and lowers trust**, but never silently
+"corrects" a value — otherwise an error becomes a confident error.
 
-### Исключения и их судьба
+### Exceptions and where they go
 
-| Исключение | Что делает процесс |
+| Exception | What the process does |
 | --- | --- |
-| Текст не извлечён (плохой скан) | документ помечается, ручной ввод; не «тишина» |
-| Инвариант провален | приоритетное ревью, оператор обязан посмотреть |
-| Дубль счёта | блокировка автоповтора, показывается существующая сделка |
-| CRM недоступна | ошибка сохраняется в записи, повторная попытка вручную/воркером |
-| Новый поставщик | создаётся компания по названию и ЄДРПОУ |
+| Text not extracted (bad scan) | the document is flagged, manual entry; not "silence" |
+| An invariant failed | priority review, the operator has to look |
+| Duplicate invoice | the repeat is blocked and the existing deal is shown |
+| CRM unavailable | the error is stored on the record, the send is retried by hand or by the worker |
+| Unknown supplier | a company is created from the name and tax ID |
 
-Исключение без явного владельца и без следа — главная причина, почему
-автоматизация «не взлетела» у конкурентов.
+An exception with no clear owner and no trace is the main reason automation
+"never took off" at other vendors.
 
-### Метрики процесса
+### Process metrics
 
-| Метрика | Смысл | Где в DocFlow |
+| Metric | Meaning | Where in DocFlow |
 | --- | --- | --- |
-| auto-pass rate | доля документов без ручных правок | `GET /api/impact` |
-| median review time | медиана «загрузка → подтверждение» | `GET /api/impact` |
-| corrections by field | куда именно вмешивается человек | `GET /api/impact` |
-| duplicates blocked | сколько повторов не дошло до CRM | `GET /api/impact` |
-| risky confirmations | подтверждено вопреки проваленному инварианту | `GET /api/impact` |
-| время и стоимость на документ | до/после против базового норматива | `DOCFLOW_MANUAL_MINUTES` |
+| auto-pass rate | share of documents confirmed without edits | `GET /api/impact` |
+| median review time | median "upload → confirmation" | `GET /api/impact` |
+| corrections by field | where the human actually intervenes | `GET /api/impact` |
+| duplicates blocked | how many repeats never reached the CRM | `GET /api/impact` |
+| risky confirmations | confirmed despite a failed invariant | `GET /api/impact` |
+| time and cost per document | before/after against the manual baseline | `DOCFLOW_MANUAL_MINUTES` |
 
-## 3. Граница автоматизации
+## 3. The automation boundary
 
-- Машина читает, интерпретирует и проверяет — и **останавливается** там, где
-  нет надёжного признака правильности.
-- Человек подтверждает; подтверждение — штатный этап, а не сбой.
-- Запрещено: отправлять в CRM сумму, ЄДРПОУ или валюту, в которых система
-  не уверена. Лучше остановиться и показать человеку.
+- The machine reads, interprets and checks — and **stops** where there is no
+  reliable signal of correctness.
+- The human confirms; confirmation is a normal stage, not a failure.
+- Forbidden: sending an amount, a tax ID or a currency to the CRM when the system
+  is not sure of it. Better to stop and show it to a human.
 
-## 4. Что из to-be уже реализовано
+## 4. What of the to-be is already built
 
-Честная карта разрыва — её и надо показывать заказчику.
+An honest gap map — this is what a client should be shown.
 
-| Этап | Статус | Комментарий |
+| Stage | Status | Comment |
 | --- | --- | --- |
-| Приём upload | есть | PDF, изображения, текст, samples |
-| Приём API / почта | нет | канал только веб |
-| Извлечение текста + OCR | частично | OCR есть локально, но не в Docker-образе |
-| Интерпретация полей | есть | профиль украинского счёта; поставщик иногда с ЄДРПОУ в имени |
-| Валидация инвариантов | есть | 7 правил, regression-набор |
-| Ревью и правки | есть | английский интерфейс, confidence и issues |
-| CRM-сделка | есть | сумма, валюта, комментарий, компания по ЄДРПОУ |
-| Дедупликация | частично | проверка перед созданием есть, но требует доработки |
-| История и метрики | есть | `confirmed.jsonl`, `/api/impact`, CSV |
-| Очередь исключений | нет | исключения видны, отдельной очереди и SLA нет |
-| Ретраи при недоступной CRM | частично | воркер повторов есть, поведение покрыто слабо |
+| Upload intake | done | PDF, images, text, samples |
+| API / mailbox intake | not done | the only channel is the web |
+| Text extraction + OCR | partial | OCR runs locally, but not inside the Docker image |
+| Field interpretation | done | Ukrainian invoice profile; a supplier sometimes carries the tax ID in its name |
+| Invariant validation | done | 7 rules, with a regression set |
+| Review and edits | done | English interface, confidence and issues |
+| CRM deal | done | amount, currency, comment, company by tax ID |
+| Deduplication | partial | the pre-create check exists but needs work |
+| History and metrics | done | `confirmed.jsonl`, `/api/impact`, CSV |
+| Exception queue | not done | exceptions are visible, but there is no queue or SLA |
+| Retries when the CRM is down | partial | a retry worker exists, the behaviour is thinly covered |
 
-## 5. Допущения, которые надо проверить на пилоте
+## 5. Assumptions a pilot has to test
 
-- Норматив ручного ввода (3 минуты) — допущение, а не измерение. На пилоте
-  замеряется на реальных людях и документах.
-- Считаем, что подтверждение без правок = корректный документ. Это проверяемо
-  только выборочным аудитом.
-- Синтетические счета не доказывают обобщение; реальная выборка обязательна.
+- The manual baseline (3 minutes) is an assumption, not a measurement. A pilot
+  measures it on real people and real documents.
+- We treat a document confirmed without edits as correct. That is only checkable
+  by sampling audits.
+- Synthetic invoices do not prove generalisation; a real sample is mandatory.

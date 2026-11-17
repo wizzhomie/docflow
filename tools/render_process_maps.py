@@ -93,15 +93,15 @@ def svg(width, height, content, title):
 
 def render_as_is():
     width, height = 1560, 470
-    parts = [header(width, 'Процесс до автоматизации', 'Ручной контур: счёт приходит в почту, попадает в CRM руками',
-                    [('человек', HUMAN), ('риск', RISK)])]
+    parts = [header(width, 'Process before automation', 'Manual loop: the invoice arrives by e-mail and is typed into the CRM by hand',
+                    [('human', HUMAN), ('risk', RISK)])]
 
     boxes = [
-        (40, 'Получение счёта', ['email, мессенджер,', 'бумага, повторные'], HUMAN),
-        (330, 'Ручной ввод в CRM', ['номер, дата, поставщик,', 'сумма, ЄДРПОУ'], HUMAN),
-        (620, 'Проверка бухгалтером', ['сумма, НДС,', 'реквизиты'], HUMAN),
-        (910, 'Согласование оплаты', ['руководитель,', 'переписка'], HUMAN),
-        (1200, 'Оплата и проводка', ['1С / банк', 'отдельным шагом'], CRM),
+        (40, 'Invoice arrives', ['e-mail, messenger,', 'paper, resends'], HUMAN),
+        (330, 'Manual CRM entry', ['number, date, supplier,', 'amount, tax ID'], HUMAN),
+        (620, 'Accountant check', ['amount, VAT,', 'bank details'], HUMAN),
+        (910, 'Payment approval', ['owner,', 'correspondence'], HUMAN),
+        (1200, 'Payment and posting', ['1C / bank', 'as a separate step'], CRM),
     ]
     for x, title, lines, color in boxes:
         parts.append(box(x, 130, 260, 96, title, lines, color))
@@ -109,10 +109,10 @@ def render_as_is():
         parts.append(arrow([(x, 178), (x + 30, 178)]))
 
     pains = [
-        (40, 'Ошибки в сумме и ЄДРПОУ', 'вводятся руками, проверяются глазами'),
-        (330, 'Потерянные счета', 'нет единого реестра, дубли не видны'),
-        (620, 'Дубли сделок', 'повторная отправка создаёт вторую'),
-        (910, 'Нет истории', 'кто что менял и когда — неизвестно'),
+        (40, 'Amount and tax ID errors', 'typed by hand, checked by eye'),
+        (330, 'Lost invoices', 'no register, duplicates unseen'),
+        (620, 'Duplicate deals', 'a resend creates a second one'),
+        (910, 'No history', 'nobody knows who changed what'),
     ]
     for x, title, line in pains:
         parts.append(f'<rect x="{x}" y="270" width="260" height="78" rx="12" fill="#fef2f2" stroke="#fecaca"/>')
@@ -121,25 +121,25 @@ def render_as_is():
         parts.append(arrow([(x + 130, 226), (x + 130, 268)], color=RISK, dashed=True, marker='arrow-risk'))
 
     parts.append(f'<text x="40" y="400" font-size="13" fill="{MUTED}">'
-                 'Один документ = 3–10 минут ручной работы, качество зависит от внимания человека. '
-                 'Данные для CRM вводятся вручную и не сверяются машиной.</text>')
+                 'One document = 3–10 minutes of manual work, and quality depends on how carefully the person reads. '
+                 'CRM data is typed by hand and never machine-checked.</text>')
     parts.append('<text x="40" y="424" font-size="12" fill="#9ca3af">'
-                 'Схема показывает текущий процесс, а не дефекты конкретного исполнителя.</text>')
-    (DOCS / 'process-as-is.svg').write_text(svg(width, height, ''.join(parts), 'Процесс до автоматизации'), encoding='utf-8')
+                 'The map shows the current process, not the faults of one particular person.</text>')
+    (DOCS / 'process-as-is.svg').write_text(svg(width, height, ''.join(parts), 'Process before automation'), encoding='utf-8')
 
 
 def render_to_be():
     width, height = 1620, 560
-    parts = [header(width, 'Процесс после автоматизации', 'DocFlow снимает интерпретацию, валидацию и передачу в CRM; человек решает только спорное',
-                    [('система', SYSTEM), ('человек', HUMAN), ('CRM', CRM), ('исключение', RISK)])]
+    parts = [header(width, 'Process after automation', 'DocFlow takes over interpretation, validation and the hand-off to CRM; the human decides only what is doubtful',
+                    [('system', SYSTEM), ('human', HUMAN), ('CRM', CRM), ('exception', RISK)])]
 
     steps = [
-        (30, 'Приём документа', ['upload, API,', 'почта'], SYSTEM),
-        (292, 'Извлечение текста', ['PDF, скан,', 'OCR ukr+eng'], SYSTEM),
-        (554, 'Интерпретация', ['поля счёта и', 'позиции'], SYSTEM),
-        (816, 'Валидация', ['инварианты,', 'риск-флаг'], SYSTEM),
-        (1078, 'Ревью человеком', ['только спорное,', 'правки и confirm'], HUMAN),
-        (1340, 'Сделка в CRM', ['сумма, компания,', 'комментарий'], CRM),
+        (30, 'Intake', ['upload, API,', 'mailbox'], SYSTEM),
+        (292, 'Text extraction', ['PDF, scan,', 'OCR ukr+eng'], SYSTEM),
+        (554, 'Interpretation', ['invoice fields', 'and line items'], SYSTEM),
+        (816, 'Validation', ['invariants,', 'risk flag'], SYSTEM),
+        (1078, 'Human review', ['only what is doubtful,', 'edits and confirm'], HUMAN),
+        (1340, 'CRM deal', ['amount, company,', 'comment'], CRM),
     ]
     for x, title, lines, color in steps:
         parts.append(box(x, 120, 240, 96, title, lines, color))
@@ -147,9 +147,9 @@ def render_to_be():
         parts.append(arrow([(x, 168), (x + 22, 168)]))
 
     exceptions = [
-        (30, 'Текст не извлечён', ['скан низкого качества →', 'ручной ввод, не тишина'], 412),
-        (560, 'Инвариант провален', ['сумма, НДС, ЄДРПОУ, items →', 'приоритетное ревью'], 936),
-        (1090, 'Дубль по номеру + ЄДРПОУ', ['сделка не создаётся,', 'показывается найденная'], 1460),
+        (30, 'Text not extracted', ['low-quality scan →', 'manual entry, never silence'], 412),
+        (560, 'Invariant failed', ['amount, VAT, tax ID, items →', 'priority review'], 936),
+        (1090, 'Duplicate number + tax ID', ['no deal is created,', 'the existing one is shown'], 1460),
     ]
     for x, title, lines, source_x in exceptions:
         parts.append(box(x, 300, 260, 92, title, lines, RISK, dashed=True))
@@ -157,7 +157,7 @@ def render_to_be():
                            color=RISK, dashed=True, marker='arrow-risk'))
 
     parts.append('<text x="40" y="446" font-size="12" font-weight="600" fill="'
-                 + MUTED + '" letter-spacing="1.2">ИЗМЕРЕНИЯ</text>')
+                 + MUTED + '" letter-spacing="1.2">MEASUREMENTS</text>')
     metrics = ['auto-pass rate', 'median review time', 'corrections by field', 'duplicates blocked', 'CRM failures']
     x = 40
     for metric in metrics:
@@ -167,9 +167,9 @@ def render_to_be():
         x += w + 10
 
     parts.append(f'<text x="40" y="528" font-size="13" fill="{MUTED}">'
-                 'Правило: машина никогда не отправляет в CRM значение, в котором не уверена — '
-                 'спорное уходит человеку, а не в тишину.</text>')
-    (DOCS / 'process-to-be.svg').write_text(svg(width, height, ''.join(parts), 'Процесс после автоматизации'), encoding='utf-8')
+                 'The rule: the machine never sends a value to the CRM when it is not sure of it — '
+                 'what is doubtful goes to a human, not into silence.</text>')
+    (DOCS / 'process-to-be.svg').write_text(svg(width, height, ''.join(parts), 'Process after automation'), encoding='utf-8')
 
 
 if __name__ == '__main__':

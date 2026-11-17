@@ -211,20 +211,11 @@ validation.py      deterministic field invariants
 uspacy*.py         Uspacy authentication, client-side matching, deal creation
 templates/         showcase page (/) and review workspace (/app)
 tests/             deterministic suites and labelled fixtures
-docs/              architecture, process map, roadmap, plain guide
-memory/            working memory: state, handoff, decision log, plain log
+docs/              architecture, process map, design system, roadmap
 ```
 
 - Architecture in detail: [`docs/architecture.md`](docs/architecture.md) · process map:
-  [`docs/process-map.md`](docs/process-map.md) · case-study structure:
+  [`docs/process-map.md`](docs/process-map.md) · design system:
+  [`docs/design-system.md`](docs/design-system.md) · case-study structure:
   [`docs/case-study.md`](docs/case-study.md).
 - Product path: [`docs/roadmap.json`](docs/roadmap.json) (rendered as “Our path” on the site).
-
----
-
-**По-русски, коротко:** DocFlow — прототип платформы для автоматизации документооборота:
-документы приходят из папки или почты, распознаются, проходят проверку человеком и уходят
-в нужный процесс и CRM. Сервис задуман универсальным: всё, что относится к конкретному
-рынку, живёт в профиле документа, а не в ядре; сейчас реализованы украинские счёт, акт и
-видаткова накладна.
-архитектура — [`docs/architecture.md`](docs/architecture.md).

@@ -1,105 +1,103 @@
-# Дизайн-система DocFlow
+# DocFlow design system
 
-Версия 0.1 · 16.11.2026 · область: витрина (`/`) и рабочее место проверки (`/app`).
+Version 0.1 · 16.11.2026 · scope: showcase (`/`) and review workspace (`/app`).
 
-Это единственный источник правды по цвету, типографике, отступам, форме, движению, сетке и
-компонентам. Он нужен, чтобы две страницы перестали расходиться и чтобы у каждой следующей
-правки было число, на которое можно сослаться, а не спор о вкусе. Отрендеренный справочник по
-всем токенам лежит рядом: [`design-system.html`](design-system.html).
+This is the single source of truth for color, typography, spacing, shape, motion, grid, and
+components. It exists so the two pages stop drifting apart and so every later change has a number
+to point to instead of an argument about taste. The rendered reference for all tokens sits next
+to it: [`design-system.html`](design-system.html).
 
-## 1. Направление
+## 1. Direction
 
-DocFlow — детерминированный роутер деловых документов: файл приходит, система его читает,
-человек подтверждает, и документ уходит в тот процесс и ту CRM, которым он принадлежит.
-Интерфейс должен ощущаться как точный инструмент для одной задачи, а не как дашборд.
+DocFlow is a deterministic router for business documents: a file arrives, the system reads it,
+a human confirms it, and the document goes to the process and CRM it belongs to. The interface
+should feel like a precise tool for one job, not a dashboard.
 
-- **Подпись продукта — маршрут.** Путь документа от входа до назначения — собственный язык
-  интерфейса: соединитель, название назначения, причина. Смелость тратится на сцену роутера на
-  витрине; воркспейс остаётся тихим и точным.
-- **Один акцент — одно значение.** Фиолетовый — действие и решение, янтарный — человек должен
-  посмотреть, циан — назначение и поток, зелёный — подтверждено, красный — заблокировано. В
-  продукте цвет никогда не бывает украшением.
-- **Характер — в данных.** Цифры табличные, суммы с валютой, даты читаются одинаково везде.
-  Типографика нейтральна, чтобы страницу держали данные документа.
-- **Плотность честная.** Ревьюер сканирует поля и строки очереди: интерфейс плотный, но никогда
-  не ниже 12 px и не ниже 44 px на тач-цели в мобильном.
+- **The product's signature is the route.** A document's path from intake to destination is the
+  interface's own language: the connector, the destination name, the reason. Boldness is spent on
+  the router scene on the showcase; the workspace stays quiet and precise.
+- **One accent, one meaning.** Purple means action and decision, amber means a human must look,
+  cyan means destination and flow, green means confirmed, red means blocked. In the product, color
+  is never decoration.
+- **Character comes from the data.** Figures are tabular, amounts carry their currency, dates read
+  the same everywhere. Typography is neutral so the document's data holds the page.
+- **Density is honest.** The reviewer scans fields and queue rows: the interface is dense, but
+  never below 12 px or below 44 px for a touch target on mobile.
 
-Сознательно вне системы: светлая тема, второй шрифт, декоративный набор иконок, поверхность
-«ассистента» в стиле LLM. Ни одно из этого не обслуживает пайплайн.
+Deliberately outside the system: a light theme, a second typeface, a decorative icon set, an
+LLM-style "assistant" surface. None of it serves the pipeline.
 
-## 2. Цвет
+## 2. Color
 
-Только тёмная тема. Основа почти чёрная, чтобы белая бумага превью документа была самым ярким
-объектом на экране.
+Dark theme only. The base is almost black so the white paper of the document preview is the
+brightest object on screen.
 
-### Поверхности и линии
+### Surfaces and lines
 
-| Токен | Значение | Применение |
+| Token | Value | Application |
 | --- | --- | --- |
-| `--color-bg` | `#07080d` | фон страницы |
-| `--color-surface` | `#0e1018` | карточки, панели |
-| `--color-surface-raised` | `#12141f` | поля ввода, вложенные панели |
-| `--color-surface-hover` | `#181b29` | наведение на строку и карточку |
-| `--color-line` | `rgba(255,255,255,.09)` | базовая тонкая линия |
-| `--color-line-strong` | `rgba(255,255,255,.16)` | акцентный разделитель, граница со смыслом |
+| `--color-bg` | `#07080d` | page background |
+| `--color-surface` | `#0e1018` | cards, panels |
+| `--color-surface-raised` | `#12141f` | input fields, nested panels |
+| `--color-surface-hover` | `#181b29` | row and card hover |
+| `--color-line` | `rgba(255,255,255,.09)` | base hairline |
+| `--color-line-strong` | `rgba(255,255,255,.16)` | accent divider, border with meaning |
 
-### Текст
+### Text
 
-| Токен | Значение | Контраст на `--color-surface` | Применение |
+| Token | Value | Contrast on `--color-surface` | Application |
 | --- | --- | --- | --- |
-| `--color-text` | `#eceef5` | 16,4:1 | заголовки, значения, основной текст |
-| `--color-text-2` | `#b4b9cb` | 9,7:1 | описания, вторичные значения |
-| `--color-text-3` | `#9aa0b4` | 7,3:1 | подписи, подсказки, метаданные |
-| `--color-text-4` | `#7f8599` | 5,2:1 | пустые состояния, время, самый неважный текст |
+| `--color-text` | `#eceef5` | 16.4:1 | headings, values, primary text |
+| `--color-text-2` | `#b4b9cb` | 9.7:1 | descriptions, secondary values |
+| `--color-text-3` | `#9aa0b4` | 7.3:1 | labels, hints, metadata |
+| `--color-text-4` | `#7f8599` | 5.2:1 | empty states, timestamps, the least important text |
 
-`--color-text-4` — нижняя граница: он заменяет старый `#5d6377` (3,2:1), который проваливал
-WCAG AA при каждом размере, в котором использовался.
+`--color-text-4` is the floor: it replaces the old `#5d6377` (3.2:1), which failed WCAG AA at
+every size it was used at.
 
-### Акценты и семантика
+### Accents and semantics
 
-| Токен | Значение | Значение в интерфейсе | Применение |
+| Token | Value | Meaning in the interface | Application |
 | --- | --- | --- | --- |
-| `--color-accent` | `#7c5cff` | бренд / решение | фокусное кольцо, выбранные границы, знак, ссылки |
-| `--color-accent-fill` | `#7454ff` | заливка действия | фон основной кнопки (белая подпись, 4,7:1) |
-| `--color-accent-fill-hover` | `#6f4cf5` | заливка при наведении | темнеет при наведении |
-| `--color-accent-fill-press` | `#6445ee` | заливка при нажатии | темнеет ещё сильнее |
-| `--color-accent-text` | `#b9a7ff` | акцентный текст | ссылки и подписи на тёмном (9,1:1) |
-| `--color-accent-soft` | `rgba(124,92,255,.14)` | мягкая заливка | подсветка выбранной строки, заливка фокуса |
-| `--color-attention` | `#fbbf24` | человек должен посмотреть | поле с низкой уверенностью, «на проверку», предупреждения |
-| `--color-attention-text` | `#fcd34d` | текст внимания | текст-предупреждение на тёмном (13,2:1) |
-| `--color-attention-soft` | `rgba(251,191,36,.14)` | мягкая заливка внимания | поверхность предупреждения |
-| `--color-on-attention` | `#221604` | текст на янтарном | янтарные бейджи и CTA на витрине (10,6:1) |
-| `--color-flow` | `#22d3ee` | назначение / поток | названия назначений, линии маршрута (10,5:1) |
-| `--color-flow-soft` | `rgba(34,211,238,.12)` | мягкая заливка маршрута | чипы распознанных полей, свечение маршрута |
-| `--color-success` | `#34d399` | подтверждено / безопасно | сохранено, высокая уверенность, авто-проход |
-| `--color-success-text` | `#6ee7b7` | текст успеха | текст об успехе на тёмном (12,5:1) |
-| `--color-success-soft` | `rgba(52,211,153,.12)` | мягкая заливка успеха | поверхность «подтверждено» |
-| `--color-danger` | `#f87171` | заблокировано / ошибка | ошибка CRM, пропущенное значение, разрушительное действие |
-| `--color-danger-text` | `#fca5a5` | текст ошибки | текст об ошибке на тёмном (10,0:1) |
-| `--color-danger-soft` | `rgba(248,113,113,.12)` | мягкая заливка ошибки | поверхность ошибки |
-| `--color-on-accent` | `#ffffff` | текст на фиолетовом | подпись основной кнопки |
+| `--color-accent` | `#7c5cff` | brand / decision | focus ring, selected borders, mark, links |
+| `--color-accent-fill` | `#7454ff` | action fill | primary button background (white label, 4.7:1) |
+| `--color-accent-fill-hover` | `#6f4cf5` | hover fill | darkens on hover |
+| `--color-accent-fill-press` | `#6445ee` | pressed fill | darkens further |
+| `--color-accent-text` | `#b9a7ff` | accent text | links and labels on dark (9.1:1) |
+| `--color-accent-soft` | `rgba(124,92,255,.14)` | soft fill | selected row highlight, focus fill |
+| `--color-attention` | `#fbbf24` | a human must look | low-confidence field, "needs review", warnings |
+| `--color-attention-text` | `#fcd34d` | attention text | warning text on dark (13.2:1) |
+| `--color-attention-soft` | `rgba(251,191,36,.14)` | soft attention fill | warning surface |
+| `--color-on-attention` | `#221604` | text on amber | amber badges and CTAs on the showcase (10.6:1) |
+| `--color-flow` | `#22d3ee` | destination / flow | destination names, route lines (10.5:1) |
+| `--color-flow-soft` | `rgba(34,211,238,.12)` | soft route fill | recognized field chips, route glow |
+| `--color-success` | `#34d399` | confirmed / safe | saved, high confidence, auto-pass |
+| `--color-success-text` | `#6ee7b7` | success text | success text on dark (12.5:1) |
+| `--color-success-soft` | `rgba(52,211,153,.12)` | soft success fill | "confirmed" surface |
+| `--color-danger` | `#f87171` | blocked / error | CRM error, missing value, destructive action |
+| `--color-danger-text` | `#fca5a5` | error text | error text on dark (10.0:1) |
+| `--color-danger-soft` | `rgba(248,113,113,.12)` | soft error fill | error surface |
+| `--color-on-accent` | `#ffffff` | text on purple | primary button label |
 
-Правила:
+Rules:
 
-1. **Один акцент на одно значение.** Решение — фиолетовое. Человек должен посмотреть —
-   янтарное. Янтарный никогда не значит «действие» в продукте: экран проверки уже читает
-   янтарный как «проверь это».
-2. **Янтарный — не цвет CTA.** Витрина сохраняет тёплое свечение героя как атмосферу, но CTA
-   подчиняется той же фиолетовой заливке действия, что и продукт. Решение D1 принято 16.11:
-   янтарной кнопки в системе нет.
-3. **Никогда только цвет.** Уверенность — это точка плюс процент плюс граница; маршрут — это
-   название плюс стрелка, а не просто синее слово.
-4. **Семантические цвета зарезервированы**: в воркспейсе нет декоративных зелёных, янтарных
-   или циановых свечений.
-5. Весь текст проходит 4,5:1. Несущие смысл нецветовые индикаторы — фокусное кольцо, точки
-   статусов, границы уверенности и ошибок — проходят 3:1 относительно поверхности, на которой
-   лежат. Тонкие линии-разделители декоративны и никогда не кодируют состояние сами по себе.
+1. **One accent per meaning.** Decision — purple. A human must look — amber. Amber never means
+   "action" in the product: the review screen already reads amber as "check this".
+2. **Amber is not a CTA color.** The showcase keeps the hero's warm glow as atmosphere, but the
+   CTA uses the same purple action fill as the product. Decision D1 was made on 16.11: there is no
+   amber button in the system.
+3. **Never color alone.** Confidence is a dot plus a percentage plus a border; a route is a name
+   plus an arrow, not just a blue word.
+4. **Semantic colors are reserved**: the workspace has no decorative green, amber, or cyan glows.
+5. All text passes 4.5:1. Meaning-bearing non-color indicators — focus ring, status dots,
+   confidence and error borders — pass 3:1 against the surface they sit on. Thin divider lines are
+   decorative and never encode state on their own.
 
-## 3. Типографика
+## 3. Typography
 
-Одна семья: **Inter** для интерфейса и текстов витрины, с нейтральным запасным стеком. Характер
-даёт язык маршрута и цвет, а не второй шрифт: вторая семья только спорила бы с данными
-документа (решение D2: подключить Inter как woff2, латиница + кириллица).
+One family: **Inter** for the interface and showcase copy, with a neutral fallback stack.
+Character comes from the route language and color, not a second typeface: a second family would
+only compete with the document's data (decision D2: ship Inter as woff2, Latin + Cyrillic).
 
 ```css
 --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -107,280 +105,278 @@ WCAG AA при каждом размере, в котором использов
 --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 ```
 
-Моно — только для декоративных подписей зон на сцене витрины. В продукте цифры набираются
-основной семьёй с `font-variant-numeric: tabular-nums`.
+Mono is only for decorative zone labels in the showcase scene. In the product, figures are set in
+the main family with `font-variant-numeric: tabular-nums`.
 
-### Шкала
+### Type scale
 
-| Токен | Размер / интерлиньяж / вес / трекинг | Применение |
+| Token | Size / line height / weight / tracking | Application |
 | --- | --- | --- |
-| `--text-display` | 48 / 1.05 / 700 / -0.03em | H1 витрины на десктопе |
-| `--text-display-sm` | 32 / 1.1 / 700 / -0.025em | H1 витрины ниже 640 px |
-| `--text-stat` | 24 / 1.1 / 700 / -0.02em | значения KPI, цифры витрины |
-| `--text-heading` | 20 / 1.25 / 600 / -0.02em | заголовки секций |
-| `--text-title` | 16 / 1.3 / 600 / -0.01em | заголовки карточек, подзаголовки витрины |
-| `--text-body-lg` | 16 / 1.6 / 400 / 0 | вводный текст витрины, длинные пустые состояния |
-| `--text-body` | 14 / 1.6 / 400 / 0 | основной текст |
-| `--text-ui` | 14 / 1.4 / 500 / 0 | кнопки, поля, контролы |
-| `--text-small` | 13 / 1.45 / 400 / 0.005em | ячейки таблиц, метаданные, подсказки |
-| `--text-caption` | 12 / 1.4 / 500 / 0.01em | подписи полей, бейджи, микро-подписи |
-| `--text-micro` | 11 / 1.2 / 600 / 0.12em, капс, моно | только подписи сцены на витрине |
+| `--text-display` | 48 / 1.05 / 700 / -0.03em | showcase H1 on desktop |
+| `--text-display-sm` | 32 / 1.1 / 700 / -0.025em | showcase H1 below 640 px |
+| `--text-stat` | 24 / 1.1 / 700 / -0.02em | KPI values, showcase figures |
+| `--text-heading` | 20 / 1.25 / 600 / -0.02em | section headings |
+| `--text-title` | 16 / 1.3 / 600 / -0.01em | card headings, showcase subheadings |
+| `--text-body-lg` | 16 / 1.6 / 400 / 0 | showcase intro copy, long empty states |
+| `--text-body` | 14 / 1.6 / 400 / 0 | body text |
+| `--text-ui` | 14 / 1.4 / 500 / 0 | buttons, fields, controls |
+| `--text-small` | 13 / 1.45 / 400 / 0.005em | table cells, metadata, hints |
+| `--text-caption` | 12 / 1.4 / 500 / 0.01em | field labels, badges, micro-labels |
+| `--text-micro` | 11 / 1.2 / 600 / 0.12em, uppercase, mono | scene labels on the showcase only |
 
-Правила:
+Rules:
 
-1. **12 px — нижняя граница в продукте.** `--text-micro` — единственное исключение и только
-   внутри декоративной сцены с `aria-hidden`.
-2. **Только предложения в продукте.** Никаких заголовков капсом, никаких растянутых надзаголовков.
-   Надзаголовок витрины — единственный допустимый элемент капсом вне сцены.
-3. **Табличные цифры** в статистике, таблицах, суммах, таймерах и процентах уверенности.
-4. **Длина строки** меньше 75 символов для читаемого текста; выравнивание по левому краю, никогда
-   по ширине.
-5. **Даты** везде: `11 ноя 2026` — в полях, таблицах, истории и тостах. Нативный `date` хранит
-   внутри ISO-значение.
-6. **Деньги** везде: `8 600,00 ₴` — сумма, пробел, символ; валюта никогда не живёт только в
-   соседнем поле. Код (`UAH`) — в подсказке или в записи, но не в ячейке.
-7. **Имена файлов** — обычный текст, не моно, обрезаются посередине с сохранением расширения.
+1. **12 px is the floor in the product.** `--text-micro` is the only exception, and only inside
+   the decorative scene with `aria-hidden`.
+2. **Sentence case only in the product.** No all-caps headings, no stretched overlines. The
+   showcase overline is the only allowed all-caps element outside the scene.
+3. **Tabular figures** in statistics, tables, amounts, timers, and confidence percentages.
+4. **Line length** under 75 characters for readable text; left-aligned, never justified.
+5. **Dates** everywhere: `11 Nov 2026` — in fields, tables, history, and toasts. The native `date`
+   input stores an ISO value internally.
+6. **Money** everywhere: `8,600.00 ₴` — amount, space, symbol; currency never lives only in the
+   adjacent field. The code (`UAH`) goes in a tooltip or a record, not in the cell.
+7. **File names** are plain text, not mono; they truncate in the middle and keep the extension.
 
-Текущий разнобой, который уходит: 30 разных кеглей на двух страницах (0.5–3.05rem), подписи
-полей 10,4 px, заголовки таблиц 11,5 px, подсказки 10,6 px.
+The current inconsistency this removes: 30 different font sizes across two pages (0.5–3.05rem),
+10.4 px field labels, 11.5 px table headings, 10.6 px hints.
 
-## 4. Отступы
+## 4. Spacing
 
-Сетка с шагом 4. Каждый зазор, паддинг и ритм секции берётся из этой шкалы; произвольные
-значения (`15px`, `22px`, `26px`, `46px`) — долг миграции.
+A 4 px grid. Every gap, padding, and section rhythm comes from this scale; arbitrary values
+(`15px`, `22px`, `26px`, `46px`) are migration debt.
 
-| Токен | Значение | Применение |
+| Token | Value | Application |
 | --- | --- | --- |
-| `--space-1` | 4 | точка к тексту, сдвиг иконки |
-| `--space-2` | 8 | иконка к подписи, зазор чипов, плотный стек |
-| `--space-3` | 12 | паддинг поля, внутренний зазор контрола, компактный стек |
-| `--space-4` | 16 | паддинг тела карточки на мобильном, зазор сетки полей, зазор списка |
-| `--space-5` | 20 | паддинг тела карточки, зазор между карточками, внутренний ритм секции |
-| `--space-6` | 24 | поля страницы, ритм секции, паддинг шапки карточки |
-| `--space-8` | 32 | карточка к карточке в колонке, паддинг героя |
-| `--space-10` | 40 | паддинг пустого состояния, разделение блоков |
-| `--space-12` | 48 | разделение секций витрины |
-| `--space-16` | 64 | разделение героя витрины |
-| `--space-20` | 80 | верхний и нижний ритм витрины |
+| `--space-1` | 4 | dot to text, icon offset |
+| `--space-2` | 8 | icon to label, chip gap, tight stack |
+| `--space-3` | 12 | field padding, control inner gap, compact stack |
+| `--space-4` | 16 | card body padding on mobile, field grid gap, list gap |
+| `--space-5` | 20 | card body padding, gap between cards, internal section rhythm |
+| `--space-6` | 24 | page gutters, section rhythm, card header padding |
+| `--space-8` | 32 | card to card in a column, hero padding |
+| `--space-10` | 40 | empty-state padding, block separation |
+| `--space-12` | 48 | showcase section separation |
+| `--space-16` | 64 | showcase hero separation |
+| `--space-20` | 80 | showcase top and bottom rhythm |
 
-Применение:
+Application:
 
-- Поля страницы: 24 на десктопе, 16 ниже 560 px.
-- Зазор карточек продукта: 20; паддинг тела карточки: 20; высота шапки карточки: 56
-  (паддинг 0 20).
-- Витрина: паддинг героя 32/24, паддинг сцены 24, ритм секций 48–64.
-- Вертикальный ритм внутри карточек: заголовок → тело 8, тело → действия 20, строки полей 16.
+- Page gutters: 24 on desktop, 16 below 560 px.
+- Product card gap: 20; card body padding: 20; card header height: 56
+  (padding 0 20).
+- Showcase: hero padding 32/24, scene padding 24, section rhythm 48–64.
+- Vertical rhythm inside cards: heading → body 8, body → actions 20, field rows 16.
 
-## 5. Форма и поверхности
+## 5. Shape and surfaces
 
-| Токен | Значение | Применение |
+| Token | Value | Application |
 | --- | --- | --- |
-| `--radius-xs` | 6 | плитки иконок, маленькие теги, превью документа |
-| `--radius-sm` | 10 | кнопки, поля, чипы, мелкие контролы |
-| `--radius-md` | 12 | вложенные панели, карточки маршрутов, тосты |
-| `--radius-lg` | 16 | карточки |
-| `--radius-xl` | 24 | сцена витрины и панели маркетинга |
-| `--radius-pill` | 999 | пилюли, статусы, чипы сэмплов |
+| `--radius-xs` | 6 | icon tiles, small tags, document preview |
+| `--radius-sm` | 10 | buttons, fields, chips, small controls |
+| `--radius-md` | 12 | nested panels, route cards, toasts |
+| `--radius-lg` | 16 | cards |
+| `--radius-xl` | 24 | showcase scene and marketing panels |
+| `--radius-pill` | 999 | pills, statuses, sample chips |
 
-- Базовая граница: `1px solid var(--color-line)`; акцентная: `--color-line-strong`.
-- Тени в основном тонкие линии: `--shadow-1: 0 8px 24px -16px rgba(0,0,0,.9)` для
-  приподнятых поверхностей, `--shadow-2: 0 20px 50px -20px rgba(0,0,0,.9)` для оверлеев и
-  тостов.
-- Свечения (`--glow-accent`, `--glow-attention`) — только для героя витрины. В воркспейсе
-  свечений нет, кроме фокусного кольца и краткого пульса во время подтверждения.
-- Никакой одинаковости скруглённых прямоугольников: радиус кодирует иерархию (контрол 10 →
-  вложенная панель 12 → карточка 16 → сцена 24).
+- Base border: `1px solid var(--color-line)`; accent border: `--color-line-strong`.
+- Elevation relies mostly on thin lines: `--shadow-1: 0 8px 24px -16px rgba(0,0,0,.9)` for
+  raised surfaces, `--shadow-2: 0 20px 50px -20px rgba(0,0,0,.9)` for overlays and
+  toasts.
+- Glows (`--glow-accent`, `--glow-attention`) are only for the showcase hero. The workspace has
+  no glows except the focus ring and a brief pulse during confirmation.
+- Avoid uniform rounded rectangles: radius encodes hierarchy (control 10 → nested panel 12 →
+  card 16 → scene 24).
 
-## 6. Движение
+## 6. Motion
 
-| Токен | Значение | Применение |
+| Token | Value | Application |
 | --- | --- | --- |
-| `--dur-1` | 120ms | наведение, нажатие, фокус |
-| `--dur-2` | 180ms | смена состояния, тост туда-обратно, переходы цвета |
-| `--dur-3` | 260ms | раскрытие панели или строки |
-| `--dur-4` | 800ms | один шаг хореографии витрины (сцена роутера идёт своим таймлайном, ~5,8 s на цикл) |
-| `--ease-out` | `cubic-bezier(.22,.8,.28,1)` | входы, смены состояний |
-| `--ease-in-out` | `cubic-bezier(.4,0,.2,1)` | перемещение между двумя состояниями |
-| `--ease-spring` | `cubic-bezier(.34,1.15,.64,1)` | отклик на нажатие и маркетинг |
+| `--dur-1` | 120ms | hover, press, focus |
+| `--dur-2` | 180ms | state change, toast in and out, color transitions |
+| `--dur-3` | 260ms | panel or row disclosure |
+| `--dur-4` | 800ms | one step of the showcase choreography (the router scene runs on its own timeline, ~5.8 s per cycle) |
+| `--ease-out` | `cubic-bezier(.22,.8,.28,1)` | entrances, state changes |
+| `--ease-in-out` | `cubic-bezier(.4,0,.2,1)` | movement between two states |
+| `--ease-spring` | `cubic-bezier(.34,1.15,.64,1)` | press feedback and marketing |
 
-Правила:
+Rules:
 
-1. **В продукте анимируется только то, что отвечает человеку**: наведение, нажатие, фокус,
-   тост, раскрытие строки, спиннер. Никаких анимаций входа, появления по скроллу и цикличной
-   декорации.
-2. **У витрины один поставленный момент** — цикл сцены роутера. Всё остальное на витрине статично
-   или является состоянием наведения.
-3. Анимируются только `transform` и `opacity`; свойства раскладки не анимируются никогда.
-4. `prefers-reduced-motion: reduce` отключает всё необязательное: сцена рисует финальное
-   состояние, переходы становятся мгновенными, спиннер остаётся.
-5. Любая анимация в продукте дольше 260 ms требует причины на ревью.
+1. **In the product, only what responds to a human is animated**: hover, press, focus, toast, row
+   disclosure, spinner. No entrance animations, no scroll reveals, no looping decoration.
+2. **The showcase has one choreographed moment** — the router scene cycle. Everything else on the
+   showcase is static or a hover state.
+3. Only `transform` and `opacity` are animated; layout properties are never animated.
+4. `prefers-reduced-motion: reduce` turns off everything optional: the scene draws its final
+   state, transitions become instant, the spinner remains.
+5. Any animation in the product longer than 260 ms needs a reason at review.
 
-### Сцена роутера на витрине
+### Router scene on the showcase
 
-Сцена объясняет конвейер, а не украшает героя. Роль одна — **объяснение** — и один прогон,
-который можно остановить.
+The scene explains the pipeline; it does not decorate the hero. It has one role —
+**explanation** — and one run that can be stopped.
 
-- Поток показан лазером: линия не нарисована заранее — её рисует сам луч по ходу прогона.
-  В начале цикла в сцене нет ни одной линии; луч выходит из inbox, проходит через чтение и
-  проверку, делится на три маршрута и собирается в CRM. После удержания линия гаснет вместе
-  со сценами.
-- В intake лежат четыре документа трёх типов (invoice, act, delivery note) с суммой и
-  источником. Распределение видно в маршруте: Payments получает счёт по типу, Accounting —
-  акт и накладную по типу, Approval — счёт на 192 000 UAH по правилу суммы (≥ 100 000).
-  Маршруты загораются по очереди, у каждого появляются свои документы и причина.
-- Таймлайн цикла: 620 ms документы входят, 300 ms лазер собирает inbox, 240 ms шина,
-  2 100 ms проход через чтение и проверку, 670 ms развилка на три маршрута по 200 ms,
-  340 ms слияние и CRM, 1 500 ms удержание, 450 ms сброс, 600 ms пауза. Итого ≈ 6,8 s.
-- Мобильный (≤ 1100): линия не рисуется, сцена складывается в колонку, и тот же таймлайн
-  зажигает стадии по очереди; историю несут порядок блоков и подписи.
-- Управление: кнопка Pause/Play рядом с подписью; прогон стартует только когда сцена в кадре
-  (`IntersectionObserver`) и останавливается при скрытой вкладке. Это требование WCAG 2.2.2
-  для автостартующего движения дольше пяти секунд.
-- `prefers-reduced-motion: reduce`: без луча и головки, сразу финальная схема — линия
-  дорисована целиком, четыре документа, чтение, подтверждение, три маршрута с причиной,
-  сделки. Кнопка управления скрыта.
-- Двигаются только `transform` и `opacity`, линия рисуется `stroke-dashoffset` (только
-  перерисовка, без layout); фоновые свечения статичны, бесконечных декоративных анимаций нет.
-  Реализация — в `templates/landing.html`, блок `#scene`.
+- The flow is shown by a laser: the line is not drawn in advance — the beam draws it during the
+  run. At the start of the cycle there is no line in the scene; the beam leaves the inbox, passes
+  through reading and review, splits into three routes, and converges in the CRM. After the hold,
+  the line fades out with the scenes.
+- Intake holds four documents of three types (invoice, act, delivery note) with an amount and a
+  source. Routing is visible in the route: Payments gets an invoice by type, Accounting gets the
+  act and the delivery note by type, Approval gets the 192,000 UAH invoice by amount rule
+  (≥ 100,000). Routes light up in turn, each with its own documents and reason.
+- Cycle timeline: 620 ms documents enter, 300 ms laser gathers the inbox, 240 ms bus,
+  2,100 ms pass through reading and review, 670 ms split into three routes at 200 ms each,
+  340 ms merge and CRM, 1,500 ms hold, 450 ms reset, 600 ms pause. Total ≈ 6.8 s.
+- Mobile (≤ 1100): the line is not drawn, the scene stacks into a column, and the same timeline
+  lights the stages in turn; block order and labels carry the history.
+- Controls: a Pause/Play button next to the label; the run starts only when the scene is in view
+  (`IntersectionObserver`) and stops when the tab is hidden. This is a WCAG 2.2.2 requirement for
+  auto-starting motion longer than five seconds.
+- `prefers-reduced-motion: reduce`: no beam or moving head; the final diagram appears immediately —
+  the line fully drawn, four documents, reading, confirmation, three routes with reasons, deals. The
+  control button is hidden.
+- Only `transform` and `opacity` animate; the line is drawn with `stroke-dashoffset` (repaint only,
+  no layout); background glows are static, and there are no infinite decorative animations. The
+  implementation is in `templates/landing.html`, block `#scene`.
 
-## 7. Сетка
+## 7. Grid
 
-| Токен | Значение |
+| Token | Value |
 | --- | --- |
-| `--container` | 1320px (обе страницы) |
-| `--gutter` | 24px на десктопе / 16px ниже 560px |
-| `--topbar-height` | 60px на десктопе / 56px на мобильном |
+| `--container` | 1320px (both pages) |
+| `--gutter` | 24px on desktop / 16px below 560px |
+| `--topbar-height` | 60px on desktop / 56px on mobile |
 | `--z-topbar` | 20 |
 | `--z-overlay` | 100 |
 
-Брейкпоинты: 560 (мобильный), 960 (воркспейс складывается в колонку), 1100 (сцена витрины
-складывается), 1280 (широкие отступы). CSS mobile-first, но воркспейс проектируется сначала под
-ноутбук; на мобильном проверка всё равно должна проходить без горизонтального скролла.
+Breakpoints: 560 (mobile), 960 (the workspace stacks into a column), 1100 (the showcase scene
+stacks), 1280 (wide gutters). CSS is mobile-first, but the workspace is designed for a laptop
+first; on mobile, review must still work without horizontal scrolling.
 
-Сетка: воркспейс — две колонки, документ 52% / поля 48%, складываются ниже 960. Очередь — точка
-входа, и она должна быть видна без прокрутки через документ (см. аудит, решение D5). Витрина —
-центрированная колонка: герой → сцена → цифры → футер, одна мысль на экран.
+Grid: the workspace has two columns, document 52% / fields 48%, stacking below 960. The queue is
+the entry point, and it must be visible without scrolling through the document (see the audit,
+decision D5). The showcase is a centered column: hero → scene → numbers → footer, one idea per
+screen.
 
-## 8. Компоненты
+## 8. Components
 
-### Кнопки
+### Buttons
 
-Размеры: `sm` 32 px, `md` 40 px, `lg` 44 px (основная кнопка на тач-устройствах). Паддинг:
-12/16/20. Радиус `--radius-sm`. Подпись `--text-ui`, на вес выше основного (600).
+Sizes: `sm` 32 px, `md` 40 px, `lg` 44 px (the primary button on touch devices). Padding:
+12/16/20. Radius `--radius-sm`. Label `--text-ui`, one weight above body (600).
 
-| Вариант | Обычное | Наведение | Нажатие | Применение |
+| Variant | Default | Hover | Press | Application |
 | --- | --- | --- | --- | --- |
-| Основная | `--color-accent-fill`, белая подпись | `--color-accent-fill-hover` | `--color-accent-fill-press` + сдвиг на 1px | единственное действие, которое двигает документ дальше |
-| Вторичная | `--color-surface-raised`, граница-линия, `--color-text` | `--color-surface-hover` | `--color-line-strong` | альтернативные действия |
-| Призрачная | прозрачная, `--color-text-2` | `--color-surface-hover` | мягкая заливка | топбар, сброс |
+| Primary | `--color-accent-fill`, white label | `--color-accent-fill-hover` | `--color-accent-fill-press` + 1px shift | the only action that moves the document forward |
+| Secondary | `--color-surface-raised`, line border, `--color-text` | `--color-surface-hover` | `--color-line-strong` | alternative actions |
+| Ghost | transparent, `--color-text-2` | `--color-surface-hover` | soft fill | topbar, reset |
 
-Тёплой янтарной кнопки в системе нет: решением D1 (16.11) на витрине и в продукте одно действие —
-фиолетовое, а тёплое свечение героя осталось только атмосферой.
+There is no warm amber button in the system: by decision D1 (16.11), the showcase and the product
+have one action — purple — and the hero's warm glow is atmosphere only.
 
-У каждого состояния видимое фокусное кольцо: `outline: 2px solid var(--color-accent); outline-offset: 2px`.
-Отключённая: прозрачность 45%, без наведения, `cursor: not-allowed`. Загрузка: спиннер вместо
-подписи, ширина кнопки не меняется.
+Every state has a visible focus ring: `outline: 2px solid var(--color-accent); outline-offset: 2px`.
+Disabled: 45% opacity, no hover, `cursor: not-allowed`. Loading: a spinner replaces the label, and
+the button width does not change.
 
-### Поля
+### Fields
 
-Высота 40 на десктопе / 44 на мобильном, радиус `--radius-sm`, фон `--color-surface-raised`,
-граница `--color-line`, подпись `--text-caption` сверху, значение `--text-body`.
-Состояния: фокус (акцентная граница + мягкое кольцо), низкая уверенность (граница внимания +
-точка), пропущено (граница ошибки + сообщение), отключено (поверхность, текст-3). Состояние
-никогда не передаётся только цветом границы: рядом точка уверенности и процент.
+Height 40 on desktop / 44 on mobile, radius `--radius-sm`, background `--color-surface-raised`,
+border `--color-line`, label `--text-caption` above, value `--text-body`. States: focus (accent
+border + soft ring), low confidence (attention border + dot), missing (error border + message),
+disabled (surface, text-3). State is never conveyed by border color alone: a confidence dot and
+percentage sit next to it.
 
-### Карточки
+### Cards
 
-Фон `--color-surface`, граница `--color-line`, радиус `--radius-lg`. Шапка 56 px с заголовком
-`--text-title` и подсказкой `--text-caption` справа; тело с паддингом 20. Карточка группирует одну
-задачу; на странице не больше одной основной карточки на колонку.
+Background `--color-surface`, border `--color-line`, radius `--radius-lg`. Header 56 px with a
+`--text-title` heading and a `--text-caption` hint on the right; body with 20 padding. A card
+groups one task; a page has at most one primary card per column.
 
-### Чипы и пилюли
+### Chips and pills
 
-Чипы сэмплов: высота 32, радиус pill, `--text-caption`, прозрачный фон, граница-линия; наведение
-добавляет `--color-accent-soft` и акцентную границу. Статусные пилюли: 20 px, `--text-caption`,
-одна из пяти семантических заливок; у каждой пилюли есть текстовая подпись.
+Sample chips: height 32, pill radius, `--text-caption`, transparent background, line border; hover
+adds `--color-accent-soft` and an accent border. Status pills: 20 px, `--text-caption`, one of five
+semantic fills; every pill has a text label.
 
-### Индикатор уверенности
+### Confidence indicator
 
-Точка 6 px + табличный процент рядом с подписью поля. Пороги: высокая ≥ 80% — успех, средняя
-50–79% — внимание, низкая < 50% — ошибка. Процент показывается всегда; подсказка объясняет, откуда
-число. Шапка карточки полей резюмирует: «3 поля ниже 70%».
+6 px dot + tabular percentage next to the field label. Thresholds: high ≥ 80% — success, medium
+50–79% — attention, low < 50% — error. The percentage is always shown; a tooltip explains where
+the number comes from. The header of the fields card summarizes: "3 fields below 70%".
 
-### Таблицы
+### Tables
 
-Шапка `--text-caption` цветом `--color-text-3`, в предложениях, 12 px; высота строки 44; ячейки
-`--text-small`; числовые ячейки по правому краю, табличные; тонкие разделители строк. Таблица
-длиннее экрана получает липкую шапку, фильтр и пагинацию.
+Header `--text-caption` in `--color-text-3`, sentence case, 12 px; row height 44; cells
+`--text-small`; numeric cells right-aligned and tabular; thin row dividers. A table longer than the
+screen gets a sticky header, a filter, and pagination.
 
-### Тосты
+### Toasts
 
-Снизу по центру, 24 px от низа, радиус `--radius-md`, `--text-body`, `--shadow-2`, граница по
-состоянию (успех/внимание/ошибка), автоскрытие через 3,2 с, никогда не единственный сигнал о
-критическом результате.
+Bottom center, 24 px from the bottom, radius `--radius-md`, `--text-body`, `--shadow-2`, border by
+state (success/attention/error), auto-hide after 3.2 s, never the only signal of a critical result.
 
-### Иконки
+### Icons
 
-Только inline SVG, 16/20/24/32 px, толщина 1,5, currentColor. Никаких эмодзи и юникод-глифов
-(`⇪`, `✓` — заглушки, а не набор иконок). Иконки разрушительных действий и статусов всегда идут
-с текстом.
+Inline SVG only, 16/20/24/32 px, 1.5 stroke, currentColor. No emoji or Unicode glyphs (`⇪`, `✓`
+are placeholders, not an icon set). Icons for destructive actions and statuses always come with
+text.
 
-## 9. Базовые требования доступности
+## 9. Baseline accessibility requirements
 
-- Контраст текста ≥ 4,5:1; несущие смысл нецветовые индикаторы (фокусное кольцо, точка статуса,
-  граница уверенности, граница ошибки) ≥ 3:1; тонкие разделители никогда не кодируют состояние.
-- Тач-цели ≥ 44×44 на мобильном; цели под курсор ≥ 32.
-- Клавиатура: каждый интерактивный элемент — `<button>` или `<a>`; чипы и дроп-зона становятся
-  кнопками; без ловушки фокуса; порядок табуляции совпадает с визуальным порядком.
-- Видимый фокус у каждого фокусируемого элемента; никогда `outline: none` без замены.
-- `prefers-reduced-motion` уважается; приложение остаётся рабочим без анимаций.
-- Никакого значения только цветом; никаких аффордансов только по наведению.
-- Текст читается при 200% зуме без горизонтальной прокрутки.
-- Ошибки формы объявляются (`aria-live`) и связаны с полем.
+- Text contrast ≥ 4.5:1; meaning-bearing non-color indicators (focus ring, status dot, confidence
+  border, error border) ≥ 3:1; thin dividers never encode state.
+- Touch targets ≥ 44×44 on mobile; pointer targets ≥ 32.
+- Keyboard: every interactive element is a `<button>` or `<a>`; chips and the drop zone become
+  buttons; no focus trap; tab order matches visual order.
+- Visible focus on every focusable element; never `outline: none` without a replacement.
+- `prefers-reduced-motion` is respected; the app remains usable without animations.
+- Never convey meaning by color alone; no hover-only affordances.
+- Text is readable at 200% zoom without horizontal scrolling.
+- Form errors are announced (`aria-live`) and tied to the field.
 
-## 10. Правила текста
+## 10. Text rules
 
-- Только предложения; активный голос; кнопки начинаются с глагола; одно имя на действие через
-  весь поток («Сохранить документ» → «Документ сохранён»).
-- Называй вещи так, как ими управляет пользователь: «почта», «очередь проверки», «назначение»,
-  а не «IMAP-интейк» и «политика маршрутизации».
-- Пустые состояния говорят, чего нет и что делать дальше; ошибки говорят, что случилось и как
-  исправить, голосом интерфейса.
-- «Документ» — общее слово; «счёт», «акт», «видаткова накладна» — конкретные типы. Дроп-зона и
-  пустые состояния говорят «документ».
-- Никакого капса и цепочек декоративных разделителей (`·`) в продукте; один факт на элемент.
+- Sentence case only; active voice; buttons start with a verb; one name per action across the flow
+  ("Save document" → "Document saved").
+- Name things the way the user controls them: "mail", "review queue", "destination", not "IMAP
+  intake" and "routing policy".
+- Empty states say what is missing and what to do next; errors say what happened and how to fix
+  it, in the interface's voice.
+- "Document" is the generic word; "invoice", "act", and "delivery note" are specific types. The
+  drop zone and empty states say "document".
+- No all-caps and no chains of decorative separators (`·`) in the product; one fact per element.
 
-## 11. Решения, которые нужно принять
+## 11. Decisions to make
 
-| # | Решение | Рекомендация | Последствие |
+| # | Decision | Recommendation | Consequence |
 | --- | --- | --- | --- |
-| D1 | Основной акцент — **принято 16.11** | фиолетовая заливка действия везде; янтарная CTA удалена | витрина перекрашена в фиолетовый; тёплое свечение героя осталось атмосферой |
-| D2 | Файл шрифта | подключить Inter переменной (латиница + кириллица, OFL) | +~300 КБ, предсказуемый рендер, без CDN |
-| D3 | Контейнер | один контейнер 1320 px для обеих страниц | витрина теряет 20 px ширины |
-| D4 | Тема | только тёмная | работа со светлой темой не планируется |
-| D5 | Место очереди | очередь становится точкой входа: верх воркспейса или постоянная боковая колонка | смена раскладки рабочего экрана |
-| D6 | Иконки | inline SVG-набор заменяет глифы и эмодзи | небольшой набор ассетов, согласованные состояния |
+| D1 | Primary accent — **accepted 16.11** | purple action fill everywhere; amber CTA removed | showcase repainted purple; the hero's warm glow remains as atmosphere |
+| D2 | Font file | ship variable Inter (Latin + Cyrillic, OFL) | +~300 KB, predictable rendering, no CDN |
+| D3 | Container | one 1320 px container for both pages | the showcase loses 20 px of width |
+| D4 | Theme | dark only | no light-theme work planned |
+| D5 | Queue placement | the queue becomes the entry point: top of the workspace or a persistent side column | the work screen layout changes |
+| D6 | Icons | an inline SVG set replaces glyphs and emoji | a small asset set, consistent states |
 
-## 12. План внедрения
+## 12. Rollout plan
 
-1. Добавить `templates/tokens.css` с блоком ниже; подключить его к обоим шаблонам и удалить их
-   встроенные `:root`.
-2. Заменить 30 кеглей на токены шкалы; поднять каждую подпись продукта до ≥ 12 px.
-3. Заменить зоопарк серых (`#8f95ab`, `#7d8399`, `#6f768d`, `#5d6377`, `#b4b9cb`…) четырьмя
-   текстовыми токенами; проверить каждое пустое состояние на `--color-text-4`.
-4. Заменить зоопарк радиусов (5, 6, 8, 9, 10, 11, 12, 14, 16, 26) шестью радиусными токенами.
-5. Перевести поля страниц, паддинги карточек и ритм секций на шкалу отступов; убрать нечётные
-   значения (15, 22, 26, 46).
-6. Свести топбар обеих страниц в один компонент с одинаковой высотой и паддингом.
-7. Мобильный проход: цели 44 px, без горизонтального скролла, основное действие доступно.
-8. Зафиксировать решения выше, затем чинить находки аудита в его порядке, используя токены как
-   связку между дизайном и кодом.
+1. Add `templates/tokens.css` with the block below; link it in both templates and remove their
+   inline `:root`.
+2. Replace the 30 font sizes with scale tokens; raise every product label to ≥ 12 px.
+3. Replace the gray zoo (`#8f95ab`, `#7d8399`, `#6f768d`, `#5d6377`, `#b4b9cb`…) with four text
+   tokens; check every empty state against `--color-text-4`.
+4. Replace the radius zoo (5, 6, 8, 9, 10, 11, 12, 14, 16, 26) with six radius tokens.
+5. Move page gutters, card padding, and section rhythm onto the spacing scale; remove odd values
+   (15, 22, 26, 46).
+6. Merge the topbar of both pages into one component with the same height and padding.
+7. Mobile pass: 44 px targets, no horizontal scrolling, the primary action reachable.
+8. Lock the decisions above, then fix the audit findings in its order, using tokens as the link
+   between design and code.
 
-## 13. Блок токенов
+## 13. Token block
 
 ```css
 :root {
-  /* поверхности */
+  /* surfaces */
   --color-bg: #07080d;
   --color-surface: #0e1018;
   --color-surface-raised: #12141f;
@@ -388,13 +384,13 @@ WCAG AA при каждом размере, в котором использов
   --color-line: rgba(255,255,255,.09);
   --color-line-strong: rgba(255,255,255,.16);
 
-  /* текст */
+  /* text */
   --color-text: #eceef5;
   --color-text-2: #b4b9cb;
   --color-text-3: #9aa0b4;
   --color-text-4: #7f8599;
 
-  /* действие и семантика */
+  /* action and semantics */
   --color-accent: #7c5cff;
   --color-accent-fill: #7454ff;
   --color-accent-fill-hover: #6f4cf5;
@@ -415,7 +411,7 @@ WCAG AA при каждом размере, в котором использов
   --color-danger-text: #fca5a5;
   --color-danger-soft: rgba(248,113,113,.12);
 
-  /* типографика */
+  /* typography */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
                "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -431,7 +427,7 @@ WCAG AA при каждом размере, в котором использов
   --text-caption: 500 12px/1.4 var(--font-sans);
   --text-micro: 600 11px/1.2 var(--font-mono);
 
-  /* отступы */
+  /* spacing */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -444,7 +440,7 @@ WCAG AA при каждом размере, в котором использов
   --space-16: 64px;
   --space-20: 80px;
 
-  /* форма */
+  /* shape */
   --radius-xs: 6px;
   --radius-sm: 10px;
   --radius-md: 12px;
@@ -457,7 +453,7 @@ WCAG AA при каждом размере, в котором использов
   --glow-attention: 0 0 28px -8px rgba(251,191,36,.55);
   --focus-ring: 2px solid var(--color-accent);
 
-  /* движение */
+  /* motion */
   --dur-1: 120ms;
   --dur-2: 180ms;
   --dur-3: 260ms;
@@ -466,7 +462,7 @@ WCAG AA при каждом размере, в котором использов
   --ease-in-out: cubic-bezier(.4,0,.2,1);
   --ease-spring: cubic-bezier(.34,1.15,.64,1);
 
-  /* сетка */
+  /* layout */
   --container: 1320px;
   --gutter: 24px;
   --topbar-height: 60px;
