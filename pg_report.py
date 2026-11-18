@@ -29,10 +29,11 @@ DEFAULT_COMPANY = int(os.environ.get("DOCFLOW_COMPANY_ID", "1"))
 def _rows(sql: str, company: int | None = None) -> list[dict[str, Any]]:
     tenant = DEFAULT_COMPANY if company is None else company
     try:
-        with db.tenant(tenant) as connection:
-            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(sql)
-                return [dict(row) for row in cursor.fetchall()]
+        with db.tenant(tenant) as connection, connection.cursor(
+            cursor_factory=RealDictCursor
+        ) as cursor:
+            cursor.execute(sql)
+            return [dict(row) for row in cursor.fetchall()]
     except psycopg2.Error as error:
         raise HTTPException(status_code=503, detail="PostgreSQL is unavailable") from error
 

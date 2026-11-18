@@ -29,6 +29,7 @@ import auth
 import db
 import profiles
 import routing
+import security
 from validation import blocking_issues, field_names, validate
 from webutil import esc, shown
 
@@ -132,10 +133,11 @@ def _rows(user: dict[str, Any], sql: str, params: tuple = ()) -> list[dict[str, 
     request cannot inherit this one's company.
     """
     try:
-        with db.tenant(user["company_id"]) as connection:
-            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(sql, params)
-                return [dict(row) for row in cursor.fetchall()]
+        with db.tenant(user["company_id"]) as connection, connection.cursor(
+            cursor_factory=RealDictCursor
+        ) as cursor:
+            cursor.execute(sql, params)
+            return [dict(row) for row in cursor.fetchall()]
     except psycopg2.Error as error:
         raise HTTPException(status_code=503, detail="PostgreSQL is unavailable") from error
 
@@ -231,6 +233,7 @@ def document(doc_id: int, request: Request, invalid: str | None = None) -> Any:
         raise HTTPException(status_code=404, detail="No such document in this company")
     item = found[0]
     _mark_viewed(person, doc_id)
+    csrf = security.expected(request)
 
     events = _rows(
         person,
@@ -244,14 +247,18 @@ def document(doc_id: int, request: Request, invalid: str | None = None) -> Any:
         for event in events
     ) or '<tr><td colspan="3">No events yet.</td></tr>'
 
-    return _page(
-        "Document",
-        _document_body(item, person, history, _document_form(item, person)),
-        error=invalid,
+    response = HTMLResponse(
+        _page(
+            "Document",
+            _document_body(item, person, history, _document_form(item, person, csrf)),
+            error=invalid,
+        )
     )
+    security.ensure(response, request, csrf)
+    return response
 
 
-def _document_form(item: dict[str, Any], person: dict[str, Any]) -> str:
+def _document_form(item: dict[str, Any], person: dict[str, Any], csrf: str = "") -> str:
     """The review form, or the reason there is none.
 
     Every value is escaped: the number and the currency are read from the PDF,
@@ -267,6 +274,7 @@ def _document_form(item: dict[str, Any], person: dict[str, Any]) -> str:
     total_value = f'{float(item["total"] or 0):.2f}'
     return f"""
     <form method="post" action="/pg/queue/{int(item["id"])}/confirm">
+      <input type="hidden" name="csrf" value="{esc(csrf)}">
       <label for="number">Number</label>
       <input id="number" name="number" value="{esc(item['number'] or '')}">
       <label for="doc_date">Date</label>
@@ -307,6 +315,11 @@ async def confirm(doc_id: int, request: Request) -> Any:
         raise HTTPException(status_code=403, detail="A viewer cannot confirm documents")
 
     form = await request.form()
+    if not security.valid(request, form.get("csrf")):
+        return RedirectResponse(
+            f"/pg/queue/{doc_id}?invalid={quote('The page expired. Open the document again.')}",
+            status_code=303,
+        )
     submitted = {key: str(form.get(key, "")).strip() for key in ("number", "doc_date", "total", "currency")}
     # Read the company's threshold before the write transaction opens: a second
     # connection inside the first one is how a pool with one connection deadlocks.

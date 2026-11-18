@@ -92,7 +92,7 @@ def _row(company_id: int, document_id: str) -> dict | None:
         return None
     keys = ('id', 'doc_type', 'number', 'status', 'parsed', 'filename', 'source', 'file_path',
             'confirmed_at', 'edited_fields')
-    return dict(zip(keys, row))
+    return dict(zip(keys, row, strict=True))
 
 
 def test_an_upload_becomes_a_row_and_the_confirm_finishes_it():
@@ -177,6 +177,42 @@ def test_a_document_never_opened_has_no_measured_review_time():
         record = next(item for item in history if item['id'] == meta['id'])
         assert record['review_seconds'] is None, 'the wait was counted as review time'
         assert impact_review_count(client) == 0
+    finally:
+        _cleanup_files(person['company_id'])
+        _drop(person['company_id'])
+
+
+def test_the_confirm_form_needs_its_token():
+    if not POSTGRES_AVAILABLE:
+        return
+    import re
+
+    person = _person()
+    client = TestClient(app.app, cookies={'docflow_session': person['token']})
+    try:
+        meta = _upload(client)
+        page = client.get(f"/pg/queue/{meta['id']}")
+        assert page.status_code == 200
+        assert 'name="csrf"' in page.text
+
+        refused = client.post(
+            f"/pg/queue/{meta['id']}/confirm",
+            data={'number': '2026-777'},
+            follow_redirects=False,
+        )
+        assert refused.status_code == 303
+        assert 'invalid=' in refused.headers['location']
+        assert _row(person['company_id'], meta['id'])['status'] == 'new'
+
+        token = re.search(r'name="csrf" value="([^"]+)"', page.text).group(1)
+        accepted = client.post(
+            f"/pg/queue/{meta['id']}/confirm",
+            data={'number': '2026-777', 'csrf': token},
+            follow_redirects=False,
+        )
+        assert accepted.status_code == 303
+        assert 'ok=1' in accepted.headers['location']
+        assert _row(person['company_id'], meta['id'])['status'] == 'confirmed'
     finally:
         _cleanup_files(person['company_id'])
         _drop(person['company_id'])

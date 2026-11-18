@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import psycopg2
 from psycopg2.extras import Json, RealDictCursor
 
 import db
@@ -166,7 +165,10 @@ def stats() -> dict[str, Any]:
                 """
             )
             return dict(cursor.fetchone())
-    except psycopg2.Error as error:  # the metrics endpoint must not fail without a queue
+    except Exception as error:  # noqa: BLE001 - the metrics endpoint must answer without a database
+        # `db.connection` raises an HTTPException (503) when there is no database,
+        # which is not a psycopg2 error: catching only the driver's class let the
+        # endpoint answer 503 instead of an empty queue.
         return {
             'queued': 0,
             'running': 0,

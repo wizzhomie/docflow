@@ -144,12 +144,16 @@ system is built around, and the test that keeps each one fixed.
 | CRM | one connector interface, two adapters | the review flow is vendor-neutral; swapping the CRM is configuration |
 | Tests | deterministic suites, no network | the same document always produces the same verdict, so regressions are visible |
 
-The application is asynchronous only where it waits: the folder watcher and the IMAP
-poll run in the background (`asyncio.to_thread`); document processing itself is
-sequential, so the same input cannot race itself into two deals. There is **no
-orchestration framework** (no LangGraph, no CrewAI) and no multi-agent graph: the
-pipeline is a fixed sequence of deterministic stages with one human checkpoint, which is
-what makes the failure classes above testable.
+Document processing is sequential per document and takes no network decision, so the same
+input produces the same verdict; the application is asynchronous only where it waits (the
+folder watcher and the IMAP poll run in the background). What used to be a race is now an
+explicit rule rather than a hope: the file store checks the history and appends under one
+lock, PostgreSQL lets a partial unique index decide what a duplicate is, and slow or flaky
+work — a CRM call that timed out — goes to the database queue instead of a thread next to
+the request, where the worker drains it with `FOR UPDATE SKIP LOCKED`. There is **no
+orchestration framework** (no LangGraph, no CrewAI) and no multi-agent graph: the pipeline
+is a fixed sequence of deterministic stages with one human checkpoint, which is what makes
+the failure classes above testable.
 
 ## Seeing it work
 
@@ -209,6 +213,7 @@ The deterministic suite runs without network, credentials or a real CRM:
 python3 tests/run_eval.py            # 13 labelled fixtures, 104/104 checks, 0 confident errors
 python3 tests/run_eval_split.py      # real vs synthetic split
 for suite in tests/test_*.py; do python3 "$suite" || exit 1; done
+ruff check .                         # the lint CI runs (pip install -r requirements-dev.txt)
 ```
 
 `tests/test_*.py` covers duplicate suppression, impact maths, CRM matching and company
@@ -219,7 +224,7 @@ limits, the request log, the pool (two tenants on one connection), the queue (si
 claiming at once), the migration runner, the signed-in lifecycle (upload → row → confirm →
 history → export, and a stranger seeing none of it) and the two ways a demo becomes an
 incident: a request that becomes a path and a document that becomes markup. CI runs the same
-suites plus a Docker build on manual dispatch and on pull requests.
+suites, the lint, and a Docker build on manual dispatch and on pull requests.
 
 What the number means, because it is easy to read it as more than it is: 104 checks over 13
 fixtures is a regression baseline, not evidence of generalisation. The fixtures were used
@@ -313,6 +318,11 @@ GOOGLE_REDIRECT_URI=https://your-host/auth/google/callback
 
 An unknown Google address joins nobody: proving an e-mail address is not the same as
 belonging to a company, so the account has to exist in `users` first.
+
+Both forms that change state — sign-in and the queue's confirm — carry a double-submit
+token: a random value in an `HttpOnly` cookie and in a hidden field, compared when the form
+comes back. `SameSite=Lax` already stops most cross-site posts, but that is a browser
+setting, and a token is a rule the server enforces itself.
 
 Set a password with `python3 tools/set_password.py owner@demo.local` (it prompts twice and
 writes only the hash); `--clear` makes the account Google-only.

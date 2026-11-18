@@ -37,6 +37,37 @@ from profiles.market_ua import (
     VAT_ZERO_RE,
 )
 
+# The profile's public surface. The core reads these through the registry with
+# `getattr`, which a linter cannot see; declaring them keeps a formatter from
+# deleting the passport the rest of the system depends on.
+__all__ = [
+    'COMMENT_LABELS',
+    'CORE_FIELD_KEYS',
+    'CURRENCY',
+    'DATE_PREFIXES',
+    'DEFAULT_CURRENCY',
+    'FIELD_KEYS',
+    'IBAN_CANDIDATE_RE',
+    'IBAN_RE',
+    'INVARIANTS',
+    'LABELS',
+    'LEGAL_FORMS',
+    'NUMBER_CHARS',
+    'NUMBER_MARKERS',
+    'OCR_LANGS',
+    'OPTIONAL_FIELD_KEYS',
+    'PHONE_COUNTRY_CODE',
+    'PHONE_LOCAL_RE',
+    'PHONE_RE',
+    'PHONE_TRUNK_PREFIX',
+    'TAX_ID_PREFIXES',
+    'TAX_ID_RE',
+    'VAT_DETAIL_RE',
+    'VAT_LABELS',
+    'VAT_RATE',
+    'VAT_ZERO_RE',
+]
+
 CODE = 'delivery_ua'
 NAME = 'Ukrainian delivery note (Видаткова накладна)'
 DOC_TITLE = 'Видаткова накладна'

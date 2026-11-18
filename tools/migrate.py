@@ -70,7 +70,7 @@ def without_meta_commands(sql: str) -> str:
 def applied(connection) -> dict[str, str]:
     with connection.cursor() as cursor:
         cursor.execute('SELECT version, applied_at::text FROM public.schema_migrations')
-        return {version: when for version, when in cursor.fetchall()}
+        return dict(cursor.fetchall())
 
 
 def pending(connection, directory: Path = SQL_DIR) -> list[Path]:

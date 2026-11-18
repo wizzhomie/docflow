@@ -289,6 +289,40 @@ def _extract_email(text: str) -> str | None:
     return match.group(0).strip('.,;') if match else None
 
 
+def _find_supplier_and_tax_id(
+    text: str, flat: str, patterns: dict
+) -> tuple[str | None, str | None]:
+    """The supplier and its tax id, found with one set of anchors.
+
+    Called twice on purpose: the first pass uses the market's generic labels to
+    learn who the supplier is, the second uses the labels of that supplier. It is
+    one function because two copies of this search drift apart, and the copy
+    nobody re-reads is the one that keeps a wrong value.
+    """
+    supplier = None
+    match = re.search(rf'(?:{patterns["supplier_labels"]})\s*[:\s]\s*(.+)', flat, re.I)
+    if match:
+        supplier = re.split(
+            rf'\s{{2,}}|\s+(?:{patterns["supplier_stop"]})\b',
+            match.group(1).strip(),
+            flags=re.I,
+        )[0].strip(' .,;')
+        supplier = _tidy_supplier(supplier, patterns['tax_prefixes'])
+
+    block = text
+    between = re.search(
+        rf'(?:{patterns["supplier_labels"]})[:\s]+(.+?)(?:\n\s*(?:{patterns["buyer_labels"]}))',
+        text,
+        re.I | re.S,
+    )
+    if between:
+        block = between.group(1)
+    tax_match = re.search(
+        rf'(?:{patterns["tax_prefixes"]})[^\d\n]{{0,15}}(\d{{8,12}})', block, re.I
+    )
+    return supplier, (tax_match.group(1) if tax_match else None)
+
+
 def parse_invoice(
     text: str,
     items: list[dict] | None = None,
@@ -301,30 +335,11 @@ def parse_invoice(
     t = _clean(text)
     flat = re.sub(r'[ \t]+', ' ', t)
 
-    # First pass: extract tax_id and supplier to load supplier profile
+    # First pass: the market's generic labels are enough to learn who the supplier
+    # is; the second pass below uses that supplier's own labels.
     temp_patterns = _build_patterns(None, None, profile)
-    supplier = tax_id = None
-    sm = re.search(rf'(?:{temp_patterns["supplier_labels"]})\s*[:\s]\s*(.+)', flat, re.I)
-    if sm:
-        supplier = re.split(
-            rf'\s{{2,}}|\s+(?:{temp_patterns["supplier_stop"]})\b',
-            sm.group(1).strip(),
-            flags=re.I,
-        )[0].strip(' .,;')
-        supplier = _tidy_supplier(supplier, temp_patterns['tax_prefixes'])
-    block = t
-    pb = re.search(
-        rf'(?:{temp_patterns["supplier_labels"]})[:\s]+(.+?)(?:\n\s*(?:{temp_patterns["buyer_labels"]}))',
-        t,
-        re.I | re.S,
-    )
-    if pb:
-        block = pb.group(1)
-    tm = re.search(rf'(?:{temp_patterns["tax_prefixes"]})[^\d\n]{{0,15}}(\d{{8,12}})', block, re.I)
-    if tm:
-        tax_id = tm.group(1)
+    supplier, tax_id = _find_supplier_and_tax_id(t, flat, temp_patterns)
 
-    # Second pass: with supplier-specific patterns
     patterns = _build_patterns(tax_id, supplier, profile)
 
     number = date = None
@@ -338,27 +353,7 @@ def parse_invoice(
         if dm:
             date = _date(dm.group(1))
 
-    supplier = tax_id = None
-    sm = re.search(rf'(?:{patterns["supplier_labels"]})\s*[:\s]\s*(.+)', flat, re.I)
-    if sm:
-        supplier = re.split(
-            rf'\s{{2,}}|\s+(?:{patterns["supplier_stop"]})\b',
-            sm.group(1).strip(),
-            flags=re.I,
-        )[0].strip(' .,;')
-        supplier = _tidy_supplier(supplier, patterns['tax_prefixes'])
-
-    block = t
-    pb = re.search(
-        rf'(?:{patterns["supplier_labels"]})[:\s]+(.+?)(?:\n\s*(?:{patterns["buyer_labels"]}))',
-        t,
-        re.I | re.S,
-    )
-    if pb:
-        block = pb.group(1)
-    tm = re.search(rf'(?:{patterns["tax_prefixes"]})[^\d\n]{{0,15}}(\d{{8,12}})', block, re.I)
-    if tm:
-        tax_id = tm.group(1)
+    supplier, tax_id = _find_supplier_and_tax_id(t, flat, patterns)
 
     total = vat = None
     vat_found = False

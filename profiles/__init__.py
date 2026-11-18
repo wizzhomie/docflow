@@ -42,7 +42,7 @@ def detect_profile(text: str):
 def get_profile(code: str | None):
     """The profile that owns a document type code; unknown codes fall back to the default."""
     for profile in PROFILES:
-        if profile.CODE == code:
+        if code == profile.CODE:
             return profile
     return DEFAULT_PROFILE
 

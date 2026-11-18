@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from render_process_maps import CRM, DOCS, HUMAN, INK, MUTED, RISK, SYSTEM, arrow, box, defs, header, svg
+from render_process_maps import CRM, DOCS, HUMAN, MUTED, RISK, SYSTEM, arrow, box, defs, svg
 
 WIDTH = 1240
 

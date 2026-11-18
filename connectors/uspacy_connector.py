@@ -2,7 +2,6 @@
 
 import profiles
 import uspacy
-
 from connectors.base import Connector
 
 

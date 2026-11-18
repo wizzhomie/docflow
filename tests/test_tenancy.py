@@ -60,10 +60,9 @@ def _make_company(name: str) -> tuple[int, str]:
     slug = f'test-{uuid.uuid4().hex[:8]}'
     connection = connect()
     try:
-        with connection:  # commits on exit
-            with connection.cursor() as cursor:
-                cursor.execute('INSERT INTO companies (name, slug) VALUES (%s, %s) RETURNING id', (name, slug))
-                company_id = cursor.fetchone()[0]
+        with connection, connection.cursor() as cursor:  # commits on exit
+            cursor.execute('INSERT INTO companies (name, slug) VALUES (%s, %s) RETURNING id', (name, slug))
+            company_id = cursor.fetchone()[0]
     finally:
         connection.close()
     return company_id, slug
@@ -72,9 +71,8 @@ def _make_company(name: str) -> tuple[int, str]:
 def _drop_company(company_id: int) -> None:
     connection = connect()
     try:
-        with connection:
-            with connection.cursor() as cursor:
-                cursor.execute('DELETE FROM companies WHERE id = %s', (company_id,))
+        with connection, connection.cursor() as cursor:
+            cursor.execute('DELETE FROM companies WHERE id = %s', (company_id,))
     finally:
         connection.close()
 
@@ -89,14 +87,13 @@ def test_a_company_sees_exactly_its_own_documents():
     company_id, _ = _make_company('Own documents')
     try:
         with as_company(company_id) as connection:
-            with connection:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        "INSERT INTO documents (company_id, doc_type, number) "
-                        "VALUES (%s, 'invoice_ua', 'TEST-1') RETURNING id",
-                        (company_id,),
-                    )
-                    own_id = cursor.fetchone()[0]
+            with connection, connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO documents (company_id, doc_type, number) "
+                    "VALUES (%s, 'invoice_ua', 'TEST-1') RETURNING id",
+                    (company_id,),
+                )
+                own_id = cursor.fetchone()[0]
             with connection.cursor() as cursor:
                 cursor.execute('SELECT id FROM documents')
                 visible = [row[0] for row in cursor.fetchall()]
@@ -121,13 +118,12 @@ def test_a_row_of_one_company_is_invisible_to_the_other():
     company_id, _ = _make_company('Own row')
     try:
         with as_company(company_id) as connection:
-            with connection:
-                with connection.cursor() as cursor:
-                    cursor.execute(
-                        'INSERT INTO suppliers (company_id, name) VALUES (%s, %s) RETURNING id',
-                        (company_id, 'Only Mine LLC'),
-                    )
-                    supplier_id = cursor.fetchone()[0]
+            with connection, connection.cursor() as cursor:
+                cursor.execute(
+                    'INSERT INTO suppliers (company_id, name) VALUES (%s, %s) RETURNING id',
+                    (company_id, 'Only Mine LLC'),
+                )
+                supplier_id = cursor.fetchone()[0]
             with connection.cursor() as cursor:
                 cursor.execute('SELECT count(*) FROM suppliers WHERE name = %s', ('Only Mine LLC',))
                 assert cursor.fetchone()[0] == 1, 'the owner cannot read its own row'
@@ -149,12 +145,11 @@ def test_a_row_stamped_with_a_foreign_company_is_refused():
         refused = False
         with as_company(company_id) as connection:
             try:
-                with connection:
-                    with connection.cursor() as cursor:
-                        cursor.execute(
-                            "INSERT INTO documents (company_id, doc_type) VALUES (%s, 'invoice_ua')",
-                            (demo,),
-                        )
+                with connection, connection.cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO documents (company_id, doc_type) VALUES (%s, 'invoice_ua')",
+                        (demo,),
+                    )
             except psycopg2.Error:
                 refused = True
         assert refused, 'a company managed to write a document into another company'
@@ -168,22 +163,19 @@ def test_tax_ids_are_unique_per_company_not_globally():
     tax_id = f'TEST{uuid.uuid4().hex[:8]}'
     try:
         for company_id in (first_id, second_id):
-            with as_company(company_id) as connection:
-                with connection:
-                    with connection.cursor() as cursor:
-                        cursor.execute(
-                            'INSERT INTO suppliers (company_id, name, tax_id) VALUES (%s, %s, %s)',
-                            (company_id, 'Same Legal Entity LLC', tax_id),
-                        )
+            with as_company(company_id) as connection, connection, connection.cursor() as cursor:
+                cursor.execute(
+                        'INSERT INTO suppliers (company_id, name, tax_id) VALUES (%s, %s, %s)',
+                        (company_id, 'Same Legal Entity LLC', tax_id),
+                    )
         refused = False
         with as_company(first_id) as connection:
             try:
-                with connection:
-                    with connection.cursor() as cursor:
-                        cursor.execute(
-                            'INSERT INTO suppliers (company_id, name, tax_id) VALUES (%s, %s, %s)',
-                            (first_id, 'Duplicate inside one company', tax_id),
-                        )
+                with connection, connection.cursor() as cursor:
+                    cursor.execute(
+                        'INSERT INTO suppliers (company_id, name, tax_id) VALUES (%s, %s, %s)',
+                        (first_id, 'Duplicate inside one company', tax_id),
+                    )
             except psycopg2.Error:
                 refused = True
         assert refused, 'the same tax ID was accepted twice inside one company'

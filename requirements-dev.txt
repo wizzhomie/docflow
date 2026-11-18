@@ -1,0 +1,5 @@
+# Everything needed to run the checks CI runs, and nothing the service needs.
+-r requirements.txt
+
+# Lint: the same version CI uses, so "it passes locally" means something.
+ruff==0.17.5

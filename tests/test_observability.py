@@ -84,6 +84,27 @@ def test_the_metrics_endpoint_answers_with_and_without_a_database():
     assert 'docflow_files_confirmed' in text.text
 
 
+def test_the_metrics_answer_when_the_database_is_gone():
+    """A metrics endpoint that fails because a dependency is missing is a blind
+    spot exactly when someone needs it. Without a database the answer is zeros."""
+    import db
+    import metrics
+
+    original = (db.DSN, db.POOL_MIN, db.POOL_MAX)
+    db.close_pool()
+    try:
+        db.DSN = 'dbname=docflow_absent'
+        db.POOL_MIN = db.POOL_MAX = 1
+        snapshot = metrics.snapshot({'waiting': 0, 'confirmed': 0})
+    finally:
+        db.DSN, db.POOL_MIN, db.POOL_MAX = original
+        db.close_pool()
+    assert snapshot['queue']['queued'] == 0
+    assert snapshot['queue']['oldest_seconds'] == 0
+    assert snapshot['tenants'] == []
+    assert snapshot['files'] == {'waiting': 0, 'confirmed': 0}
+
+
 def test_status_reports_where_the_log_lives():
     status = observability.status()
     assert status['log_file'].endswith('app.jsonl')

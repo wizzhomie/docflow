@@ -20,6 +20,7 @@ import imaplib
 import json
 import os
 import time
+from contextlib import suppress
 from email.header import decode_header, make_header
 from pathlib import Path
 
@@ -267,7 +268,5 @@ def status() -> dict:
 
 def reset_state() -> None:
     """Drop the polling state; used by tests and by an explicit reset."""
-    try:
+    with suppress(FileNotFoundError):
         STATE.unlink()
-    except FileNotFoundError:
-        pass

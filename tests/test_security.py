@@ -299,6 +299,32 @@ def test_an_invariant_that_is_not_a_typo_is_stored_as_a_warning():
     assert answer['record']['validation_warnings']
 
 
+# --- a form post must prove it came from a page -------------------------------
+
+
+def test_a_csrf_token_is_random_and_compared_exactly():
+    import security
+
+    first = security.new_token()
+    second = security.new_token()
+    assert first != second and len(first) > 20
+
+    token = 'a-token'
+    request = _request({'docflow_csrf': token})
+    assert security.valid(request, token)
+    assert not security.valid(request, token + 'x')
+    assert not security.valid(request, '')
+    assert not security.valid(request, None)
+    assert not security.valid(_request(), token), 'no cookie, no proof'
+
+
+def test_the_login_page_hands_the_browser_a_token():
+    response = TestClient(app.app).get('/auth/login')
+    assert response.status_code == 200
+    assert 'name="csrf"' in response.text
+    assert 'docflow_csrf' in response.cookies
+
+
 # --- one source of truth for the numbers --------------------------------------
 
 

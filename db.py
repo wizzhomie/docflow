@@ -21,8 +21,9 @@ from __future__ import annotations
 
 import os
 import threading
-from contextlib import contextmanager
-from typing import Any, Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -42,7 +43,7 @@ _pool: pg_pool.ThreadedConnectionPool | None = None
 _open = 0  # connections currently handed out, for the metrics endpoint
 
 
-def _get_pool() -> "pg_pool.ThreadedConnectionPool":
+def _get_pool() -> pg_pool.ThreadedConnectionPool:
     global _pool
     if pg_pool is None:
         raise HTTPException(status_code=503, detail="PostgreSQL is unavailable")
@@ -57,7 +58,7 @@ def _get_pool() -> "pg_pool.ThreadedConnectionPool":
         return _pool
 
 
-def _acquire() -> "psycopg2.extensions.connection":
+def _acquire() -> psycopg2.extensions.connection:
     global _open
     try:
         connection = _get_pool().getconn()
@@ -68,24 +69,20 @@ def _acquire() -> "psycopg2.extensions.connection":
     return connection
 
 
-def _release(connection: "psycopg2.extensions.connection") -> None:
+def _release(connection: psycopg2.extensions.connection) -> None:
     global _open
     with _lock:
         _open = max(0, _open - 1)
     # Last line of defence: never hand back a connection that is still in a
     # transaction, whatever the caller did with it.
-    try:
+    with suppress(Exception):  # best effort: a broken connection is being dropped
         connection.rollback()
-    except Exception:  # noqa: BLE001
-        pass
-    try:
+    with suppress(Exception):
         _get_pool().putconn(connection)
-    except Exception:  # noqa: BLE001
-        pass
 
 
 @contextmanager
-def connection() -> Iterator["psycopg2.extensions.connection"]:
+def connection() -> Iterator[psycopg2.extensions.connection]:
     """A pooled connection in one transaction: commits on success, rolls back on error."""
     connection = _acquire()
     try:
@@ -99,7 +96,7 @@ def connection() -> Iterator["psycopg2.extensions.connection"]:
 
 
 @contextmanager
-def tenant(company_id: int | str) -> Iterator["psycopg2.extensions.connection"]:
+def tenant(company_id: int | str) -> Iterator[psycopg2.extensions.connection]:
     """A connection whose transaction is scoped to one company.
 
     The company is set with `SET LOCAL`, so it dies with the transaction: the
@@ -118,10 +115,8 @@ def close_pool() -> None:
         pool = _pool
         _pool = None
     if pool is not None:
-        try:
+        with suppress(Exception):  # closing a broken pool is best-effort
             pool.closeall()
-        except Exception:  # noqa: BLE001 - closing a broken pool is best-effort
-            pass
 
 
 def status() -> dict[str, Any]:

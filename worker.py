@@ -17,9 +17,9 @@ import logging
 import os
 import socket
 import threading
-import time
 import uuid
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import jobqueue
 

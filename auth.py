@@ -20,7 +20,6 @@ import hashlib
 import hmac
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode
 
@@ -30,6 +29,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from psycopg2.extras import RealDictCursor
 
 import db
+import security
 from webutil import esc
 
 router = APIRouter(tags=["auth"])
@@ -59,13 +59,7 @@ def hash_password(password: str) -> str:
     digest = hashlib.scrypt(
         password.encode("utf-8"), salt=salt, n=SCRYPT_N, r=SCRYPT_R, p=SCRYPT_P, dklen=32
     )
-    return "scrypt${}${}${}${}${}".format(
-        SCRYPT_N,
-        SCRYPT_R,
-        SCRYPT_P,
-        base64.b64encode(salt).decode(),
-        base64.b64encode(digest).decode(),
-    )
+    return f"scrypt${SCRYPT_N}${SCRYPT_R}${SCRYPT_P}${base64.b64encode(salt).decode()}${base64.b64encode(digest).decode()}"
 
 
 def verify_password(password: str, stored: str | None) -> bool:
@@ -116,7 +110,10 @@ def record_event(email: str, method: str, outcome: str, request: Request, detail
 def recent_failures(email: str) -> int:
     with db.connection() as connection, connection.cursor() as cursor:
         cursor.execute(
+            # A refused form token is not a wrong password: an old tab must not be
+            # able to lock an account, and the throttle is about guessing.
             "SELECT count(*) FROM auth_events WHERE email = %s AND outcome = 'denied' "
+            "AND coalesce(detail, '') <> 'csrf' "
             "AND at > now() - interval '%s minutes'",
             (email.lower(), FAILURE_WINDOW_MINUTES),
         )
@@ -247,6 +244,7 @@ def login_page(request: Request, next: str | None = None, error: str | None = No
     # `error` arrives in the query string, so it is hostile by construction: a
     # link like `/auth/login?error=<script>…` must print, not run.
     message = f'<div class="error">{esc(error)}</div>' if error else ""
+    csrf = security.expected(request)
     google = (
         '<a class="google" href="/auth/google">Continue with Google</a>'
         if google_configured()
@@ -260,9 +258,14 @@ def login_page(request: Request, next: str | None = None, error: str | None = No
         f'<label for="password">Password</label>'
         f'<input id="password" name="password" type="password" autocomplete="current-password" required>'
         f'<input type="hidden" name="next" value="{esc(_next_path(next))}">'
+        f'<input type="hidden" name="csrf" value="{esc(csrf)}">'
         f'<button type="submit">Sign in</button></form>{google}'
     )
-    return _page("Sign in", body)
+    response = HTMLResponse(_page("Sign in", body))
+    # The page that renders the form hands the browser its token, so the form can
+    # prove it came from a page this browser actually loaded.
+    security.ensure(response, request, csrf)
+    return response
 
 
 @router.post("/auth/login")
@@ -271,7 +274,11 @@ def login_submit(
     email: str = Form(...),
     password: str = Form(...),
     next: str = Form("/app"),
+    csrf: str = Form(""),
 ) -> Any:
+    if not security.valid(request, csrf):
+        record_event(email.strip().lower(), "password", "denied", request, detail="csrf")
+        return RedirectResponse("/auth/login?error=Page+expired,+try+again", status_code=303)
     normalised = email.strip().lower()
     if recent_failures(normalised) >= MAX_FAILURES:
         record_event(normalised, "password", "throttled", request)

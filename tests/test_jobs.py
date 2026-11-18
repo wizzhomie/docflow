@@ -12,7 +12,6 @@ Skipped when PostgreSQL is not reachable.
 import os
 import sys
 import threading
-import time
 import uuid
 from pathlib import Path
 

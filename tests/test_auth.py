@@ -108,6 +108,57 @@ def test_signing_in_lands_in_the_workspace():
     assert auth.DEFAULT_LANDING == '/app'
 
 
+def test_a_login_post_needs_the_token_from_the_page():
+    """SameSite is a browser setting; the form carries its own proof as well."""
+    if not POSTGRES_AVAILABLE:
+        return
+    import re
+
+    from fastapi.testclient import TestClient
+
+    import app as docflow_app
+
+    client = TestClient(docflow_app.app, raise_server_exceptions=False)
+    page = client.get('/auth/login')
+    assert page.status_code == 200
+
+    # A fresh address each run: the throttle counts failures per e-mail, and a
+    # fixed one would make this test flip after five runs in a quarter of an hour.
+    email = f'csrf-{uuid.uuid4().hex[:8]}@test.local'
+    without = client.post(
+        '/auth/login',
+        data={'email': email, 'password': 'whatever'},
+        follow_redirects=False,
+    )
+    assert without.status_code == 303
+    assert 'Page+expired' in without.headers['location']
+
+    token = re.search(r'name="csrf" value="([^"]+)"', page.text).group(1)
+    with_token = client.post(
+        '/auth/login',
+        data={'email': email, 'password': 'definitely-wrong', 'csrf': token},
+        follow_redirects=False,
+    )
+    assert with_token.status_code == 303
+    # Past the token check, the answer is about the password, not the form.
+    assert 'Wrong+e-mail+or+password' in with_token.headers['location']
+
+
+def test_a_stale_form_token_does_not_count_towards_the_throttle():
+    """An open tab is not a password guess: only credential failures lock an account."""
+    if not POSTGRES_AVAILABLE:
+        return
+    email = f'csrf-throttle-{uuid.uuid4().hex[:8]}@test.local'
+    with psycopg2.connect(DSN) as connection, connection.cursor() as cursor:
+        for _ in range(6):
+            cursor.execute(
+                "INSERT INTO auth_events (email, method, outcome, detail) "
+                "VALUES (%s, 'password', 'denied', 'csrf')",
+                (email,),
+            )
+    assert auth.recent_failures(email) == 0
+
+
 def test_a_failed_attempt_is_counted_for_the_throttle():
     if not POSTGRES_AVAILABLE:
         return

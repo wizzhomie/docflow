@@ -11,7 +11,7 @@ import threading
 import time
 import uuid
 from collections import Counter
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -143,17 +143,25 @@ OBSERVABILITY = observability.install(app)
 try:
     import auth
     import pg_documents
+    from pg_documents import document_file_path as pg_document_file_path
     from pg_documents import history as pg_history
     from pg_documents import store_upload as pg_store_upload
-    from pg_documents import document_file_path as pg_document_file_path
-    from pg_report import router as pg_router
     from pg_queue import (
         confirm_document as pg_confirm_document,
+    )
+    from pg_queue import (
         document_meta as pg_document_meta,
+    )
+    from pg_queue import (
         queue_documents as pg_queue_documents,
+    )
+    from pg_queue import (
         router as pg_queue_router,
+    )
+    from pg_queue import (
         session_person as pg_session_person,
     )
+    from pg_report import router as pg_router
 except ImportError:  # pragma: no cover - depends on the environment
     auth = None
     pg_documents = None
@@ -521,10 +529,9 @@ def _ingest_folder_once() -> list[dict]:
 
 async def _folder_watcher() -> None:
     while True:
-        try:
+        # A broken folder must not stop the watch: the next pass tries again.
+        with suppress(Exception):
             _ingest_folder_once()
-        except Exception:
-            pass
         await asyncio.sleep(3)
 
 
@@ -572,10 +579,8 @@ def _mailbox_poll_once() -> dict:
 async def _mailbox_worker() -> None:
     # The IMAP client is blocking; keep it out of the event loop.
     while True:
-        try:
+        with suppress(Exception):
             await asyncio.to_thread(_mailbox_poll_once)
-        except Exception:
-            pass
         await asyncio.sleep(mailbox.settings()['interval'])
 
 
