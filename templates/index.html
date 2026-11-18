@@ -805,7 +805,16 @@ async function confirmDoc() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: current.id, fields }),
     });
-    if (!res.ok) throw new Error('Could not save');
+    if (!res.ok) {
+      // The server knows why it refused (already confirmed, viewer, missing row):
+      // say that instead of a generic "could not save".
+      let detail = 'Could not save';
+      try {
+        const failure = await res.json();
+        detail = failure.detail || detail;
+      } catch (error) { /* not JSON: keep the generic message */ }
+      throw new Error(detail);
+    }
     const data = await res.json();
     let msg = data.edited_fields.length
       ? `Saved. Fields edited: ${data.edited_fields.length}`
@@ -829,6 +838,9 @@ async function confirmDoc() {
     refresh();
   } catch (err) {
     toast(err.message, 'bad');
+    // A refused confirm is often "already confirmed": reload the queue so the
+    // row that cannot be saved again disappears instead of being clickable.
+    refresh();
   } finally {
     btn.disabled = false;
     btn.textContent = 'Confirm and save';
