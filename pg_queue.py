@@ -480,6 +480,7 @@ def confirm_document(person: dict[str, Any], doc_id: str, submitted: dict[str, A
     if not str(doc_id).isdigit():
         raise HTTPException(status_code=404, detail="No such document in this company")
 
+    deal_id: int | None = None
     connection = _tenant(person)
     try:
         with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -567,5 +568,15 @@ def confirm_document(person: dict[str, Any], doc_id: str, submitted: dict[str, A
             "crm_deal_id": f"DEMO-DB-{deal_id}",
             "confirmed_by": person["email"],
         },
-        "crm": {"demo": True, "simulated": True, "provider": "postgres-pilot"},
+        "crm": {
+            "demo": True,
+            "simulated": True,
+            "provider": "postgres-pilot",
+            # The interface shows the deal title, so the answer carries the same
+            # shape the file-based path returns.
+            "deal": {
+                "id": f"DEMO-DB-{deal_id}",
+                "title": f"{current['doc_type']} {current.get('number') or doc_id}".strip(),
+            },
+        },
     }

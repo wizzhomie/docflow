@@ -65,6 +65,56 @@ def test_a_company_without_its_own_value_gets_the_platform_default():
         assert cursor.fetchone()[0] == '100000'
 
 
+def test_the_confirm_answer_carries_the_deal_shape():
+    """The interface reads crm.deal.id and record.crm_deal_id; both must be there."""
+    if not POSTGRES_AVAILABLE:
+        return
+    import uuid
+
+    import pg_queue
+
+    slug = f'test-{uuid.uuid4().hex[:8]}'
+    with psycopg2.connect(DSN) as connection, connection.cursor() as cursor:
+        cursor.execute("INSERT INTO companies (name, slug) VALUES ('Answer shape', %s) RETURNING id", (slug,))
+        company_id = cursor.fetchone()[0]
+        cursor.execute(
+            "INSERT INTO users (company_id, email, full_name, role) "
+            "VALUES (%s, %s, 'Answer Shape', 'owner') RETURNING id",
+            (company_id, f'{slug}@test.local'),
+        )
+        user_id = cursor.fetchone()[0]
+    try:
+        person = {
+            'id': user_id,
+            'email': f'{slug}@test.local',
+            'full_name': 'Answer Shape',
+            'role': 'owner',
+            'company_id': company_id,
+            'company_name': 'Answer shape',
+        }
+        connection = psycopg2.connect(DSN)
+        try:
+            with connection, connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('app.company_id', %s, false)", (str(company_id),))
+                cursor.execute(
+                    "INSERT INTO documents (company_id, doc_type, number, total, currency) "
+                    "VALUES (%s, 'invoice_ua', 'SHAPE-1', 1000, 'UAH') RETURNING id",
+                    (company_id,),
+                )
+                doc_id = cursor.fetchone()[0]
+        finally:
+            connection.close()
+
+        answer = pg_queue.confirm_document(person, str(doc_id), {})
+        assert answer['ok'] is True
+        assert answer['record']['crm_deal_id'].startswith('DEMO-DB-')
+        assert answer['crm']['deal']['id'] == answer['record']['crm_deal_id']
+        assert answer['route']['destination']
+    finally:
+        with psycopg2.connect(DSN) as connection, connection.cursor() as cursor:
+            cursor.execute('DELETE FROM companies WHERE id = %s', (company_id,))
+
+
 def main():
     for name, case in sorted(globals().items()):
         if name.startswith('test_') and callable(case):
