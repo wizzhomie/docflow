@@ -22,8 +22,8 @@ class UspacyConnector(Connector):
         supplier = fields.get('supplier')
         if not supplier:
             return None
-        # Imported lazily: app owns the document-to-CRM mapping.
-        from app import _supplier_details
+        # Imported lazily: crm owns the document-to-CRM mapping.
+        from crm import _supplier_details
 
         return uspacy.find_or_create_company(supplier, _supplier_details(fields, doc_type))
 
@@ -49,7 +49,7 @@ class UspacyConnector(Connector):
         route=None,
         doc_type: str | None = None,
     ) -> dict:
-        from app import _deal_comment
+        from crm import _deal_comment
 
         deal = uspacy.create_deal(
             title=title,

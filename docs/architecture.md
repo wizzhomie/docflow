@@ -7,8 +7,12 @@ Browser UI
 templates/index.html
        │
        ▼
-FastAPI orchestration
-app.py
+FastAPI routers
+routes/pages.py · routes/documents.py · routes/intake.py · routes/reports.py · routes/ops.py
+       │
+       ▼
+services behind them
+settings.py · docstore.py · intake.py · crm.py · impact.py · pgapi.py
        ├── e-mail intake → mailbox.py + data/inbox/
        ├── text acquisition → extractor.py
        ├── interpretation → extractor.py + profiles/invoice_ua.py
@@ -23,7 +27,57 @@ app.py
 
 ### `app.py`
 
-HTTP API, orchestration, file persistence, review workflow, statistics, automation-impact report and CSV export.
+The application object and nothing else: it starts the folder watcher, the mailbox
+poller and the job worker, mounts the routers, and mounts the optional PostgreSQL
+layer when its driver is installed. Startup and shutdown live here because they
+belong to the process, not to a route.
+
+### `routes/`
+
+One module per audience: `pages.py` (showcase and review workspace),
+`documents.py` (upload, queue, confirmation, original file), `intake.py` (watched
+folder and mailbox), `reports.py` (headline numbers, impact, CSV, roadmap, config)
+and `ops.py` (health, wiring, metrics). A route decides who is asking — a signed-in
+person or the file-based demo — and delegates; the work itself is in the services
+below.
+
+### `settings.py`
+
+Every knob in one place: paths, the upload and page limits, the document-id
+shape, the manual baseline for the impact report and the demo switch. They are read
+at the moment they are used, so redirecting storage for a test is one assignment.
+
+### `docstore.py`
+
+The standalone file store: pending snapshots and the confirmed history, review
+time derived from the stored timestamps for legacy records, and the counts the
+metrics endpoint reports. A signed-in person never reads it — their documents are
+rows — but every report has a file-store path so the demo runs without a database.
+
+### `intake.py`
+
+The three doors into the pipeline — upload, watched folder, mailbox — end in one
+function that extracts, interprets and stores a pending document, so a file that
+arrives by e-mail is treated exactly like a dropped one.
+
+### `crm.py`
+
+What a confirmed document becomes in the CRM: the deal title, the comment block,
+the supplier card, the contact, and duplicate suppression (history first, then the
+provider). The connector only knows its API; the wording lives here.
+
+### `impact.py`
+
+The automation-impact report: auto-pass rate, field accuracy against the fields
+the profile asks for, measured review time, time saved and invariant risk. Every
+number derives from confirmed records; the only assumption is the stated manual
+baseline, and it is returned to the caller.
+
+### `pgapi.py`
+
+The optional PostgreSQL layer: one import decides whether the database modules
+are available, and the routes ask a single object whether a signed-in person is
+present. Without the driver the demo starts and answers from files.
 
 ### `extractor.py`
 

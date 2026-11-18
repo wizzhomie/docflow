@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import app  # noqa: E402
+import routes.reports as reports  # noqa: E402
 
 ROADMAP = Path(__file__).resolve().parents[1] / 'docs' / 'roadmap.json'
 VALID_STATUSES = {'done', 'current', 'next'}
@@ -44,7 +44,7 @@ def test_exactly_one_current_stage():
 
 
 def test_progress_is_computed_by_the_endpoint():
-    data = app.roadmap()
+    data = reports.roadmap()
     done = sum(1 for stage in data['stages'] if stage['status'] == 'done')
     assert data['progress']['done'] == done
     assert data['progress']['total'] == len(data['stages'])

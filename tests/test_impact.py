@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import app  # noqa: E402
+import docstore  # noqa: E402
 
 
 def row(doc_id, edited=None, issues=None, uploaded='2026-11-13T10:00:00+00:00', confirmed='2026-11-13T10:01:00+00:00'):
@@ -91,12 +92,12 @@ def test_risk_of_confirmed_invariant_failures():
 
 def test_legacy_rows_fall_back_to_pending_snapshot():
     record = row('legacy', edited=[])
-    original = app._issues_for
-    app._issues_for = lambda doc_id: ['vat: invariant failed'] if doc_id == 'legacy' else []
+    original = docstore._issues_for
+    docstore._issues_for = lambda doc_id: ['vat: invariant failed'] if doc_id == 'legacy' else []
     try:
         impact = app.build_impact([record], 3.0)
     finally:
-        app._issues_for = original
+        docstore._issues_for = original
     assert impact['validation']['documents_with_issues'] == 1
     assert impact['validation']['unreviewed_risk_documents'] == 1
 

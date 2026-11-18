@@ -14,7 +14,11 @@ a human confirms. There is no LLM or agent framework in the decision path.
 
 ## Architecture map
 
-- `app.py` — FastAPI orchestration, persistence, review workflow and reporting.
+- `app.py` — the application object: startup work, mounted routers, optional PostgreSQL layer.
+- `routes/` — HTTP groups (pages, documents, intake, reports, ops); `settings.py` holds
+  every knob, `docstore.py` the file store, `intake.py` the three intake doors, `crm.py`
+  the CRM mapping and duplicate suppression, `impact.py` the impact report, `pgapi.py`
+  the optional database layer.
 - `extractor.py` — text acquisition, OCR fallback and field interpretation.
 - `mailbox.py` — IMAP intake: attachments of new mail go through the same pipeline as an upload.
 - `profiles/market_ua.py` — shared facts of the Ukrainian market: currency, VAT, label

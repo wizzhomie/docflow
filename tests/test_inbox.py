@@ -14,7 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import app  # noqa: E402
+import docstore  # noqa: E402
+import settings  # noqa: E402
 
 
 def meta(doc_id, *, filename, uploaded_at, issues=None, supplier='ТОВ «Тест»', number='1'):
@@ -47,9 +48,9 @@ def with_storage(cases, confirmed_rows):
         ''.join(json.dumps(row, ensure_ascii=False) + '\n' for row in confirmed_rows),
         encoding='utf-8',
     )
-    app.PENDING = pending
-    app.CONFIRMED = history
-    return app._pending_documents()
+    settings.PENDING = pending
+    settings.CONFIRMED = history
+    return docstore._pending_documents()
 
 
 def test_unconfirmed_documents_are_listed():
@@ -104,9 +105,9 @@ def test_broken_snapshot_is_skipped():
     )
     history = pending / 'confirmed.jsonl'
     history.write_text('', encoding='utf-8')
-    app.PENDING = pending
-    app.CONFIRMED = history
-    assert [item['id'] for item in app._pending_documents()] == ['good']
+    settings.PENDING = pending
+    settings.CONFIRMED = history
+    assert [item['id'] for item in docstore._pending_documents()] == ['good']
 
 
 def main():

@@ -434,7 +434,14 @@ This is a prototype for a client demonstration, not a production platform:
 ## Repository layout and documentation
 
 ```text
-app.py             FastAPI orchestration, persistence, review workflow, reporting
+app.py             the application object: startup work, mounted routers
+routes/            one module per audience: pages, documents, intake, reports, ops
+settings.py        every knob in one place: paths, limits, demo switch
+docstore.py        the standalone file store: pending snapshots, confirmed history
+intake.py          upload → pending document, folder watcher, mailbox poller
+crm.py             document-to-CRM mapping, duplicate suppression, deal creation
+impact.py          the automation-impact report
+pgapi.py           the optional PostgreSQL layer, mounted when its driver exists
 extractor.py       text acquisition, OCR fallback, field interpretation
 profiles/          document-type profiles, market facts and the detection registry
 connectors/        CRM connectors behind one interface (Uspacy, Bitrix24)

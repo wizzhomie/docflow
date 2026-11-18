@@ -16,21 +16,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient  # noqa: E402
 
 import app  # noqa: E402
+import settings  # noqa: E402
 from extractor import parse_invoice  # noqa: E402
 from profiles import act_ua, delivery_ua, detect_profile, invoice_ua  # noqa: E402
 
 
 def isolate_storage():
     root = Path(tempfile.mkdtemp())
-    app.UPLOADS = root / 'uploads'
-    app.PENDING = root / 'pending'
-    app.INBOX = root / 'inbox'
-    app.INBOX_DONE = app.INBOX / 'processed'
-    app.CONFIRMED = root / 'confirmed.jsonl'
-    for directory in (app.UPLOADS, app.PENDING, app.INBOX, app.INBOX_DONE):
+    settings.UPLOADS = root / 'uploads'
+    settings.PENDING = root / 'pending'
+    settings.INBOX = root / 'inbox'
+    settings.INBOX_DONE = settings.INBOX / 'processed'
+    settings.CONFIRMED = root / 'confirmed.jsonl'
+    for directory in (settings.UPLOADS, settings.PENDING, settings.INBOX, settings.INBOX_DONE):
         directory.mkdir(parents=True, exist_ok=True)
-    app.CONFIRMED.write_text('', encoding='utf-8')
-    app.DEMO_MODE = True
+    settings.CONFIRMED.write_text('', encoding='utf-8')
+    settings.DEMO_MODE = True
     return root
 
 

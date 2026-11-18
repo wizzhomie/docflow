@@ -22,6 +22,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import app  # noqa: E402
 import auth  # noqa: E402
+import docstore  # noqa: E402
+import settings  # noqa: E402
 
 DSN = os.environ.get('DOCFLOW_PG_DSN', 'dbname=docflow_dev')
 SAMPLE = Path(__file__).resolve().parents[1] / 'samples' / 'pilot_01_2026-501.pdf'
@@ -67,7 +69,7 @@ def _cleanup_files(company_id: int) -> None:
         cursor.execute('SELECT file_path FROM documents WHERE company_id = %s', (company_id,))
         paths = [row[0] for row in cursor.fetchall() if row[0]]
     for stored in paths:
-        (Path(app.UPLOADS) / Path(stored).name).unlink(missing_ok=True)
+        (Path(settings.UPLOADS) / Path(stored).name).unlink(missing_ok=True)
 
 
 def _upload(client: TestClient) -> dict:
@@ -268,11 +270,11 @@ def test_without_a_session_the_document_stays_in_the_file_store():
     meta = _upload(client)
     assert not meta['id'].isdigit(), 'a signed-out upload must stay a file id'
     try:
-        assert app._meta_path(meta['id']).exists(), 'the file store lost its snapshot'
+        assert docstore._meta_path(meta['id']).exists(), 'the file store lost its snapshot'
     finally:
-        app._meta_path(meta['id']).unlink(missing_ok=True)
-        for suffix in app.ALLOWED:
-            (Path(app.UPLOADS) / f"{meta['id']}{suffix}").unlink(missing_ok=True)
+        docstore._meta_path(meta['id']).unlink(missing_ok=True)
+        for suffix in settings.ALLOWED:
+            (Path(settings.UPLOADS) / f"{meta['id']}{suffix}").unlink(missing_ok=True)
 
 
 def main():

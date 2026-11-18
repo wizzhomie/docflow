@@ -201,17 +201,19 @@ def test_confirm_writes_through_the_active_connector():
     from fastapi.testclient import TestClient
 
     import app as docflow_app
+    import crm
+    import settings
 
     root = Path(tempfile.mkdtemp())
-    docflow_app.UPLOADS = root / 'uploads'
-    docflow_app.PENDING = root / 'pending'
-    docflow_app.INBOX = root / 'inbox'
-    docflow_app.INBOX_DONE = root / 'inbox' / 'processed'
-    docflow_app.CONFIRMED = root / 'confirmed.jsonl'
-    for directory in (docflow_app.UPLOADS, docflow_app.PENDING, docflow_app.INBOX, docflow_app.INBOX_DONE):
+    settings.UPLOADS = root / 'uploads'
+    settings.PENDING = root / 'pending'
+    settings.INBOX = root / 'inbox'
+    settings.INBOX_DONE = root / 'inbox' / 'processed'
+    settings.CONFIRMED = root / 'confirmed.jsonl'
+    for directory in (settings.UPLOADS, settings.PENDING, settings.INBOX, settings.INBOX_DONE):
         directory.mkdir(parents=True, exist_ok=True)
-    docflow_app.CONFIRMED.write_text('', encoding='utf-8')
-    docflow_app.DEMO_MODE = False
+    settings.CONFIRMED.write_text('', encoding='utf-8')
+    settings.DEMO_MODE = False
 
     fake = FakeBitrix()
     connector = bitrix24.Bitrix24Connector()
@@ -222,8 +224,8 @@ def test_confirm_writes_through_the_active_connector():
     fake.scene['crm.contact.add'] = {'result': 7}
     fake.scene['crm.deal.add'] = {'result': 9}
 
-    original = docflow_app.active_connector
-    docflow_app.active_connector = lambda: connector
+    original = crm.active_connector
+    crm.active_connector = lambda: connector
     try:
         with TestClient(docflow_app.app) as client:
             meta = client.post('/api/samples/pilot_01_2026-501.pdf').json()
@@ -239,7 +241,7 @@ def test_confirm_writes_through_the_active_connector():
         assert 'Routed to: Approval' in deal_payload['COMMENTS']
         assert fake.method_calls('crm.company.add')[0]['TITLE'] == 'ТОВ «Терра-Буд»'
     finally:
-        docflow_app.active_connector = original
+        crm.active_connector = original
         fake.close()
 
 

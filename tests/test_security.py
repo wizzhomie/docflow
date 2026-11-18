@@ -25,20 +25,24 @@ from fastapi.testclient import TestClient  # noqa: E402
 from starlette.requests import Request  # noqa: E402
 
 import app  # noqa: E402
+import docstore  # noqa: E402
+import intake  # noqa: E402
 import observability  # noqa: E402
 import pg_queue  # noqa: E402
+import routes.documents as documents  # noqa: E402
+import settings  # noqa: E402
 import webutil  # noqa: E402
 
 # The checks write documents; they must not touch the running demo's data.
 ROOT = Path(tempfile.mkdtemp(prefix='docflow-security-'))
-app.UPLOADS = ROOT / 'uploads'
-app.PENDING = ROOT / 'pending'
-app.INBOX = ROOT / 'inbox'
-app.INBOX_DONE = ROOT / 'inbox' / 'processed'
-app.CONFIRMED = ROOT / 'confirmed.jsonl'
-for directory in (app.UPLOADS, app.PENDING, app.INBOX, app.INBOX_DONE):
+settings.UPLOADS = ROOT / 'uploads'
+settings.PENDING = ROOT / 'pending'
+settings.INBOX = ROOT / 'inbox'
+settings.INBOX_DONE = ROOT / 'inbox' / 'processed'
+settings.CONFIRMED = ROOT / 'confirmed.jsonl'
+for directory in (settings.UPLOADS, settings.PENDING, settings.INBOX, settings.INBOX_DONE):
     directory.mkdir(parents=True, exist_ok=True)
-app.CONFIRMED.write_text('', encoding='utf-8')
+settings.CONFIRMED.write_text('', encoding='utf-8')
 
 
 def _request(cookies: dict[str, str] | None = None) -> Request:
@@ -65,7 +69,7 @@ def _request(cookies: dict[str, str] | None = None) -> Request:
 def test_meta_path_refuses_anything_but_a_document_id():
     for bad in ('../confirmed', '..%2F..%2Fapp', 'abcdefghij', 'abcdef012', ''):
         try:
-            app._meta_path(bad)
+            docstore._meta_path(bad)
         except Exception as error:  # noqa: BLE001 - the type is the point
             assert getattr(error, 'status_code', None) == 404, bad
         else:
@@ -86,7 +90,7 @@ def test_files_route_does_not_walk_out_of_the_uploads_folder():
 
 def test_files_route_still_serves_a_known_upload():
     doc_id = uuid.uuid4().hex[:10]
-    (app.UPLOADS / f'{doc_id}.pdf').write_bytes(b'%PDF-1.4 demo')
+    (settings.UPLOADS / f'{doc_id}.pdf').write_bytes(b'%PDF-1.4 demo')
     response = TestClient(app.app).get(f'/files/{doc_id}')
     assert response.status_code == 200
     assert response.content.startswith(b'%PDF')
@@ -163,19 +167,19 @@ def test_the_login_page_prints_the_error_instead_of_running_it():
 
 def test_an_upload_over_the_limit_is_refused_while_streaming():
     client = TestClient(app.app)
-    original = app.MAX_UPLOAD_BYTES
-    app.MAX_UPLOAD_BYTES = 1024
+    original = settings.MAX_UPLOAD_BYTES
+    settings.MAX_UPLOAD_BYTES = 1024
     try:
         payload = b'a' * 2048
         response = client.post(
             '/api/upload', files={'file': ('big.txt', payload, 'text/plain')}
         )
     finally:
-        app.MAX_UPLOAD_BYTES = original
+        settings.MAX_UPLOAD_BYTES = original
     assert response.status_code == 413
     assert 'larger than' in response.json()['detail']
     # The refused bytes must not stay on the disk: a refused upload is not a file.
-    assert not [p for p in app.UPLOADS.iterdir() if p.stat().st_size == 2048]
+    assert not [p for p in settings.UPLOADS.iterdir() if p.stat().st_size == 2048]
 
 
 def test_a_pdf_over_the_page_limit_is_refused_before_it_is_parsed():
@@ -188,14 +192,14 @@ def test_a_pdf_over_the_page_limit_is_refused_before_it_is_parsed():
     writer.write(buffer)
 
     client = TestClient(app.app)
-    original = app.MAX_PDF_PAGES
-    app.MAX_PDF_PAGES = 2
+    original = settings.MAX_PDF_PAGES
+    settings.MAX_PDF_PAGES = 2
     try:
         response = client.post(
             '/api/upload', files={'file': ('long.pdf', buffer.getvalue(), 'application/pdf')}
         )
     finally:
-        app.MAX_PDF_PAGES = original
+        settings.MAX_PDF_PAGES = original
     assert response.status_code == 413
     assert 'pages' in response.json()['detail']
 
@@ -209,8 +213,8 @@ def test_the_page_count_is_read_without_extracting_text():
     path = ROOT / 'two-pages.pdf'
     with path.open('wb') as out:
         writer.write(out)
-    assert app._pdf_page_count(path) == 2
-    assert app._pdf_page_count(ROOT / 'missing.pdf') is None
+    assert intake._pdf_page_count(path) == 2
+    assert intake._pdf_page_count(ROOT / 'missing.pdf') is None
 
 
 def test_the_docker_context_does_not_carry_secrets():
@@ -248,13 +252,13 @@ def test_a_malformed_edit_is_refused_before_it_reaches_the_crm():
             'text_preview': 'Рахунок № 2026-888',
         },
     }
-    app._meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
+    docstore._meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
 
     client = TestClient(app.app)
     response = client.post('/api/confirm', json={'id': doc_id, 'fields': {'tax_id': 'not-a-tax-id'}})
     assert response.status_code == 422
     assert 'Tax ID' in response.json()['detail']
-    written = [line for line in app.CONFIRMED.read_text(encoding='utf-8').splitlines() if line]
+    written = [line for line in settings.CONFIRMED.read_text(encoding='utf-8').splitlines() if line]
     assert not [row for row in map(json.loads, written) if row.get('id') == doc_id]
 
     # The same document with a sane value goes through, and the warning field is
@@ -290,7 +294,7 @@ def test_an_invariant_that_is_not_a_typo_is_stored_as_a_warning():
             'text_preview': 'Рахунок № 2026-890',
         },
     }
-    app._meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
+    docstore._meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
     answer = TestClient(app.app).post(
         '/api/confirm', json={'id': doc_id, 'fields': {'vat': 12.5}}
     ).json()
@@ -350,13 +354,13 @@ def test_accuracy_divides_by_the_fields_the_profile_asks_for():
 
 def test_the_headline_and_the_report_report_agree():
     rows = [_row([]), _row(['supplier', 'total']), _row(['vat'])]
-    original = app._read_confirmed
-    app._read_confirmed = lambda: rows
+    original = docstore._read_confirmed
+    docstore._read_confirmed = lambda: rows
     try:
         headline = app.stats(_request())
         report = app.impact(_request())
     finally:
-        app._read_confirmed = original
+        docstore._read_confirmed = original
     assert headline['documents'] == report['documents']
     assert headline['edited_fields'] == report['edited_fields']
     assert headline['accuracy'] == report['field_accuracy']
@@ -392,7 +396,7 @@ def test_a_second_confirmation_at_the_same_moment_is_not_a_second_deal():
             'text_preview': 'Рахунок № 2026-777',
         },
     }
-    app._meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
+    docstore._meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
 
     payload = app.ConfirmPayload(id=doc_id, fields=fields)
     request = _request()
@@ -414,7 +418,7 @@ def test_a_second_confirmation_at_the_same_moment_is_not_a_second_deal():
     assert len(duplicates) == 3, 'a simultaneous second click must be answered as a duplicate'
     written = [
         json.loads(line)
-        for line in app.CONFIRMED.read_text(encoding='utf-8').splitlines()
+        for line in settings.CONFIRMED.read_text(encoding='utf-8').splitlines()
         if line
     ]
     mine = [row for row in written if row.get('id') == doc_id]
@@ -425,17 +429,17 @@ def test_the_confirm_holds_the_lock_across_the_check_and_the_write():
     """The race itself needs a scheduler to happen, so the mechanism is pinned:
     the duplicate check and the append run inside the lock, not next to it."""
     seen: dict[str, bool] = {}
-    original = app._confirm_in_files
+    original = documents._confirm_in_files
 
     def probe(payload):
-        seen['locked'] = app.CONFIRM_LOCK.locked()
+        seen['locked'] = documents.CONFIRM_LOCK.locked()
         return {'ok': True}
 
-    app._confirm_in_files = probe
+    documents._confirm_in_files = probe
     try:
         app.confirm(app.ConfirmPayload(id='abcdef0123', fields={}), _request())
     finally:
-        app._confirm_in_files = original
+        documents._confirm_in_files = original
     assert seen.get('locked') is True
 
 

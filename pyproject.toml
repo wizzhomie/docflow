@@ -40,7 +40,7 @@ skip-magic-trailing-comma = false
 line-ending = "lf"
 
 [tool.ruff.lint.isort]
-known-first-party = ["profiles", "extractor", "validation", "uspacy", "app", "mailbox", "routing", "connectors", "webutil", "tests"]
+known-first-party = ["profiles", "extractor", "validation", "uspacy", "app", "mailbox", "routing", "connectors", "webutil", "settings", "docstore", "crm", "impact", "intake", "pgapi", "routes", "tests"]
 
 [tool.mypy]
 python_version = "3.12"
