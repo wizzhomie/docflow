@@ -220,9 +220,31 @@ The decisions worth naming:
   another company's rows: the connection states which company it serves, and the counts,
   the uniqueness rules and the writes all obey it.
 
+### Sign-in
+
+`/auth/login` accepts an e-mail and a password, or a Google account. What is real:
+scrypt hashes (`hashlib`, no extra dependency), a random session token that exists only in
+the cookie with its SHA-256 stored in `sessions`, a twelve-hour expiry, a login throttle
+after five failures in fifteen minutes, and an `auth_events` row for every attempt.
+
+A Google account signs in through a plain OAuth 2.0 code flow — no SDK. Turning it on takes
+a Google Cloud project and three variables:
+
+```bash
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=https://your-host/auth/google/callback
+```
+
+An unknown Google address joins nobody: proving an e-mail address is not the same as
+belonging to a company, so the account has to exist in `users` first.
+
+Set a password with `python3 tools/set_password.py owner@demo.local` (it prompts twice and
+writes only the hash); `--clear` makes the account Google-only.
+
 ### The review queue on PostgreSQL
 
-`/pg/login` is a demo sign-in without passwords: pick a person, and the session is that
+`/auth/login` signs a person in — a password or a Google account — and the session is that
 person's company and role. `/pg/queue` then lists the documents waiting for review, and
 `/pg/queue/{id}` opens one with its history. Confirming writes the document, a deal and an
 event in one transaction, and the destination comes from `routing.route` with the company's
@@ -276,10 +298,11 @@ This is a prototype for a client demonstration, not a production platform:
 - three document profiles are implemented (Ukrainian invoice, act and delivery note);
   other markets need a profile each, and the review form is one fixed field set rather
   than profile-specific;
-- the main review workspace (`/app`) still runs on files and has no login; the tenant-aware
-  queue lives at `/pg/queue` and signs in by picking a person, with no passwords — a demo
-  shortcut, not an authentication story;
-- the app has no authentication of its own and is published to a private tailnet only;
+- sign-in has no e-mail verification, no password reset and no multi-factor: a demo has no
+  mail delivery, and claiming otherwise would be a lie. Accounts are seeded by the operator,
+  never by the repository, and the deployment stays a demonstration rather than a service;
+- the workspace at `/app` reads the database only when signed in; signed out it is the
+  file-based demo, by design;
 - Bitrix24 works against a local fake of the REST protocol; a live portal check is pending;
 - Uspacy attachment upload and a payment task are not available in the test tenant API;
 - routing rules by supplier and several recipients per document are not implemented yet.

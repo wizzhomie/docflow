@@ -21,16 +21,15 @@ import os
 from typing import Any
 
 import psycopg2
-from fastapi import APIRouter, Cookie, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from psycopg2.extras import Json, RealDictCursor
 
+import auth
 import routing
 
 router = APIRouter(prefix="/pg", tags=["pg-queue"])
 DSN = os.environ.get("DOCFLOW_PG_DSN", "dbname=docflow_dev")
-COOKIE = "docflow_user"
-
 STYLE = """
 body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:36px;background:#faf9f7;color:#1d1b1a}
 h1{font-size:21px;margin:0 0 4px} h2{font-size:16px;margin:28px 0 10px}
@@ -68,27 +67,6 @@ def _connect() -> psycopg2.extensions.connection:
         raise HTTPException(status_code=503, detail="PostgreSQL is unavailable") from error
 
 
-def _user(user_id: str | None) -> dict[str, Any] | None:
-    """The person behind the cookie, with the company and the role."""
-    if not user_id or not user_id.isdigit():
-        return None
-    connection = _connect()
-    try:
-        with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(
-                """
-                SELECT u.id, u.email, u.full_name, u.role, u.company_id, c.name AS company_name
-                FROM users u JOIN companies c ON c.id = u.company_id
-                WHERE u.id = %s
-                """,
-                (int(user_id),),
-            )
-            row = cursor.fetchone()
-            return dict(row) if row else None
-    finally:
-        connection.close()
-
-
 def _tenant(user: dict[str, Any]):
     """A connection that has told the database which company it serves."""
     connection = _connect()
@@ -119,51 +97,15 @@ def _threshold(user: dict[str, Any]) -> float:
         return routing.APPROVAL_THRESHOLD
 
 
-@router.get("/login", response_class=HTMLResponse)
-def login(user: str | None = None) -> Any:
-    """Demo sign-in: pick a company and a person. No passwords in a demo."""
-    if user:
-        response = RedirectResponse("/pg/queue", status_code=303)
-        response.set_cookie(COOKIE, user, httponly=True, samesite="lax")
-        return response
-
-    connection = _connect()
-    try:
-        with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(
-                """
-                SELECT c.name AS company, c.slug, u.id, u.full_name, u.email, u.role
-                FROM companies c JOIN users u ON u.company_id = c.id
-                ORDER BY c.id, u.id
-                """
-            )
-            people = [dict(row) for row in cursor.fetchall()]
-    finally:
-        connection.close()
-
-    body = ['<div class="sub">Pick a person to enter as. Each one belongs to one company '
-            'and has one role — that is the whole session.</div>']
-    current_company = None
-    for person in people:
-        if person["company"] != current_company:
-            if current_company is not None:
-                body.append("</table></div>")
-            current_company = person["company"]
-            body.append(f'<div class="card"><h2>{person["company"]}</h2><table>'
-                        '<tr><th>Person</th><th>Role</th><th></th></tr>')
-        body.append(
-            f'<tr><td>{person["full_name"]}<br><span class="sub">{person["email"]}</span></td>'
-            f'<td><span class="pill">{person["role"]}</span></td>'
-            f'<td><a href="/pg/login?user={person["id"]}">enter</a></td></tr>'
-        )
-    if people:
-        body.append("</table></div>")
-    return _page("Sign in", "".join(body))
+@router.get("/login")
+def login(next: str | None = None) -> Any:
+    """The old demo picker is gone: sign-in is a password or a Google account."""
+    return RedirectResponse("/auth/login" + (f"?next={next}" if next else ""), status_code=303)
 
 
 @router.get("/queue", response_class=HTMLResponse)
-def queue(docflow_user: str | None = Cookie(None), ok: str | None = None) -> Any:
-    person = _user(docflow_user)
+def queue(request: Request, ok: str | None = None) -> Any:
+    person = session_person(request)
     if person is None:
         return RedirectResponse("/pg/login", status_code=303)
 
@@ -202,8 +144,8 @@ def queue(docflow_user: str | None = Cookie(None), ok: str | None = None) -> Any
 
 
 @router.get("/queue/{doc_id}", response_class=HTMLResponse)
-def document(doc_id: int, docflow_user: str | None = Cookie(None)) -> Any:
-    person = _user(docflow_user)
+def document(doc_id: int, request: Request) -> Any:
+    person = session_person(request)
     if person is None:
         return RedirectResponse("/pg/login", status_code=303)
 
@@ -270,8 +212,8 @@ def document(doc_id: int, docflow_user: str | None = Cookie(None)) -> Any:
 
 
 @router.post("/queue/{doc_id}/confirm")
-async def confirm(doc_id: int, request: Request, docflow_user: str | None = Cookie(None)) -> Any:
-    person = _user(docflow_user)
+async def confirm(doc_id: int, request: Request) -> Any:
+    person = session_person(request)
     if person is None:
         return RedirectResponse("/pg/login", status_code=303)
     if not can_confirm(person["role"]):
@@ -385,7 +327,7 @@ async def confirm(doc_id: int, request: Request, docflow_user: str | None = Cook
 
 def session_person(request: Request) -> dict[str, Any] | None:
     """The signed-in person behind the request, or None for the file-based demo."""
-    return _user(request.cookies.get(COOKIE))
+    return auth.session_person(request)
 
 
 def _document_fields(parsed: dict[str, Any] | None) -> dict[str, Any]:

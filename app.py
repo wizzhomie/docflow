@@ -104,6 +104,7 @@ OBSERVABILITY = observability.install(app)
 # The PostgreSQL report is a pilot next to the file-based demo: it is mounted when
 # psycopg2 is installed, and its absence never stops the demo from starting.
 try:
+    import auth
     from pg_report import router as pg_router
     from pg_queue import (
         confirm_document as pg_confirm_document,
@@ -113,9 +114,11 @@ try:
         session_person as pg_session_person,
     )
 except ImportError:  # pragma: no cover - depends on the environment
+    auth = None
     pg_router = None
     pg_session_person = None
 else:
+    app.include_router(auth.router)
     app.include_router(pg_router)
     app.include_router(pg_queue_router)
 
@@ -894,7 +897,10 @@ def health():
 @app.get('/api/health/detail')
 def health_detail():
     """What the service has wired: the log file and error reporting."""
-    return {'status': 'ok', 'observability': observability.status()}
+    detail = {'status': 'ok', 'observability': observability.status()}
+    if auth is not None:
+        detail['auth'] = auth.status()
+    return detail
 
 
 @app.get('/api/demo/error')
