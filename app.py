@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -105,9 +105,16 @@ OBSERVABILITY = observability.install(app)
 # psycopg2 is installed, and its absence never stops the demo from starting.
 try:
     from pg_report import router as pg_router
-    from pg_queue import router as pg_queue_router
+    from pg_queue import (
+        confirm_document as pg_confirm_document,
+        document_meta as pg_document_meta,
+        queue_documents as pg_queue_documents,
+        router as pg_queue_router,
+        session_person as pg_session_person,
+    )
 except ImportError:  # pragma: no cover - depends on the environment
     pg_router = None
+    pg_session_person = None
 else:
     app.include_router(pg_router)
     app.include_router(pg_queue_router)
@@ -601,7 +608,11 @@ async def upload(file: UploadFile = File(...)):
 
 
 @app.post('/api/confirm')
-def confirm(payload: ConfirmPayload):
+def confirm(payload: ConfirmPayload, request: Request):
+    person = pg_session_person(request) if pg_session_person else None
+    if person is not None:
+        return pg_confirm_document(person, payload.id, payload.fields)
+
     meta_path = _meta_path(payload.id)
     if not meta_path.exists():
         raise HTTPException(404, 'Document not found')
@@ -704,8 +715,28 @@ def confirm(payload: ConfirmPayload):
     return {'ok': True, 'edited_fields': edited, 'record': record, 'crm': crm}
 
 
+@app.get('/api/session')
+def session(request: Request):
+    """Who the workspace thinks it is talking to (the file-based demo: nobody)."""
+    person = pg_session_person(request) if pg_session_person else None
+    if person is None:
+        return {'signed_in': False, 'mode': 'files'}
+    return {
+        'signed_in': True,
+        'mode': 'postgres',
+        'person': person['full_name'],
+        'email': person['email'],
+        'company': person['company_name'],
+        'role': person['role'],
+        'can_confirm': person['role'] in ('owner', 'reviewer'),
+    }
+
+
 @app.get('/api/inbox')
-def inbox(limit: int = 20):
+def inbox(request: Request, limit: int = 20):
+    person = pg_session_person(request) if pg_session_person else None
+    if person is not None:
+        return pg_queue_documents(person, limit)
     return _pending_documents(limit)
 
 
@@ -736,7 +767,10 @@ async def mailbox_check():
 
 
 @app.get('/api/documents/{doc_id}')
-def document_meta(doc_id: str):
+def document_meta(doc_id: str, request: Request):
+    person = pg_session_person(request) if pg_session_person else None
+    if person is not None:
+        return pg_document_meta(person, doc_id)
     path = _meta_path(doc_id)
     if not path.exists():
         raise HTTPException(404, 'Document not found')

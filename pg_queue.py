@@ -374,3 +374,198 @@ async def confirm(doc_id: int, request: Request, docflow_user: str | None = Cook
         connection.close()
 
     return RedirectResponse("/pg/queue?ok=1", status_code=303)
+
+# --- what the workspace at /app uses -------------------------------------------
+#
+# The workspace keeps its upload and extraction on files; only the queue, the
+# document panel and the confirm come from the database when a person is signed
+# in. The shapes below are the ones the existing interface already expects, so
+# the front end needs no knowledge of where the rows came from.
+
+
+def session_person(request: Request) -> dict[str, Any] | None:
+    """The signed-in person behind the request, or None for the file-based demo."""
+    return _user(request.cookies.get(COOKIE))
+
+
+def _document_fields(parsed: dict[str, Any] | None) -> dict[str, Any]:
+    fields = (parsed or {}).get("fields") or {}
+    return {key: (value.get("value") if isinstance(value, dict) else value) for key, value in fields.items()}
+
+
+def _queue_row(row: dict[str, Any], threshold: float) -> dict[str, Any]:
+    parsed = row.get("parsed") or {}
+    fields = _document_fields(parsed)
+    return {
+        "id": str(row["id"]),
+        "filename": f"{row['doc_type']}-{row.get('number') or row['id']}.pdf",
+        "uploaded_at": row["received_at"].isoformat(timespec="seconds"),
+        "suffix": "pdf",
+        "source": "postgres",
+        "issues": list(parsed.get("issues") or []),
+        "confidence": parsed.get("confidence"),
+        "doc_type": row["doc_type"],
+        "route": routing.route(row["doc_type"], fields, threshold=threshold),
+        "fields": fields,
+    }
+
+
+def queue_documents(person: dict[str, Any], limit: int = 20) -> list[dict[str, Any]]:
+    rows = _rows(
+        person,
+        """
+        SELECT d.id, d.doc_type, d.number, d.received_at, d.parsed, d.total, d.currency
+        FROM documents d
+        WHERE d.status = 'new'
+        ORDER BY d.received_at DESC, d.id DESC
+        LIMIT %s
+        """,
+        (limit,),
+    )
+    threshold = _threshold(person)
+    return [_queue_row(row, threshold) for row in rows]
+
+
+def document_meta(person: dict[str, Any], doc_id: str) -> dict[str, Any]:
+    if not str(doc_id).isdigit():
+        raise HTTPException(status_code=404, detail="No such document in this company")
+    rows = _rows(
+        person,
+        """
+        SELECT d.id, d.doc_type, d.number, d.received_at, d.parsed, d.status,
+               coalesce(s.name, 'unknown supplier') AS supplier
+        FROM documents d LEFT JOIN suppliers s ON s.id = d.supplier_id
+        WHERE d.id = %s
+        """,
+        (int(doc_id),),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="No such document in this company")
+    row = rows[0]
+    parsed = row.get("parsed") or {}
+    return {
+        "id": str(row["id"]),
+        "filename": f"{row['doc_type']}-{row.get('number') or row['id']}.pdf",
+        "uploaded_at": row["received_at"].isoformat(timespec="seconds"),
+        "suffix": "pdf",
+        "source": "postgres",
+        "supplier": row["supplier"],
+        "status": row["status"],
+        "parsed": {
+            "fields": {
+                key: {"value": value, "confidence": 1.0}
+                for key, value in _document_fields(parsed).items()
+            },
+            "issues": list(parsed.get("issues") or []),
+            "confidence": parsed.get("confidence"),
+            "type": row["doc_type"],
+            "type_label": row["doc_type"].replace("_ua", "").replace("_", " ").title(),
+        },
+    }
+
+
+def _number(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(str(value).replace(" ", "").replace(",", "."))
+    except ValueError:
+        return None
+
+
+def confirm_document(person: dict[str, Any], doc_id: str, submitted: dict[str, Any]) -> dict[str, Any]:
+    """Confirm one document: the row, the deal and the event, in one transaction."""
+    if not can_confirm(person["role"]):
+        raise HTTPException(status_code=403, detail="A viewer cannot confirm documents")
+    if not str(doc_id).isdigit():
+        raise HTTPException(status_code=404, detail="No such document in this company")
+
+    connection = _tenant(person)
+    try:
+        with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                SELECT id, doc_type, number, doc_date, total, currency, status, parsed
+                FROM documents WHERE id = %s FOR UPDATE
+                """,
+                (int(doc_id),),
+            )
+            current = cursor.fetchone()
+            if current is None:
+                raise HTTPException(status_code=404, detail="No such document in this company")
+            if current["status"] != "new":
+                raise HTTPException(status_code=409, detail="This document is already confirmed")
+
+            parsed_fields = _document_fields(current["parsed"])
+            effective = {**parsed_fields, **{k: v for k, v in submitted.items() if v not in (None, "")}}
+            edited = [key for key, value in submitted.items() if parsed_fields.get(key) != value]
+
+            cursor.execute(
+                """
+                UPDATE documents
+                   SET number = coalesce(nullif(%s, ''), number),
+                       doc_date = coalesce(nullif(%s, '')::date, doc_date),
+                       total = coalesce(%s, total),
+                       currency = coalesce(nullif(%s, ''), currency),
+                       status = 'confirmed',
+                       edited_fields = %s,
+                       edited_at = now(),
+                       edited_by = %s
+                 WHERE id = %s
+                """,
+                (
+                    str(submitted.get("number") or ""),
+                    str(submitted.get("date") or submitted.get("doc_date") or ""),
+                    _number(submitted.get("total")),
+                    str(submitted.get("currency") or ""),
+                    edited or None,
+                    person["email"],
+                    int(doc_id),
+                ),
+            )
+
+            destination = routing.route(current["doc_type"], effective, threshold=_threshold(person))
+
+            cursor.execute(
+                """
+                INSERT INTO deals (company_id, document_id, status, tech_status)
+                VALUES (%s, %s, 'new', 'pending') RETURNING id
+                """,
+                (person["company_id"], int(doc_id)),
+            )
+            deal_id = cursor.fetchone()["id"]
+
+            cursor.execute(
+                """
+                INSERT INTO document_events (company_id, document_id, event_type, actor, payload)
+                VALUES (%s, %s, 'confirmed', %s, %s)
+                """,
+                (
+                    person["company_id"],
+                    int(doc_id),
+                    person["email"],
+                    Json({
+                        "destination": destination["destination"],
+                        "reason": destination["reason"],
+                        "edited_fields": edited,
+                        "deal_id": deal_id,
+                        "source": "workspace",
+                    }),
+                ),
+            )
+    finally:
+        connection.close()
+
+    return {
+        "ok": True,
+        "edited_fields": edited,
+        "route": destination,
+        "record": {
+            "id": str(doc_id),
+            "edited_fields": edited,
+            "destination": destination["destination"],
+            "crm_deal_id": f"DEMO-DB-{deal_id}",
+            "confirmed_by": person["email"],
+        },
+        "crm": {"demo": True, "simulated": True, "provider": "postgres-pilot"},
+    }

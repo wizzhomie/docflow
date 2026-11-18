@@ -229,6 +229,11 @@ event in one transaction, and the destination comes from `routing.route` with th
 own approval threshold — the second demo company approves from 5 000, the first from
 100 000, and neither value is in the code.
 
+The workspace at `/app` uses the same source: signed in, its queue panel, its document
+panel and its confirm read and write the database; signed out, the demo runs on files as
+before. Upload and extraction stay on files in both cases — they are the part that works
+and there is no reason to move them for a demonstration.
+
 A viewer may open the queue and read documents, but the confirm is refused before anything
 is written. The tenant is never taken from the URL: it comes from the person, so a link
 cannot be edited to reach another company.

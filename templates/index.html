@@ -918,5 +918,40 @@ $('#mb-check').onclick = checkMailbox;
   } catch (error) { /* the assistant is optional */ }
 })();
 </script>
+
+<script>
+// Which tenant is this workspace serving? With a session the queue, the document
+// panel and the confirm come from PostgreSQL; without one the demo runs on files.
+(async function () {
+  const style = document.createElement('style');
+  style.textContent = `
+    .tenant-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+      font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;color:#cfd3e2;
+      background:#12141f;border-bottom:1px solid #232637;padding:8px 18px}
+    .tenant-bar strong{color:#fff;font-weight:600}
+    .tenant-bar .role{background:#232637;border-radius:999px;padding:1px 9px;font-size:12px}
+    .tenant-bar .readonly{color:#f0b46a}
+    .tenant-bar a{color:#a9a4ff}`;
+  document.head.appendChild(style);
+
+  const bar = document.createElement('div');
+  bar.className = 'tenant-bar';
+  try {
+    const session = await (await fetch('/api/session')).json();
+    if (session.signed_in) {
+      bar.innerHTML =
+        `Tenant <strong>${session.company}</strong> · ${session.person}` +
+        ` · <span class="role">${session.role}</span>` +
+        (session.can_confirm ? '' : ' · <span class="readonly">read-only</span>') +
+        ' · <a href="/pg/queue">queue</a> · <a href="/pg/login">switch</a>';
+    } else {
+      bar.innerHTML = 'File-based demo · <a href="/pg/login">sign in</a> to see the tenant-aware queue';
+    }
+  } catch (error) {
+    return;
+  }
+  document.body.prepend(bar);
+})();
+</script>
 </body>
 </html>
