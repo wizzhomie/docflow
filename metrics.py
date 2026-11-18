@@ -24,35 +24,34 @@ import observability
 
 
 def tenants() -> list[dict[str, Any]]:
-    """Every company with its document and queue counts.
+    """Every company with its document and queue counts, in one query.
 
-    Row-level security is the reason this loops: the platform layer can list the
-    companies, but the documents of a company are only visible inside that
-    company's tenant, so each one is counted in its own transaction. With two
-    companies that is two cheap queries; with ten thousand it would be the wrong
-    shape, and the honest fix is a per-tenant counter updated on write.
+    The counters are maintained by a trigger on `documents` (see
+    `sql/011_company_stats.sql`), so this is a plain join instead of one
+    transaction per company. That matters because the endpoint exists to show how
+    a system with many tenants is doing; an answer whose cost grows with the
+    number of tenants is the wrong shape for that question.
     """
     try:
         with db.connection() as connection, connection.cursor() as cursor:
-            cursor.execute('SELECT id, name FROM companies ORDER BY id')
-            companies = [{'id': row[0], 'name': row[1]} for row in cursor.fetchall()]
+            cursor.execute(
+                """
+                SELECT c.name,
+                       coalesce(s.documents, 0),
+                       coalesce(s.waiting, 0)
+                  FROM companies c
+                  LEFT JOIN company_stats s ON s.company_id = c.id
+                 ORDER BY c.id
+                """
+            )
+            rows = cursor.fetchall()
     except Exception:  # noqa: BLE001 - metrics must answer without a database too
         return []
 
-    rows: list[dict[str, Any]] = []
-    for company in companies:
-        counts = {'documents': 0, 'waiting': 0}
-        try:
-            with db.tenant(company['id']) as connection, connection.cursor() as cursor:
-                cursor.execute(
-                    "SELECT count(*), count(*) FILTER (WHERE status = 'new') FROM documents"
-                )
-                documents, waiting = cursor.fetchone()
-                counts = {'documents': int(documents), 'waiting': int(waiting)}
-        except Exception:  # noqa: BLE001
-            pass
-        rows.append({'company': company['name'], **counts})
-    return rows
+    return [
+        {'company': name, 'documents': int(documents), 'waiting': int(waiting)}
+        for name, documents, waiting in rows
+    ]
 
 
 def snapshot(file_counts: dict[str, int] | None = None) -> dict[str, Any]:

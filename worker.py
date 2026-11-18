@@ -111,6 +111,15 @@ def main(argv: list[str] | None = None) -> int:
 
     import tasks  # noqa: F401 - importing registers the handlers
 
+    # A worker process is a service: its log is the only place that says it
+    # started and which job it took, so it configures its own handler instead of
+    # relying on whatever imported it.
+    logging.basicConfig(
+        level=os.environ.get('DOCFLOW_LOG_LEVEL', 'INFO').upper(),
+        format='%(asctime)s %(levelname)s %(name)s %(message)s',
+        stream=sys.stdout,
+    )
+
     once = '--once' in (argv if argv is not None else sys.argv[1:])
     if once:
         drained = 0

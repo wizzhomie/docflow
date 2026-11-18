@@ -276,6 +276,7 @@ sql/007_document_lifecycle.sql  filename, source and confirmed_at: the row is th
 sql/008_confirmed_fields.sql    what the person approved, next to what the parser read
 sql/009_backfill_confirmed_at.sql  confirmation time for documents confirmed before it
 sql/010_review_session.sql      viewed_at: review time is the session, not the wait
+sql/011_company_stats.sql       per-company counters, kept by a trigger on documents
 tools/migrate.py            applies sql/*.sql once each and records the version
 tools/import_demo_to_pg.py  loads the demo files into the schema
 pg_documents.py             upload → row → history, the signed-in lifecycle
@@ -378,7 +379,9 @@ python3 -m worker --once       # drain what is ready and exit
 ```
 
 The web process runs one worker thread by default, so a demonstration needs no second
-terminal; `DOCFLOW_JOBS=off` turns that off and leaves the queue to a separate process.
+terminal; on the server the opposite is configured: `docflow.service` sets
+`DOCFLOW_JOBS=off` and a separate `docflow-worker.service` (`python3 -m worker`) drains
+the queue, so one place claims a job and one log shows what it did.
 Two workers cannot take the same job: the claim is one `UPDATE ... WHERE id = (SELECT ...
 FOR UPDATE SKIP LOCKED)`, and `tests/test_jobs.py` starts six workers at once to prove it.
 A failed job goes back with exponential backoff (15 s doubling, capped at an hour, five
@@ -426,10 +429,12 @@ This is a prototype for a client demonstration, not a production platform:
   from the only process able to do it. Every row carries its company, the API only reads
   it filtered by that company, and the worker sets the tenant from the row before it
   touches a tenant table;
-- the metrics endpoint counts documents per company by opening one short transaction per
-  company, because that is the only way row-level security lets it see the counts. Two
-  companies are two cheap queries; ten thousand would need a counter updated on write, and
-  that is a different piece of work.
+- the per-company counters in `company_stats` have no row-level security either, for the
+  same reason as the queue: they are platform infrastructure. A trigger on `documents`
+  keeps them exact in the same transaction as the row, so `/api/metrics` answers with one
+  join instead of one transaction per company — the cost of the answer no longer grows
+  with the number of tenants. `tests/test_metrics.py` moves a document through new,
+  confirmed, deleted and a removed company and reads the counters after every step.
 
 ## Repository layout and documentation
 
