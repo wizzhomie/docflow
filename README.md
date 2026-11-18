@@ -34,7 +34,9 @@ the decision path; that is a design choice, explained below.
 - **Duplicate protection on two levels**: local history (number + supplier + date) and a
   client-side match against the CRM.
 - **History, impact report and CSV export**: auto-pass rate, review time, saved minutes,
-  top manual corrections and tripped invariants.
+  top manual corrections and tripped invariants. The headline numbers on the page and the
+  report are the same numbers: one function computes them, and the accuracy denominator is
+  the field count of the document profile, not a constant typed into a screen.
 
 ## Architecture
 
@@ -106,6 +108,9 @@ system is built around, and the test that keeps each one fixed.
 | Mail crashes after an attachment was ingested | The message is marked as seen only after a successful ingest; on failure it stays unseen and is retried | `tests/test_mailbox.py` |
 | A file is still being copied when the watcher sees it | Files younger than two seconds are skipped, handled files are moved aside so a restart does not process them twice | `tests/test_inbox.py` |
 | The CRM is unreachable | Confirmation reports `company_error` / `contact_error` instead of pretending success; failed deals go to a retry queue | `tests/test_crm_enrichment.py` |
+| Someone asks for a file by a path instead of an id | The id is checked against the two shapes the service issues, and the file name is built from known extensions instead of a pattern | `tests/test_security.py` |
+| An invoice names its supplier `<script>…` | Every value that reaches a page goes through one escaping helper, values inside attributes included; the file stays hostile input, not trusted markup | `tests/test_security.py` |
+| Two clicks land on Confirm at the same moment | In the file store the duplicate check and the write share one lock, so the second click is answered as a duplicate; in PostgreSQL the unique index decides | `tests/test_security.py` |
 
 ## Stack and engineering approach
 
@@ -181,9 +186,11 @@ for suite in tests/test_*.py; do python3 "$suite" || exit 1; done
 
 `tests/test_*.py` covers duplicate suppression, impact maths, CRM matching and company
 mapping, the review queue, document-type detection, routing rules, roadmap data, the
-connector layer (Bitrix24 over a local fake HTTP server) and mailbox intake (MIME parsing,
-retries, dedupe, login errors — over a local fake IMAP server). CI runs the same suites
-plus a Docker build on manual dispatch and on pull requests.
+connector layer (Bitrix24 over a local fake HTTP server), mailbox intake (MIME parsing,
+retries, dedupe, login errors — over a local fake IMAP server), tenancy, sign-in, the
+request log and the two ways a demo becomes an incident: a request that becomes a path and
+a document that becomes markup. CI runs the same suites plus a Docker build on manual
+dispatch and on pull requests.
 
 ## Data model in PostgreSQL
 

@@ -62,6 +62,10 @@ SUBTOTAL_LABELS = [r'ітого', r'итого', r'разом', r'усього',
 
 # --- The profile's passport: presentation the core must not decide.
 
+# The fields the review form asks for on this type, and therefore the count the
+# accuracy report divides by: the denominator belongs to the document type.
+CORE_FIELDS = ('number', 'date', 'supplier', 'tax_id', 'total', 'vat', 'currency')
+
 UI_LABELS = {
     'number': 'Delivery note number',
     'date': 'Delivery note date',

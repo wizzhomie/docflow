@@ -19,6 +19,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from psycopg2.extras import RealDictCursor
 
+from webutil import esc, shown
+
 router = APIRouter(prefix="/api/pg", tags=["pg"])
 DSN = os.environ.get("DOCFLOW_PG_DSN", "dbname=docflow_dev")
 DEFAULT_COMPANY = int(os.environ.get("DOCFLOW_COMPANY_ID", "1"))
@@ -77,6 +79,14 @@ def summary(company: int = Query(DEFAULT_COMPANY, ge=1)) -> dict[str, Any]:
     return {"suppliers": suppliers, "stats": stats, "types": types}
 
 
+def _total(value: Any) -> str:
+    """An amount for the table: grouped with spaces, never a locale surprise."""
+    try:
+        return esc(f"{float(value or 0):,.0f}".replace(",", " "))
+    except (TypeError, ValueError):
+        return esc(value)
+
+
 @router.get("/", response_class=HTMLResponse)
 def page(company: int = Query(DEFAULT_COMPANY, ge=1)) -> str:
     """One readable page with the same numbers, for the browser."""
@@ -85,19 +95,19 @@ def page(company: int = Query(DEFAULT_COMPANY, ge=1)) -> str:
     current = next((item for item in known if item['id'] == company), None)
     label = current['name'] if current else f'company {company}'
     switcher = ' · '.join(
-        f'<a href="?company={item["id"]}">{item["name"]}</a>'
+        f'<a href="?company={int(item["id"])}">{esc(item["name"])}</a>'
         if item['id'] != company
-        else f'<strong>{item["name"]}</strong>'
+        else f'<strong>{esc(item["name"])}</strong>'
         for item in known
     )
     rows = "".join(
-        f"<tr><td>{item['supplier']}</td><td>{item['documents']}</td>"
-        f"<td>{float(item['total']):,.0f}</td></tr>".replace(",", " ")
+        f"<tr><td>{shown(item['supplier'])}</td><td>{esc(item['documents'])}</td>"
+        f"<td>{_total(item['total'])}</td></tr>"
         for item in data["suppliers"]
     )
     types = "".join(
-        f"<tr><td>{item['doc_type']}</td><td>{item['documents']}</td>"
-        f"<td>{float(item['total']):,.0f}</td></tr>".replace(",", " ")
+        f"<tr><td>{shown(item['doc_type'])}</td><td>{esc(item['documents'])}</td>"
+        f"<td>{_total(item['total'])}</td></tr>"
         for item in data["types"]
     )
     stats = data["stats"]
@@ -113,7 +123,7 @@ td:nth-child(2),td:nth-child(3),th:nth-child(2),th:nth-child(3){{text-align:righ
 .pill{{display:inline-block;background:#efece7;border-radius:999px;padding:2px 10px;font-size:12px;margin-left:6px}}
 </style></head><body>
 <h1>PostgreSQL report</h1>
-<div class="sub">{label} · {stats['documents']} documents, {stats['edited']} edited by a human<br><span class="pill">tenant</span> {switcher}</div>
+<div class="sub">{esc(label)} · {esc(stats['documents'])} documents, {esc(stats['edited'])} edited by a human<br><span class="pill">tenant</span> {switcher}</div>
 <table><tr><th>Supplier</th><th>Documents</th><th>Total, UAH</th></tr>{rows}</table>
 <table><tr><th>Document type</th><th>Documents</th><th>Total, UAH</th></tr>{types}</table>
 </body></html>"""

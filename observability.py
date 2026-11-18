@@ -13,6 +13,7 @@ an error without a tenant is a ticket called "something broke for someone".
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import logging.handlers
@@ -37,7 +38,7 @@ except ImportError:  # pragma: no cover - depends on the environment
 ROOT = Path(__file__).resolve().parent
 LOG_DIR = Path(os.environ.get("DOCFLOW_LOG_DIR", ROOT / "data" / "logs"))
 LOG_FILE = LOG_DIR / "app.jsonl"
-COOKIE = "docflow_user"
+COOKIE = "docflow_session"
 
 logger = logging.getLogger("docflow")
 access_logger = logging.getLogger("docflow.access")
@@ -94,9 +95,21 @@ def init_sentry() -> bool:
 
 
 def _person(request: Request) -> tuple[str | None, str | None]:
-    """The session cookie holds a user id; the company is filled in by the caller."""
-    user = request.cookies.get(COOKIE)
-    return (user, None) if user else (None, None)
+    """Who made the request, for the log line.
+
+    The session cookie is a bearer token, so it never reaches the log: the line
+    carries a short digest of it instead, which is enough to follow one person's
+    requests through the file and useless to anyone who reads it. Routes that do
+    resolve the person record the e-mail on the request, and the line prefers
+    that — a log that says "someone" answers nothing.
+    """
+    user = getattr(request.state, "user", None)
+    if user:
+        return (user, getattr(request.state, "company", None))
+    token = request.cookies.get(COOKIE)
+    if token:
+        return ("session:" + hashlib.sha256(token.encode()).hexdigest()[:8], None)
+    return (None, None)
 
 
 def install(app: FastAPI) -> dict[str, bool]:
@@ -118,6 +131,7 @@ def install(app: FastAPI) -> dict[str, bool]:
             response = await call_next(request)
         except Exception:
             duration = round((time.perf_counter() - started) * 1000, 1)
+            user, company = _person(request)
             access_logger.exception(
                 "request failed",
                 extra={
@@ -127,10 +141,14 @@ def install(app: FastAPI) -> dict[str, bool]:
                     "status": 500,
                     "duration_ms": duration,
                     "user": user,
+                    "company": company,
                 },
             )
             raise
         duration = round((time.perf_counter() - started) * 1000, 1)
+        # Read the person again: the route may have resolved it while handling
+        # the request, and the line should say who, not which cookie was sent.
+        user, company = _person(request)
         access_logger.info(
             "request",
             extra={
@@ -140,6 +158,7 @@ def install(app: FastAPI) -> dict[str, bool]:
                 "status": response.status_code,
                 "duration_ms": duration,
                 "user": user,
+                "company": company,
             },
         )
         response.headers["X-Request-Id"] = request_id

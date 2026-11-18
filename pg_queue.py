@@ -27,6 +27,7 @@ from psycopg2.extras import Json, RealDictCursor
 
 import auth
 import routing
+from webutil import esc, shown
 
 router = APIRouter(prefix="/pg", tags=["pg-queue"])
 DSN = os.environ.get("DOCFLOW_PG_DSN", "dbname=docflow_dev")
@@ -54,10 +55,22 @@ def can_confirm(role: str) -> bool:
 
 
 def _page(title: str, body: str, notice: str = "") -> str:
-    banner = f'<div class="notice">{notice}</div>' if notice else ""
+    """A page shell. `title` and `notice` are values and are escaped here; the
+    caller passes `body` already safe, because it is built from escaped values
+    and literal markup."""
+    banner = f'<div class="notice">{esc(notice)}</div>' if notice else ""
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<title>DocFlow · {title}</title><style>{STYLE}</style></head>
-<body>{banner}<h1>{title}</h1>{body}</body></html>"""
+<title>DocFlow · {esc(title)}</title><style>{STYLE}</style></head>
+<body>{banner}<h1>{esc(title)}</h1>{body}</body></html>"""
+
+
+def _amount(value: Any, currency: str | None) -> str:
+    """A number as the page shows it: grouped with spaces, unit appended."""
+    try:
+        text = f"{float(value or 0):,.0f}".replace(",", " ")
+    except (TypeError, ValueError):
+        text = str(value)
+    return esc(f"{text} {currency}".strip())
 
 
 def _connect() -> psycopg2.extensions.connection:
@@ -103,6 +116,24 @@ def login(next: str | None = None) -> Any:
     return RedirectResponse("/auth/login" + (f"?next={next}" if next else ""), status_code=303)
 
 
+def _queue_rows(documents: list[dict[str, Any]]) -> str:
+    """The table of documents waiting for review.
+
+    A supplier name here is whatever the uploaded invoice said, so every value
+    goes through `shown`: the queue is the page a reviewer opens, which makes it
+    the place a stored cross-site script would run.
+    """
+    return "".join(
+        f'<tr><td><a href="/pg/queue/{int(item["id"])}">'
+        f'{shown(item["doc_type"].replace("_ua", ""))}</a></td>'
+        f'<td>{shown(item["supplier"])}</td><td>{shown(item["number"])}</td>'
+        f'<td>{shown(item["doc_date"])}</td>'
+        f'<td class="n">{_amount(item["total"], item["currency"])}</td>'
+        f'<td class="n">{_amount(item["events"], None)}</td></tr>'
+        for item in documents
+    ) or '<tr><td colspan="6">Nothing is waiting for review.</td></tr>'
+
+
 @router.get("/queue", response_class=HTMLResponse)
 def queue(request: Request, ok: str | None = None) -> Any:
     person = session_person(request)
@@ -122,18 +153,11 @@ def queue(request: Request, ok: str | None = None) -> Any:
         ORDER BY d.received_at, d.id
         """,
     )
-    rows = "".join(
-        f'<tr><td><a href="/pg/queue/{item["id"]}">{item["doc_type"].replace("_ua", "")}</a></td>'
-        f'<td>{item["supplier"]}</td><td>{item["number"] or "—"}</td>'
-        f'<td>{item["doc_date"] or "—"}</td>'
-        f'<td class="n">{float(item["total"] or 0):,.0f} {item["currency"]}</td>'
-        f'<td class="n">{item["events"]}</td></tr>'.replace(",", " ")
-        for item in documents
-    ) or '<tr><td colspan="6">Nothing is waiting for review.</td></tr>'
+    rows = _queue_rows(documents)
 
     body = (
-        f'<div class="sub"><a href="/app">← workspace</a> · signed in as {person["full_name"]}'
-        f' · {person["company_name"]} · <span class="pill">{person["role"]}</span>'
+        f'<div class="sub"><a href="/app">← workspace</a> · signed in as {shown(person["full_name"])}'
+        f' · {shown(person["company_name"])} · <span class="pill">{shown(person["role"])}</span>'
         f' · <a href="/auth/logout">sign out</a></div>'
         f'<table><tr><th>Type</th><th>Supplier</th><th>Number</th><th>Date</th>'
         f'<th class="n">Total</th><th class="n">Events</th></tr>{rows}</table>'
@@ -172,44 +196,59 @@ def document(doc_id: int, request: Request) -> Any:
         (doc_id,),
     )
     history = "".join(
-        f'<tr><td>{event["event_type"]}</td><td>{event["actor"] or "—"}</td>'
-        f'<td>{event["created_at"]:%Y-%m-%d %H:%M}</td></tr>'
+        f'<tr><td>{shown(event["event_type"])}</td><td>{shown(event["actor"])}</td>'
+        f'<td>{esc(event["created_at"].strftime("%Y-%m-%d %H:%M"))}</td></tr>'
         for event in events
     ) or '<tr><td colspan="3">No events yet.</td></tr>'
 
-    form = f"""
-    <form method="post" action="/pg/queue/{doc_id}/confirm">
+    return _page("Document", _document_body(item, person, history, _document_form(item, person)))
+
+
+def _document_form(item: dict[str, Any], person: dict[str, Any]) -> str:
+    """The review form, or the reason there is none.
+
+    Every value is escaped: the number and the currency are read from the PDF,
+    and this form writes them back into an attribute.
+    """
+    if item["status"] != "new":
+        return (f'<div class="card">This document is already '
+                f'<strong>{esc(item["status"])}</strong>.</div>')
+    if not can_confirm(person["role"]):
+        return ('<div class="denied">Your role is <strong>viewer</strong>: you can read the '
+                'queue, but confirming a document is refused before anything is written.</div>')
+
+    total_value = f'{float(item["total"] or 0):.2f}'
+    return f"""
+    <form method="post" action="/pg/queue/{int(item["id"])}/confirm">
       <label for="number">Number</label>
-      <input id="number" name="number" value="{item['number'] or ''}">
+      <input id="number" name="number" value="{esc(item['number'] or '')}">
       <label for="doc_date">Date</label>
-      <input id="doc_date" name="doc_date" type="date" value="{item['doc_date'] or ''}">
+      <input id="doc_date" name="doc_date" type="date" value="{esc(item['doc_date'] or '')}">
       <label for="total">Total</label>
-      <input id="total" name="total" value="{float(item['total'] or 0):.2f}">
+      <input id="total" name="total" value="{esc(total_value)}">
       <label for="currency">Currency</label>
-      <input id="currency" name="currency" value="{item['currency']}">
+      <input id="currency" name="currency" value="{esc(item['currency'] or '')}">
       <button type="submit">Confirm</button>
     </form>
     """
 
-    if item["status"] != "new":
-        form = f'<div class="card">This document is already <strong>{item["status"]}</strong>.</div>'
-    elif not can_confirm(person["role"]):
-        form = ('<div class="denied">Your role is <strong>viewer</strong>: you can read the '
-                'queue, but confirming a document is refused before anything is written.</div>')
 
-    body = (
+def _document_body(
+    item: dict[str, Any], person: dict[str, Any], history: str, form: str
+) -> str:
+    edited = ", ".join(esc(field) for field in item["edited_fields"] or [])
+    return (
         f'<div class="sub"><a href="/app">← workspace</a> · <a href="/pg/queue">queue</a>'
-        f' · {person["company_name"]} · <span class="pill">{person["role"]}</span></div>'
-        f'<div class="card"><h2>{item["doc_type"]} · {item["supplier"]}</h2>'
+        f' · {shown(person["company_name"])} · <span class="pill">{shown(person["role"])}</span></div>'
+        f'<div class="card"><h2>{shown(item["doc_type"])} · {shown(item["supplier"])}</h2>'
         f'<table><tr><th>Field</th><th>Value</th></tr>'
-        f'<tr><td>Tax ID</td><td>{item["tax_id"] or "—"}</td></tr>'
-        f'<tr><td>Status</td><td>{item["status"]}</td></tr>'
-        f'<tr><td>Edited by</td><td>{item["edited_by"] or "—"}</td></tr>'
-        f'<tr><td>Edited fields</td><td>{", ".join(item["edited_fields"] or []) or "—"}</td></tr>'
+        f'<tr><td>Tax ID</td><td>{shown(item["tax_id"])}</td></tr>'
+        f'<tr><td>Status</td><td>{shown(item["status"])}</td></tr>'
+        f'<tr><td>Edited by</td><td>{shown(item["edited_by"])}</td></tr>'
+        f'<tr><td>Edited fields</td><td>{edited or "—"}</td></tr>'
         f'</table>{form}</div>'
         f'<h2>History</h2><table><tr><th>Event</th><th>Actor</th><th>When</th></tr>{history}</table>'
     )
-    return _page("Document", body)
 
 
 @router.post("/queue/{doc_id}/confirm")

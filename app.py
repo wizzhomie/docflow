@@ -3,8 +3,10 @@ import csv
 import io
 import json
 import os
+import re
 import shutil
 import statistics
+import threading
 import time
 import uuid
 from collections import Counter
@@ -14,7 +16,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import mailbox
 import profiles
@@ -59,7 +61,6 @@ ALLOWED = {
     '.bmp',
 }
 MANUAL_MINUTES = 3.0
-ASSISTED_MINUTES = 0.5
 
 # Manual baseline used by the impact report. It is an explicit assumption, not a
 # measurement: the operator states how long one invoice took before DocFlow.
@@ -68,6 +69,14 @@ MANUAL_BASELINE_MINUTES = float(os.environ.get('DOCFLOW_MANUAL_MINUTES', MANUAL_
 # Demo mode keeps a client demonstration away from the real CRM: Confirm returns
 # a simulated deal instead of creating one in Uspacy.
 DEMO_MODE = os.environ.get('DOCFLOW_DEMO_MODE', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+# A document id is also the name of a file, so the shapes it may take are stated
+# once, here, and used wherever the id becomes a path or a query parameter: ten
+# hex characters from the uploader, or the plain integer the PostgreSQL pilot
+# hands out. `glob` used to build the file path from the raw string, which meant
+# `/files/../..` could walk out of the uploads folder.
+DEMO_ID_RE = re.compile(r'[0-9a-f]{10}')
+DOC_ID_PATTERN = r'^(?:[0-9a-f]{10}|\d{1,10})$'
 
 FIELD_LABELS = {
     'number': 'Invoice number',
@@ -124,7 +133,14 @@ else:
 
 
 class ConfirmPayload(BaseModel):
-    id: str
+    """A confirmation: which document, and the values the reviewer kept.
+
+    The id is validated here, not in the route, because the same string is used
+    later to build a file path and to look up a database row: a request naming
+    anything but a document id never reaches either.
+    """
+
+    id: str = Field(pattern=DOC_ID_PATTERN)
     fields: dict
 
 
@@ -143,6 +159,8 @@ def _read_confirmed() -> list[dict]:
 
 
 def _meta_path(doc_id: str) -> Path:
+    if not DEMO_ID_RE.fullmatch(doc_id):
+        raise HTTPException(404, 'Document not found')
     return PENDING / f'{doc_id}.json'
 
 
@@ -182,7 +200,7 @@ def _issues_for(doc_id: str | None) -> list[str]:
     same document is consulted. The cache is keyed by file mtime so an updated
     snapshot is never reported from stale bytes.
     """
-    if not doc_id:
+    if not doc_id or not DEMO_ID_RE.fullmatch(doc_id):
         return []
     path = _meta_path(doc_id)
     try:
@@ -248,6 +266,9 @@ def build_impact(rows: list[dict], manual_minutes: float = MANUAL_BASELINE_MINUT
 
     edited_rows = [row for row in rows if row.get('edited_fields')]
     edited_fields = sum(len(row.get('edited_fields') or []) for row in rows)
+    # The accuracy denominator is the number of fields the document type offers
+    # for review, so it comes from the profile and not from a constant here.
+    fields_reviewed = sum(profiles.fields_per_document(row.get('doc_type')) for row in rows)
 
     corrected: Counter[str] = Counter()
     for row in rows:
@@ -294,7 +315,10 @@ def build_impact(rows: list[dict], manual_minutes: float = MANUAL_BASELINE_MINUT
         else 0.0,
         'edited_documents': len(edited_rows),
         'edited_fields': edited_fields,
-        'field_accuracy': round(max(0.0, 1 - edited_fields / max(documents * 7, 1)) * 100, 1),
+        'fields_reviewed': fields_reviewed,
+        'field_accuracy': round(max(0.0, 1 - edited_fields / fields_reviewed) * 100, 1)
+        if fields_reviewed
+        else 0.0,
         'review': {
             'measured_documents': len(reviews),
             'average_seconds': round(average_review, 1),
@@ -610,12 +634,25 @@ async def upload(file: UploadFile = File(...)):
     return meta
 
 
+# One confirmation at a time in the file store: the duplicate check reads the
+# history and the record is appended straight after, so two clicks that arrive
+# together would both see "no duplicate" and both would be written. PostgreSQL
+# needs no such lock — the unique index is the judge there, and the second insert
+# fails instead of duplicating.
+CONFIRM_LOCK = threading.Lock()
+
+
 @app.post('/api/confirm')
 def confirm(payload: ConfirmPayload, request: Request):
+    """Confirm one reviewed document: PostgreSQL when signed in, files otherwise."""
     person = pg_session_person(request) if pg_session_person else None
     if person is not None:
         return pg_confirm_document(person, payload.id, payload.fields)
+    with CONFIRM_LOCK:
+        return _confirm_in_files(payload)
 
+
+def _confirm_in_files(payload: ConfirmPayload) -> dict:
     meta_path = _meta_path(payload.id)
     if not meta_path.exists():
         raise HTTPException(404, 'Document not found')
@@ -662,7 +699,6 @@ def confirm(payload: ConfirmPayload, request: Request):
             crm['duplicate'] = True
             crm['duplicate_source'] = 'crm'
         elif crm['configured']:
-            company = contact = None
             company = contact = None
             try:
                 company = connector.ensure_company(fields, doc_type=profile_code)
@@ -790,17 +826,22 @@ def documents(limit: int = 50):
 
 @app.get('/api/stats')
 def stats():
+    """Headline numbers for the page.
+
+    They are taken from the impact report instead of being computed again: two
+    endpoints that count the same thing differently (six fields here, seven
+    there) are a way to be wrong in public.
+    """
     rows = _read_confirmed()
+    report = build_impact(rows, MANUAL_BASELINE_MINUTES)
     total = len(rows)
-    edited = sum(len(r['edited_fields']) for r in rows)
-    field_count = max(total * 6, 1)
     avg_conf = round(sum(r['confidence'] for r in rows) / total, 2) if total else 0.0
     return {
-        'documents': total,
-        'edited_fields': edited,
-        'accuracy': round(max(0.0, 1 - edited / field_count) * 100, 1) if total else 0.0,
+        'documents': report['documents'],
+        'edited_fields': report['edited_fields'],
+        'accuracy': report['field_accuracy'],
         'avg_confidence': avg_conf,
-        'saved_minutes': round(total * (MANUAL_MINUTES - ASSISTED_MINUTES), 1),
+        'saved_minutes': report['time_saved_minutes'],
         'total_amount': round(sum((r['fields'].get('total') or 0) for r in rows), 2),
     }
 
@@ -883,8 +924,17 @@ def export_csv():
 
 @app.get('/files/{doc_id}')
 def document_file(doc_id: str):
-    for candidate in UPLOADS.glob(f'{doc_id}.*'):
-        if candidate.suffix != '.json':
+    """The original upload, by id.
+
+    The id is checked before it becomes a path, and the candidates are the
+    known extensions rather than a pattern: a pattern would resolve `..`
+    segments and serve whatever it found.
+    """
+    if not DEMO_ID_RE.fullmatch(doc_id):
+        raise HTTPException(404, 'Not found')
+    for suffix in ALLOWED:
+        candidate = UPLOADS / f'{doc_id}{suffix}'
+        if candidate.is_file():
             return FileResponse(candidate)
     raise HTTPException(404, 'Not found')
 

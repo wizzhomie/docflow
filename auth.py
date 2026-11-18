@@ -192,6 +192,10 @@ def session_person(request: Request) -> dict[str, Any] | None:
                 "AND last_seen_at < now() - interval '5 minutes'",
                 (token_hash(token),),
             )
+            # The request log reads these: a line that names the person and the
+            # company answers "who did it" without opening another query.
+            request.state.user = row["email"]
+            request.state.company = row["company_name"]
             return dict(row)
     finally:
         connection.close()

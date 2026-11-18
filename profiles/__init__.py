@@ -68,6 +68,17 @@ def ui_labels(code: str | None) -> dict:
     return dict(getattr(get_profile(code), 'UI_LABELS', {}))
 
 
+def fields_per_document(code: str | None) -> int:
+    """How many fields one document of this type offers for review.
+
+    The accuracy report divides edited fields by this number, so the number has
+    to be a fact about the document type, not a constant inside a report.
+    """
+    profile = get_profile(code)
+    core = getattr(profile, 'CORE_FIELDS', None) or ()
+    return len(core) or len(getattr(profile, 'UI_LABELS', {}))
+
+
 def source_labels(code: str | None) -> dict:
     """Evidence labels: where a value was taken from, shown next to it."""
     return dict(getattr(get_profile(code), 'SOURCE_LABELS', {}))
