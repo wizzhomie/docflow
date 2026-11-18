@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 from typing import Any
+from urllib.parse import quote
 
 import psycopg2
 from fastapi import APIRouter, HTTPException, Request
@@ -26,7 +27,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from psycopg2.extras import Json, RealDictCursor
 
 import auth
+import profiles
 import routing
+from validation import blocking_issues, field_names, validate
 from webutil import esc, shown
 
 router = APIRouter(prefix="/pg", tags=["pg-queue"])
@@ -54,14 +57,45 @@ def can_confirm(role: str) -> bool:
     return role in ("owner", "reviewer")
 
 
-def _page(title: str, body: str, notice: str = "") -> str:
-    """A page shell. `title` and `notice` are values and are escaped here; the
-    caller passes `body` already safe, because it is built from escaped values
-    and literal markup."""
+def _page(title: str, body: str, notice: str = "", error: str = "") -> str:
+    """A page shell. Everything that is a value is escaped here; the caller
+    passes `body` already safe, because it is built from escaped values and
+    literal markup."""
     banner = f'<div class="notice">{esc(notice)}</div>' if notice else ""
+    if error:
+        banner += f'<div class="denied">{esc(error)}</div>'
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>DocFlow · {esc(title)}</title><style>{STYLE}</style></head>
 <body>{banner}<h1>{esc(title)}</h1>{body}</body></html>"""
+
+
+class _Refused(Exception):
+    """A confirmation the invariants refuse; the page shows the reason."""
+
+
+def _invariant_problem(
+    fields: dict[str, Any], doc_type: str, edited: list[str] | None = None
+) -> str | None:
+    """What a human edit broke, in the words of the review form.
+
+    A value that is not what it claims to be must not become a deal, so the check
+    runs on the merged result — the stored values with the reviewer's edits — not
+    on the stored values alone.
+    """
+    check = validate(
+        {key: {"value": value} for key, value in fields.items()},
+        profile=profiles.get_profile(doc_type),
+    )
+    blocking = [
+        issue
+        for issue in blocking_issues(check)
+        if edited is None or issue.split(":")[0] in edited
+    ]
+    if not blocking:
+        return None
+    labels = profiles.ui_labels(doc_type)
+    names = [labels.get(name, name.replace("_", " ")) for name in field_names(blocking)]
+    return "Fix before confirming: " + ", ".join(names)
 
 
 def _amount(value: Any, currency: str | None) -> str:
@@ -169,7 +203,7 @@ def queue(request: Request, ok: str | None = None) -> Any:
 
 
 @router.get("/queue/{doc_id}", response_class=HTMLResponse)
-def document(doc_id: int, request: Request) -> Any:
+def document(doc_id: int, request: Request, invalid: str | None = None) -> Any:
     person = session_person(request)
     if person is None:
         return RedirectResponse("/pg/login", status_code=303)
@@ -201,7 +235,11 @@ def document(doc_id: int, request: Request) -> Any:
         for event in events
     ) or '<tr><td colspan="3">No events yet.</td></tr>'
 
-    return _page("Document", _document_body(item, person, history, _document_form(item, person)))
+    return _page(
+        "Document",
+        _document_body(item, person, history, _document_form(item, person)),
+        error=invalid,
+    )
 
 
 def _document_form(item: dict[str, Any], person: dict[str, Any]) -> str:
@@ -267,8 +305,10 @@ async def confirm(doc_id: int, request: Request) -> Any:
         with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
             cursor.execute(
                 """
-                SELECT id, doc_type, number, doc_date, total, currency, status
-                FROM documents WHERE id = %s FOR UPDATE
+                SELECT d.id, d.doc_type, d.number, d.doc_date, d.total, d.vat, d.currency, d.status,
+                       coalesce(s.name, 'unknown supplier') AS supplier, s.tax_id
+                FROM documents d LEFT JOIN suppliers s ON s.id = d.supplier_id
+                WHERE d.id = %s FOR UPDATE OF d
                 """,
                 (doc_id,),
             )
@@ -292,6 +332,21 @@ async def confirm(doc_id: int, request: Request) -> Any:
                     continue
                 if str(current[field]) != new:
                     changed.append(field)
+
+            effective = {
+                "number": submitted["number"] or current["number"],
+                "date": submitted["doc_date"] or (
+                    current["doc_date"].isoformat() if current["doc_date"] else None
+                ),
+                "supplier": current["supplier"],
+                "tax_id": current["tax_id"],
+                "total": submitted["total"] or current["total"],
+                "vat": current["vat"],
+                "currency": submitted["currency"] or current["currency"],
+            }
+            problem = _invariant_problem(effective, current["doc_type"], changed)
+            if problem:
+                raise _Refused(problem)
 
             cursor.execute(
                 """
@@ -352,6 +407,10 @@ async def confirm(doc_id: int, request: Request) -> Any:
                     ),
                 ),
             )
+    except _Refused as refused:
+        return RedirectResponse(
+            f"/pg/queue/{doc_id}?invalid={quote(str(refused))}", status_code=303
+        )
     finally:
         connection.close()
 
@@ -373,6 +432,23 @@ def session_person(request: Request) -> dict[str, Any] | None:
 def _document_fields(parsed: dict[str, Any] | None) -> dict[str, Any]:
     fields = (parsed or {}).get("fields") or {}
     return {key: (value.get("value") if isinstance(value, dict) else value) for key, value in fields.items()}
+
+
+def _field_confidence(parsed: dict[str, Any] | None, key: str) -> float | None:
+    """The confidence the extractor gave this field, or the document's own.
+
+    A hard-coded 1.0 would tell a reviewer the parser was certain about a value
+    it may have read from an OCR shadow; the number that was stored is the
+    honest one, and a missing number is better than a full one.
+    """
+    fields = (parsed or {}).get("fields") or {}
+    entry = fields.get(key)
+    if isinstance(entry, dict) and isinstance(entry.get("confidence"), (int, float)):
+        return float(entry["confidence"])
+    document_confidence = (parsed or {}).get("confidence")
+    if isinstance(document_confidence, (int, float)):
+        return float(document_confidence)
+    return None
 
 
 def _queue_row(row: dict[str, Any], threshold: float) -> dict[str, Any]:
@@ -435,7 +511,7 @@ def document_meta(person: dict[str, Any], doc_id: str) -> dict[str, Any]:
         "status": row["status"],
         "parsed": {
             "fields": {
-                key: {"value": value, "confidence": 1.0}
+                key: {"value": value, "confidence": _field_confidence(parsed, key)}
                 for key, value in _document_fields(parsed).items()
             },
             "issues": list(parsed.get("issues") or []),
@@ -482,6 +558,10 @@ def confirm_document(person: dict[str, Any], doc_id: str, submitted: dict[str, A
             parsed_fields = _document_fields(current["parsed"])
             effective = {**parsed_fields, **{k: v for k, v in submitted.items() if v not in (None, "")}}
             edited = [key for key, value in submitted.items() if parsed_fields.get(key) != value]
+
+            problem = _invariant_problem(effective, current["doc_type"], edited)
+            if problem:
+                raise HTTPException(status_code=422, detail=problem)
 
             cursor.execute(
                 """

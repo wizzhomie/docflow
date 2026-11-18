@@ -79,13 +79,30 @@ def _drop_company(company_id: int) -> None:
         connection.close()
 
 
-def test_the_first_company_sees_its_own_documents():
-    with connect() as connection:
-        demo = _company_id(connection, DEMO_SLUG)
-    with as_company(demo) as connection, connection.cursor() as cursor:
-        cursor.execute('SELECT count(*) FROM documents')
-        own = cursor.fetchone()[0]
-    assert own > 0, 'the demo company has no documents, the fixture looks empty'
+def test_a_company_sees_exactly_its_own_documents():
+    """The fixture is created here, not borrowed from the demo data.
+
+    A database migrated from `sql/` and nothing else has no documents in it, so a
+    check that needed demo history would skip exactly where the policy most needs
+    to be proved — in CI.
+    """
+    company_id, _ = _make_company('Own documents')
+    try:
+        with as_company(company_id) as connection:
+            with connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO documents (company_id, doc_type, number) "
+                        "VALUES (%s, 'invoice_ua', 'TEST-1') RETURNING id",
+                        (company_id,),
+                    )
+                    own_id = cursor.fetchone()[0]
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT id FROM documents')
+                visible = [row[0] for row in cursor.fetchall()]
+        assert visible == [own_id], f'a company saw documents it does not own: {visible}'
+    finally:
+        _drop_company(company_id)
 
 
 def test_a_new_company_starts_empty():

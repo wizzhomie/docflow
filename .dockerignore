@@ -1,0 +1,41 @@
+# What must not travel into the image.
+#
+# The Dockerfile copies the working tree, so this file is the only thing standing
+# between a local build and an image that carries secrets and runtime data:
+# `.env` holds the CRM token, the GlitchTip DSN and the mailbox password.
+
+.git
+.gitignore
+.github
+
+# Secrets and local configuration
+.env
+.env.*
+*.pem
+*.key
+
+# Runtime state: history, uploads, logs, mailbox state, retry queue
+data/
+.run/
+*.log
+
+# Internal working memory and unshipped knowledge
+memory/
+knowledge/
+
+# Environment and build leftovers
+.venv
+venv
+__pycache__/
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Local tools: the portable OCR build is hundreds of megabytes
+.tools/
+
+# Not needed to run the service
+tests/
+.devcontainer/
+node_modules/

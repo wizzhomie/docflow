@@ -2,6 +2,7 @@ import asyncio
 import csv
 import io
 import json
+import logging
 import os
 import re
 import shutil
@@ -25,6 +26,9 @@ import uspacy
 from connectors import active as active_connector
 from connectors import provider_name
 from extractor import extract_text, parse_invoice, parse_items
+from validation import blocking_issues, field_names, validate
+
+logger = logging.getLogger('docflow')
 
 BASE = Path(__file__).parent
 SAMPLES = BASE / 'samples'
@@ -77,6 +81,13 @@ DEMO_MODE = os.environ.get('DOCFLOW_DEMO_MODE', '').strip().lower() in {'1', 'tr
 # `/files/../..` could walk out of the uploads folder.
 DEMO_ID_RE = re.compile(r'[0-9a-f]{10}')
 DOC_ID_PATTERN = r'^(?:[0-9a-f]{10}|\d{1,10})$'
+
+# Bounds on what one document may cost. These are cost limits, not validation
+# rules: a 900-page PDF is a valid document that would occupy the process for
+# minutes, and a limit enforced after the work has happened is not a limit.
+MAX_UPLOAD_MB = float(os.environ.get('DOCFLOW_MAX_UPLOAD_MB', '20'))
+MAX_UPLOAD_BYTES = int(MAX_UPLOAD_MB * 1024 * 1024)
+MAX_PDF_PAGES = int(os.environ.get('DOCFLOW_MAX_PDF_PAGES', '200'))
 
 FIELD_LABELS = {
     'number': 'Invoice number',
@@ -464,6 +475,12 @@ def _ingest_folder_once() -> list[dict]:
         try:
             if now - path.stat().st_mtime < 2:
                 continue
+            problem = _document_problem(path)
+            if problem:
+                # Left where it is: the folder is watched, not queued, and a
+                # skipped file costs one stat per pass, not a retry that copies it.
+                logger.warning('intake skipped: %s', problem)
+                continue
             doc_id = uuid.uuid4().hex[:10]
             target = UPLOADS / f'{doc_id}{path.suffix.lower()}'
             shutil.copyfile(path, target)
@@ -496,9 +513,19 @@ def _mailbox_poll_once() -> dict:
         suffix = Path(attachment['filename']).suffix.lower()
         if suffix not in ALLOWED:
             return None
+        if len(attachment['data']) > MAX_UPLOAD_BYTES:
+            # Ignored on purpose, not retried: a message that can never be
+            # ingested would otherwise come back on every poll.
+            logger.warning('mailbox skipped: attachment over %g MB', MAX_UPLOAD_MB)
+            return None
         doc_id = uuid.uuid4().hex[:10]
         target = UPLOADS / f'{doc_id}{suffix}'
         target.write_bytes(attachment['data'])
+        problem = _document_problem(target)
+        if problem:
+            target.unlink(missing_ok=True)
+            logger.warning('mailbox skipped: %s', problem)
+            return None
         _process(
             doc_id,
             attachment['filename'],
@@ -559,6 +586,38 @@ def _pending_documents(limit: int = 20) -> list[dict]:
         )
     items.sort(key=lambda item: item.get('uploaded_at') or '', reverse=True)
     return items[:limit]
+
+
+def _pdf_page_count(path: Path) -> int | None:
+    """Pages in a PDF, or None when it is not a PDF or cannot be read.
+
+    pypdf walks the page tree without extracting text, so the check costs
+    milliseconds even for a document that would take minutes to read.
+    """
+    if path.suffix.lower() != '.pdf':
+        return None
+    try:
+        from pypdf import PdfReader
+
+        return len(PdfReader(str(path)).pages)
+    except Exception:  # noqa: BLE001 - an unreadable PDF is a parse problem, not a limit
+        return None
+
+
+def _document_problem(path: Path, size: int | None = None) -> str | None:
+    """Why this file must not be processed, or None when it may be.
+
+    The rule lives here once, and each entry point decides what to do with the
+    answer: the upload refuses with 413, the watched folder leaves the file
+    alone, the mailbox ignores the attachment.
+    """
+    actual = path.stat().st_size if size is None else size
+    if actual > MAX_UPLOAD_BYTES:
+        return f'file is larger than {MAX_UPLOAD_MB:g} MB'
+    pages = _pdf_page_count(path)
+    if pages is not None and pages > MAX_PDF_PAGES:
+        return f'PDF has {pages} pages, the limit is {MAX_PDF_PAGES}'
+    return None
 
 
 def _process(doc_id: str, filename: str, path: Path, source: str = 'upload',
@@ -625,9 +684,22 @@ async def upload(file: UploadFile = File(...)):
         raise HTTPException(400, 'Supported formats: PDF, TXT, HTML and images (PNG/JPG/TIFF)')
     doc_id = uuid.uuid4().hex[:10]
     target = UPLOADS / f'{doc_id}{suffix}'
-    with target.open('wb') as out:
-        while chunk := await file.read(1024 * 256):
-            out.write(chunk)
+    written = 0
+    try:
+        # The size is checked while streaming: a limit applied after the body is
+        # on the disk has already paid the cost it was meant to bound.
+        with target.open('wb') as out:
+            while chunk := await file.read(1024 * 256):
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(413, f'The file is larger than {MAX_UPLOAD_MB:g} MB')
+                out.write(chunk)
+        problem = _document_problem(target, written)
+        if problem:
+            raise HTTPException(413, problem[0].upper() + problem[1:])
+    except HTTPException:
+        target.unlink(missing_ok=True)
+        raise
     meta = _process(doc_id, file.filename or target.name, target)
     if not meta['text_preview'].strip():
         meta['warning'] = 'No text extracted: the file may be a scan. OCR is not enabled yet.'
@@ -665,6 +737,27 @@ def _confirm_in_files(payload: ConfirmPayload) -> dict:
     profile_code = (meta.get('parsed') or {}).get('type')
     route_info = routing.route((meta.get('parsed') or {}).get('type'), fields)
     edited = [k for k, v in payload.fields.items() if parsed_values.get(k) != v]
+
+    # Extraction was validated when it happened; the values a person typed into
+    # the form never were, and a confident error is the one that reaches the CRM.
+    check = validate(
+        {key: {'value': value} for key, value in fields.items()},
+        profile=profiles.get_profile(profile_code),
+    )
+    # Only what the reviewer changed can be refused: a value the parser left
+    # missing is already reported as an issue, and a form cannot fix a field it
+    # does not show. A typo in a field the person edited is different — that one
+    # is exactly the confident error the pipeline is built to stop.
+    blocking = [issue for issue in blocking_issues(check) if issue.split(':')[0] in edited]
+    if blocking:
+        labels = profiles.ui_labels(profile_code)
+        names = [labels.get(name, name.replace('_', ' ')) for name in field_names(blocking)]
+        raise HTTPException(422, 'Fix before confirming: ' + ', '.join(names))
+    validation_warnings = [
+        issue
+        for issue in check['issues']
+        if issue.split(':')[0] in edited and issue not in blocking
+    ]
 
     # Duplicate suppression: a local history match needs no CRM call, and it
     # works when the CRM is unreachable or disabled.
@@ -747,11 +840,18 @@ def _confirm_in_files(payload: ConfirmPayload) -> dict:
         'destination_code': route_info['destination_code'],
         'route_reason': route_info['reason'],
         'source': meta.get('source', 'upload'),
+        'validation_warnings': validation_warnings,
     }
     with CONFIRMED.open('a', encoding='utf-8') as out:
         out.write(json.dumps(record, ensure_ascii=False) + '\n')
 
-    return {'ok': True, 'edited_fields': edited, 'record': record, 'crm': crm}
+    return {
+        'ok': True,
+        'edited_fields': edited,
+        'record': record,
+        'crm': crm,
+        'validation': {'blocking': [], 'warnings': validation_warnings},
+    }
 
 
 @app.get('/api/session')

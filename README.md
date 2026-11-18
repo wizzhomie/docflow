@@ -171,6 +171,8 @@ Everything is optional; the application starts with no CRM and no mailbox.
 | `DOCFLOW_IMAP_HOST`, `_PORT`, `_USER`, `_PASSWORD`, `_FOLDER`, `_INTERVAL`, `_SSL` | mailbox intake; empty host/user/password disables it |
 | `DOCFLOW_OCR_LANGS` | OCR languages, e.g. `ukr+eng`; default is the union of the registered profiles |
 | `DOCFLOW_ASSISTANT_URL` | optional URL of an assistant widget script shown on the pages; empty disables it |
+| `DOCFLOW_MAX_UPLOAD_MB` | upload size limit, enforced while the body is streaming (default 20) |
+| `DOCFLOW_MAX_PDF_PAGES` | page limit for one PDF (default 200); a page count is a cost bound, not a validity rule |
 
 Secrets live only in `.env` (git-ignored). `.env.example` documents the keys with empty values.
 
@@ -187,12 +189,41 @@ for suite in tests/test_*.py; do python3 "$suite" || exit 1; done
 `tests/test_*.py` covers duplicate suppression, impact maths, CRM matching and company
 mapping, the review queue, document-type detection, routing rules, roadmap data, the
 connector layer (Bitrix24 over a local fake HTTP server), mailbox intake (MIME parsing,
-retries, dedupe, login errors — over a local fake IMAP server), tenancy, sign-in, the
-request log and the two ways a demo becomes an incident: a request that becomes a path and
-a document that becomes markup. CI runs the same suites plus a Docker build on manual
-dispatch and on pull requests.
+retries, dedupe, login errors — over a local fake IMAP server), tenancy, sign-in, upload
+limits, the request log and the two ways a demo becomes an incident: a request that becomes
+a path and a document that becomes markup. CI runs the same suites plus a Docker build on
+manual dispatch and on pull requests.
+
+What the number means, because it is easy to read it as more than it is: 104 checks over 13
+fixtures is a regression baseline, not evidence of generalisation. The fixtures were used
+while the parser was being written, so the score says "nothing that worked broke", not "this
+reads any invoice". Measuring on documents the parser has never seen is the honest next step
+and is not done yet.
+
+The tenancy and sign-in suites need a database; in a CI run without one they skip instead of
+failing. The workflow starts PostgreSQL, applies `sql/` and connects as a role without
+`SUPERUSER` or `BYPASSRLS`, because the policies are enforced against a role that cannot
+ignore them — a superuser would make the test pass without testing anything.
 
 ## Data model in PostgreSQL
+
+### Where the file store ends and the database begins
+
+Two contours exist on purpose, and the line between them is stated here rather than left to
+be discovered:
+
+| | File store | PostgreSQL |
+| --- | --- | --- |
+| What it is | the product, as it runs today | the SaaS contour: tenancy, roles, sessions, a queue |
+| Owns | upload, extraction, review, history, exports | documents waiting for review, confirm, deal, audit event |
+| Isolation | one deployment, one workspace | row-level security per company |
+| Sign-in | none (the demo runs open) | password or Google, session in the database |
+
+The consequence is honest: a document uploaded today is confirmed in the database when a
+person is signed in, and its history row is still written to the file store. There is no
+single lifecycle that runs through the database from upload to history. Closing that gap —
+intake into `documents` instead of `data/pending` — is the next architectural step, not
+something this demo pretends to have done.
 
 The demo persists to files (`data/pending/*.json`, `data/confirmed.jsonl`). A PostgreSQL
 schema sits next to them as the destination for the same records, and `/api/pg/summary`
@@ -312,7 +343,11 @@ This is a prototype for a client demonstration, not a production platform:
   file-based demo, by design;
 - Bitrix24 works against a local fake of the REST protocol; a live portal check is pending;
 - Uspacy attachment upload and a payment task are not available in the test tenant API;
-- routing rules by supplier and several recipients per document are not implemented yet.
+- routing rules by supplier and several recipients per document are not implemented yet;
+- the confidence shown next to a field is an a-priori weight per anchor type (`0.95` for a
+  label found exactly, `0.85` for an OCR variant, `0.6` for a fallback), not a calibrated
+  probability of being right. The human review, not the number, is the safety net — and a
+  validated contradiction still halves the weight of the total and the VAT.
 
 ## Repository layout and documentation
 

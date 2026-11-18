@@ -11,6 +11,7 @@ place every future caller has to pass through.
 Run: python3 tests/test_security.py
 """
 
+import io
 import json
 import sys
 import tempfile
@@ -149,6 +150,155 @@ def test_a_viewer_gets_no_form_to_submit():
     assert 'denied' in html
 
 
+# --- what a request may cost ---------------------------------------------------
+
+
+def test_the_login_page_prints_the_error_instead_of_running_it():
+    client = TestClient(app.app, raise_server_exceptions=False)
+    response = client.get('/auth/login', params={'error': '<script>alert(1)</script>'})
+    assert response.status_code == 200
+    assert '<script>alert(1)</script>' not in response.text
+    assert '&lt;script&gt;alert(1)&lt;/script&gt;' in response.text
+
+
+def test_an_upload_over_the_limit_is_refused_while_streaming():
+    client = TestClient(app.app)
+    original = app.MAX_UPLOAD_BYTES
+    app.MAX_UPLOAD_BYTES = 1024
+    try:
+        payload = b'a' * 2048
+        response = client.post(
+            '/api/upload', files={'file': ('big.txt', payload, 'text/plain')}
+        )
+    finally:
+        app.MAX_UPLOAD_BYTES = original
+    assert response.status_code == 413
+    assert 'larger than' in response.json()['detail']
+    # The refused bytes must not stay on the disk: a refused upload is not a file.
+    assert not [p for p in app.UPLOADS.iterdir() if p.stat().st_size == 2048]
+
+
+def test_a_pdf_over_the_page_limit_is_refused_before_it_is_parsed():
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    for _ in range(3):
+        writer.add_blank_page(width=200, height=200)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+
+    client = TestClient(app.app)
+    original = app.MAX_PDF_PAGES
+    app.MAX_PDF_PAGES = 2
+    try:
+        response = client.post(
+            '/api/upload', files={'file': ('long.pdf', buffer.getvalue(), 'application/pdf')}
+        )
+    finally:
+        app.MAX_PDF_PAGES = original
+    assert response.status_code == 413
+    assert 'pages' in response.json()['detail']
+
+
+def test_the_page_count_is_read_without_extracting_text():
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    for _ in range(2):
+        writer.add_blank_page(width=200, height=200)
+    path = ROOT / 'two-pages.pdf'
+    with path.open('wb') as out:
+        writer.write(out)
+    assert app._pdf_page_count(path) == 2
+    assert app._pdf_page_count(ROOT / 'missing.pdf') is None
+
+
+def test_the_docker_context_does_not_carry_secrets():
+    ignore = (Path(__file__).resolve().parents[1] / '.dockerignore').read_text(encoding='utf-8')
+    for entry in ('.env', 'data/', 'memory/'):
+        assert entry in ignore, f'{entry} would travel into the image'
+
+
+# --- a typo in a reviewed field -------------------------------------------------
+
+
+def test_a_malformed_edit_is_refused_before_it_reaches_the_crm():
+    doc_id = uuid.uuid4().hex[:10]
+    fields = {
+        'number': '2026-888',
+        'date': '2026-12-02',
+        'supplier': 'ТОВ «Тест»',
+        'tax_id': '12345678',
+        'total': 500.0,
+        'vat': 0.0,
+        'currency': 'UAH',
+    }
+    meta = {
+        'id': doc_id,
+        'filename': 'invoice-888.pdf',
+        'uploaded_at': '2026-12-02T09:00:00+00:00',
+        'source': 'upload',
+        'parsed': {
+            'type': 'invoice_ua',
+            'type_label': 'Invoice',
+            'doc_title': 'Рахунок',
+            'fields': {key: {'value': value, 'confidence': 0.9} for key, value in fields.items()},
+            'issues': [],
+            'confidence': 0.9,
+            'text_preview': 'Рахунок № 2026-888',
+        },
+    }
+    app._meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
+
+    client = TestClient(app.app)
+    response = client.post('/api/confirm', json={'id': doc_id, 'fields': {'tax_id': 'not-a-tax-id'}})
+    assert response.status_code == 422
+    assert 'Tax ID' in response.json()['detail']
+    written = [line for line in app.CONFIRMED.read_text(encoding='utf-8').splitlines() if line]
+    assert not [row for row in map(json.loads, written) if row.get('id') == doc_id]
+
+    # The same document with a sane value goes through, and the warning field is
+    # present so the UI can say what it ignored.
+    ok = client.post('/api/confirm', json={'id': doc_id, 'fields': {'number': '2026-889'}})
+    assert ok.status_code == 200
+    assert ok.json()['validation']['blocking'] == []
+
+
+def test_an_invariant_that_is_not_a_typo_is_stored_as_a_warning():
+    doc_id = uuid.uuid4().hex[:10]
+    fields = {
+        'number': '2026-890',
+        'date': '2026-12-03',
+        'supplier': 'ТОВ «Тест»',
+        'tax_id': '12345678',
+        'total': 500.0,
+        'vat': 0.0,
+        'currency': 'UAH',
+    }
+    meta = {
+        'id': doc_id,
+        'filename': 'invoice-890.pdf',
+        'uploaded_at': '2026-12-03T09:00:00+00:00',
+        'source': 'upload',
+        'parsed': {
+            'type': 'invoice_ua',
+            'type_label': 'Invoice',
+            'doc_title': 'Рахунок',
+            'fields': {key: {'value': value, 'confidence': 0.9} for key, value in fields.items()},
+            'issues': [],
+            'confidence': 0.9,
+            'text_preview': 'Рахунок № 2026-890',
+        },
+    }
+    app._meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
+    answer = TestClient(app.app).post(
+        '/api/confirm', json={'id': doc_id, 'fields': {'vat': 12.5}}
+    ).json()
+    assert answer['ok'] is True
+    assert answer['validation']['warnings'], 'a mismatched VAT must be stored, not dropped'
+    assert answer['record']['validation_warnings']
+
+
 # --- one source of truth for the numbers --------------------------------------
 
 
@@ -236,8 +386,13 @@ def test_a_second_confirmation_at_the_same_moment_is_not_a_second_deal():
     assert len(answers) == 4
     duplicates = [answer for answer in answers if answer['crm'].get('duplicate')]
     assert len(duplicates) == 3, 'a simultaneous second click must be answered as a duplicate'
-    written = [json.loads(line) for line in app.CONFIRMED.read_text(encoding='utf-8').splitlines() if line]
-    assert len(written) == 4, 'every click is recorded, the duplicate flag is what marks it'
+    written = [
+        json.loads(line)
+        for line in app.CONFIRMED.read_text(encoding='utf-8').splitlines()
+        if line
+    ]
+    mine = [row for row in written if row.get('id') == doc_id]
+    assert len(mine) == 4, 'every click is recorded, the duplicate flag is what marks it'
 
 
 def test_the_confirm_holds_the_lock_across_the_check_and_the_write():

@@ -15,6 +15,30 @@ from profiles import DEFAULT_PROFILE
 EMAIL_RE = re.compile(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}')
 PHONE_DIGITS_RE = re.compile(r'\d{11,13}')
 
+# Which invariants refuse a confirmation and which only warn. A value that is
+# not what it claims to be (a tax id that is not a tax id, a date that is not a
+# date) would corrupt every record downstream, so it must be fixed before the
+# deal is written. A VAT that disagrees with the amount can be legitimate — a
+# different rate, a rounding rule — so it is reported and stored, not refused.
+BLOCKING_FIELDS = frozenset(
+    {'number', 'date', 'supplier', 'tax_id', 'total', 'currency', 'email', 'phone', 'iban'}
+)
+
+
+def blocking_issues(result: dict) -> list[str]:
+    """The issues that must stop a write, out of a `validate` result."""
+    return [issue for issue in result['issues'] if issue.split(':')[0] in BLOCKING_FIELDS]
+
+
+def field_names(issues: list[str]) -> list[str]:
+    """The field names behind issue strings, for a message a person can act on."""
+    names: list[str] = []
+    for issue in issues:
+        name = issue.split(':')[0]
+        if name not in names:
+            names.append(name)
+    return names
+
 
 def _optional(value, check):
     # Absent requisites are normal; only a malformed value is a problem.

@@ -30,6 +30,8 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from psycopg2.extras import RealDictCursor
 
+from webutil import esc
+
 router = APIRouter(tags=["auth"])
 
 DSN = os.environ.get("DOCFLOW_PG_DSN", "dbname=docflow_dev")
@@ -237,12 +239,13 @@ button:hover{filter:brightness(1.08)}
 
 
 def _page(title: str, body: str) -> str:
+    safe_title = esc(title)
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DocFlow · {title}</title><style>{STYLE}</style></head>
+<title>DocFlow · {safe_title}</title><style>{STYLE}</style></head>
 <body><div class="shell">
   <div class="brand"><span class="mark"></span><b>DocFlow</b></div>
-  <div class="wrap"><h1>{title}</h1>{body}</div>
+  <div class="wrap"><h1>{safe_title}</h1>{body}</div>
   <div class="foot"><a href="/">← back to the overview</a></div>
 </div></body></html>"""
 
@@ -269,7 +272,9 @@ def google_configured() -> bool:
 def login_page(request: Request, next: str | None = None, error: str | None = None) -> Any:
     if session_person(request) is not None:
         return RedirectResponse(_next_path(next), status_code=303)
-    message = f'<div class="error">{error}</div>' if error else ""
+    # `error` arrives in the query string, so it is hostile by construction: a
+    # link like `/auth/login?error=<script>…` must print, not run.
+    message = f'<div class="error">{esc(error)}</div>' if error else ""
     google = (
         '<a class="google" href="/auth/google">Continue with Google</a>'
         if google_configured()
@@ -282,7 +287,7 @@ def login_page(request: Request, next: str | None = None, error: str | None = No
         f'<input id="email" name="email" type="email" autocomplete="username" required>'
         f'<label for="password">Password</label>'
         f'<input id="password" name="password" type="password" autocomplete="current-password" required>'
-        f'<input type="hidden" name="next" value="{_next_path(next)}">'
+        f'<input type="hidden" name="next" value="{esc(_next_path(next))}">'
         f'<button type="submit">Sign in</button></form>{google}'
     )
     return _page("Sign in", body)

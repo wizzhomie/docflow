@@ -37,6 +37,21 @@ def test_a_reviewer_and_an_owner_can_confirm():
     assert pg_queue.can_confirm('owner')
 
 
+def test_a_field_carries_the_confidence_it_was_read_with():
+    """The queue used to answer ``1.0`` for every field, which told a reviewer the
+    parser was certain about values it had guessed."""
+    parsed = {
+        'fields': {
+            'total': {'value': 100.0, 'confidence': 0.6},
+            'number': {'value': '7'},
+        },
+        'confidence': 0.82,
+    }
+    assert pg_queue._field_confidence(parsed, 'total') == 0.6
+    assert pg_queue._field_confidence(parsed, 'number') == 0.82
+    assert pg_queue._field_confidence({'fields': {'x': {'value': 1}}}, 'x') is None
+
+
 def test_an_unknown_role_cannot_confirm():
     assert not pg_queue.can_confirm('')
     assert not pg_queue.can_confirm('admin')

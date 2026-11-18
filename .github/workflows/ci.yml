@@ -12,6 +12,28 @@ jobs:
   tests:
     runs-on: ubuntu-latest
 
+    # The tenancy and sign-in suites need a real database: they are the proof of
+    # the row-level policies, and a run without one silently skips them.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: docflow_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # The role is created below without SUPERUSER and without BYPASSRLS: a
+      # superuser would satisfy every policy without the policy doing anything.
+      DOCFLOW_PG_DSN: "host=127.0.0.1 port=5432 dbname=docflow_dev user=docflow password=docflow"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,6 +53,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Prepare PostgreSQL
+        run: |
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE docflow LOGIN PASSWORD 'docflow' NOSUPERUSER NOBYPASSRLS;"
+          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d docflow_dev -v ON_ERROR_STOP=1 \
+            -c "GRANT ALL ON SCHEMA public TO docflow;"
+          for file in sql/001_schema.sql sql/002_service_tables.sql sql/003_multi_tenant.sql \
+                      sql/004_roles_and_company_settings.sql sql/005_auth.sql; do
+            echo "== $file"
+            PGPASSWORD=docflow psql -h 127.0.0.1 -U docflow -d docflow_dev -v ON_ERROR_STOP=1 \
+              -q -f "$file"
+          done
+          # If this ever prints t, the isolation suite has stopped testing isolation.
+          PGPASSWORD=docflow psql -h 127.0.0.1 -U docflow -d docflow_dev -tAc \
+            "select rolsuper, rolbypassrls from pg_roles where rolname = current_user" \
+            | grep -q 'f|f'
 
       - name: Parser regression
         run: |
