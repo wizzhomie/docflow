@@ -195,6 +195,7 @@ answers straight from the database, so the two can be compared side by side.
 sql/001_schema.sql          suppliers, supplier_contacts, documents, document_items,
                             deals, document_events
 sql/002_service_tables.sql  settings: named values with an explicit type
+sql/003_multi_tenant.sql    companies, users and the row-level isolation policy
 tools/import_demo_to_pg.py  loads the demo files into the schema
 pg_report.py                /api/pg/summary and /api/pg/
 ```
@@ -210,7 +211,18 @@ The decisions worth naming:
   `document_events`; derived numbers such as counts and line-item totals are computed on
   query, never stored;
 - settings are one row per value with a `value_type` column, so the database itself
-  rejects "thirty" in a numeric setting, whoever writes it.
+  rejects "thirty" in a numeric setting, whoever writes it;
+- `companies` and `users` are the platform layer; every business row carries a
+  `company_id`, and isolation is a row-level policy inside the database with
+  `FORCE ROW LEVEL SECURITY`. A query that forgets a filter returns nothing instead of
+  another company's rows: the connection states which company it serves, and the counts,
+  the uniqueness rules and the writes all obey it.
+
+`tests/test_tenancy.py` proves the isolation instead of describing it: a second company
+sees an empty list, cannot read a foreign supplier, cannot write a row stamped with
+someone else's id, and may reuse a tax ID that another company already holds. The test
+skips itself when PostgreSQL is not reachable, so the deterministic suite still runs
+without a database.
 
 Load and read it:
 
@@ -228,8 +240,8 @@ This is a prototype for a client demonstration, not a production platform:
 - three document profiles are implemented (Ukrainian invoice, act and delivery note);
   other markets need a profile each, and the review form is one fixed field set rather
   than profile-specific;
-- one workspace and one configured mailbox/CRM at a time; there are no accounts, roles or
-  audit yet;
+- the review workspace itself has no login yet: it runs as one company, while companies,
+  roles and isolation live in the schema and are covered by tests;
 - the app has no authentication of its own and is published to a private tailnet only;
 - Bitrix24 works against a local fake of the REST protocol; a live portal check is pending;
 - Uspacy attachment upload and a payment task are not available in the test tenant API;

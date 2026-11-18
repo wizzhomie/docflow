@@ -3,6 +3,10 @@
 Pilot wiring: the review workflow still runs on files; these endpoints answer
 questions straight from the `docflow_dev` schema so the two can be compared.
 Connection uses the OS user via peer authentication on the local socket.
+
+Every query runs inside one tenant. The tenant is not named in the SQL: the
+connection says who it is serving, and the row-level policies in the database
+hide everything else. `GET /api/pg/summary?company=2` answers as that company.
 """
 
 from __future__ import annotations
@@ -11,26 +15,35 @@ import os
 from typing import Any
 
 import psycopg2
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from psycopg2.extras import RealDictCursor
 
 router = APIRouter(prefix="/api/pg", tags=["pg"])
 DSN = os.environ.get("DOCFLOW_PG_DSN", "dbname=docflow_dev")
+DEFAULT_COMPANY = int(os.environ.get("DOCFLOW_COMPANY_ID", "1"))
 
 
-def _rows(sql: str) -> list[dict[str, Any]]:
+def _rows(sql: str, company: int | None = None) -> list[dict[str, Any]]:
+    tenant = DEFAULT_COMPANY if company is None else company
     try:
         with psycopg2.connect(DSN) as connection:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT set_config('app.company_id', %s, true)", (str(tenant),))
                 cursor.execute(sql)
                 return [dict(row) for row in cursor.fetchall()]
     except psycopg2.Error as error:
         raise HTTPException(status_code=503, detail="PostgreSQL is unavailable") from error
 
 
+@router.get("/companies")
+def companies() -> list[dict[str, Any]]:
+    """The platform layer: which companies exist. Not filtered by any policy."""
+    return _rows("SELECT id, name, slug FROM companies ORDER BY id", company=1)
+
+
 @router.get("/summary")
-def summary() -> dict[str, Any]:
+def summary(company: int = Query(DEFAULT_COMPANY, ge=1)) -> dict[str, Any]:
     """Supplier totals, document counts and the manual-edit marker."""
     suppliers = _rows(
         """
@@ -41,14 +54,16 @@ def summary() -> dict[str, Any]:
         LEFT JOIN documents d ON d.supplier_id = s.id
         GROUP BY s.name
         ORDER BY total DESC
-        """
+        """,
+        company,
     )
     stats = _rows(
         """
         SELECT count(*) AS documents,
                count(*) FILTER (WHERE edited_fields IS NOT NULL) AS edited
         FROM documents
-        """
+        """,
+        company,
     )[0]
     types = _rows(
         """
@@ -56,15 +71,25 @@ def summary() -> dict[str, Any]:
         FROM documents
         GROUP BY doc_type
         ORDER BY total DESC
-        """
+        """,
+        company,
     )
     return {"suppliers": suppliers, "stats": stats, "types": types}
 
 
 @router.get("/", response_class=HTMLResponse)
-def page() -> str:
+def page(company: int = Query(DEFAULT_COMPANY, ge=1)) -> str:
     """One readable page with the same numbers, for the browser."""
-    data = summary()
+    data = summary(company)
+    known = companies()
+    current = next((item for item in known if item['id'] == company), None)
+    label = current['name'] if current else f'company {company}'
+    switcher = ' · '.join(
+        f'<a href="?company={item["id"]}">{item["name"]}</a>'
+        if item['id'] != company
+        else f'<strong>{item["name"]}</strong>'
+        for item in known
+    )
     rows = "".join(
         f"<tr><td>{item['supplier']}</td><td>{item['documents']}</td>"
         f"<td>{float(item['total']):,.0f}</td></tr>".replace(",", " ")
@@ -88,7 +113,7 @@ td:nth-child(2),td:nth-child(3),th:nth-child(2),th:nth-child(3){{text-align:righ
 .pill{{display:inline-block;background:#efece7;border-radius:999px;padding:2px 10px;font-size:12px;margin-left:6px}}
 </style></head><body>
 <h1>PostgreSQL report</h1>
-<div class="sub">docflow_dev · {stats['documents']} documents, {stats['edited']} edited by a human</div>
+<div class="sub">{label} · {stats['documents']} documents, {stats['edited']} edited by a human<br><span class="pill">tenant</span> {switcher}</div>
 <table><tr><th>Supplier</th><th>Documents</th><th>Total, UAH</th></tr>{rows}</table>
 <table><tr><th>Document type</th><th>Documents</th><th>Total, UAH</th></tr>{types}</table>
 </body></html>"""
