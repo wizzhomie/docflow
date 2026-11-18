@@ -40,7 +40,14 @@ CREATE TABLE IF NOT EXISTS public.schema_migrations (
 )
 """
 
-RESET_SEARCH_PATH = "SELECT set_config('search_path', 'public', false)"
+# A dump resets `search_path` and `row_security` for the session; both must be
+# restored after each file, or the next migration runs with an empty search path
+# and with the policies switched off — which is how a data migration silently
+# updates nothing.
+RESET_SESSION = (
+    "SELECT set_config('search_path', 'public', false), "
+    "set_config('row_security', 'on', false)"
+)
 
 
 def migrations(directory: Path = SQL_DIR) -> list[Path]:
@@ -81,7 +88,7 @@ def apply_one(connection, path: Path) -> None:
     sql = without_meta_commands(path.read_text(encoding='utf-8'))
     with connection.cursor() as cursor:
         cursor.execute(sql)
-        cursor.execute(RESET_SEARCH_PATH)
+        cursor.execute(RESET_SESSION)
         cursor.execute(
             'INSERT INTO public.schema_migrations (version) VALUES (%s)', (path.name,)
         )
