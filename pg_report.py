@@ -19,19 +19,18 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from psycopg2.extras import RealDictCursor
 
+import db
 from webutil import esc, shown
 
 router = APIRouter(prefix="/api/pg", tags=["pg"])
-DSN = os.environ.get("DOCFLOW_PG_DSN", "dbname=docflow_dev")
 DEFAULT_COMPANY = int(os.environ.get("DOCFLOW_COMPANY_ID", "1"))
 
 
 def _rows(sql: str, company: int | None = None) -> list[dict[str, Any]]:
     tenant = DEFAULT_COMPANY if company is None else company
     try:
-        with psycopg2.connect(DSN) as connection:
+        with db.tenant(tenant) as connection:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute("SELECT set_config('app.company_id', %s, true)", (str(tenant),))
                 cursor.execute(sql)
                 return [dict(row) for row in cursor.fetchall()]
     except psycopg2.Error as error:

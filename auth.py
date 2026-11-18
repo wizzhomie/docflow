@@ -25,16 +25,15 @@ from typing import Any
 from urllib.parse import urlencode
 
 import httpx
-import psycopg2
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from psycopg2.extras import RealDictCursor
 
+import db
 from webutil import esc
 
 router = APIRouter(tags=["auth"])
 
-DSN = os.environ.get("DOCFLOW_PG_DSN", "dbname=docflow_dev")
 COOKIE = "docflow_session"
 STATE_COOKIE = "docflow_oauth_state"
 
@@ -99,13 +98,6 @@ def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def _connect():
-    try:
-        return psycopg2.connect(DSN)
-    except psycopg2.Error as error:  # pragma: no cover - environment dependent
-        raise HTTPException(status_code=503, detail="PostgreSQL is unavailable") from error
-
-
 def _client(request: Request) -> tuple[str, str]:
     ip = request.client.host if request.client else ""
     return ip, request.headers.get("user-agent", "")[:200]
@@ -113,45 +105,33 @@ def _client(request: Request) -> tuple[str, str]:
 
 def record_event(email: str, method: str, outcome: str, request: Request, detail: str = "") -> None:
     ip, agent = _client(request)
-    connection = _connect()
-    try:
-        with connection, connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO auth_events (email, method, outcome, ip, user_agent, detail) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (email.lower()[:200], method, outcome, ip, agent, detail[:200]),
-            )
-    finally:
-        connection.close()
+    with db.connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO auth_events (email, method, outcome, ip, user_agent, detail) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (email.lower()[:200], method, outcome, ip, agent, detail[:200]),
+        )
 
 
 def recent_failures(email: str) -> int:
-    connection = _connect()
-    try:
-        with connection, connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT count(*) FROM auth_events WHERE email = %s AND outcome = 'denied' "
-                "AND at > now() - interval '%s minutes'",
-                (email.lower(), FAILURE_WINDOW_MINUTES),
-            )
-            return cursor.fetchone()[0]
-    finally:
-        connection.close()
+    with db.connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) FROM auth_events WHERE email = %s AND outcome = 'denied' "
+            "AND at > now() - interval '%s minutes'",
+            (email.lower(), FAILURE_WINDOW_MINUTES),
+        )
+        return cursor.fetchone()[0]
 
 
 def create_session(user_id: int, request: Request, method: str = "password") -> str:
     token = secrets.token_urlsafe(32)
     ip, agent = _client(request)
-    connection = _connect()
-    try:
-        with connection, connection.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO sessions (user_id, token_hash, expires_at, user_agent, ip) "
-                "VALUES (%s, %s, now() + interval '%s hours', %s, %s)",
-                (user_id, token_hash(token), SESSION_HOURS, agent, ip),
-            )
-    finally:
-        connection.close()
+    with db.connection() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO sessions (user_id, token_hash, expires_at, user_agent, ip) "
+            "VALUES (%s, %s, now() + interval '%s hours', %s, %s)",
+            (user_id, token_hash(token), SESSION_HOURS, agent, ip),
+        )
     return token
 
 
@@ -159,12 +139,8 @@ def end_session(request: Request) -> None:
     token = request.cookies.get(COOKIE)
     if not token:
         return
-    connection = _connect()
-    try:
-        with connection, connection.cursor() as cursor:
-            cursor.execute("DELETE FROM sessions WHERE token_hash = %s", (token_hash(token),))
-    finally:
-        connection.close()
+    with db.connection() as connection, connection.cursor() as cursor:
+        cursor.execute("DELETE FROM sessions WHERE token_hash = %s", (token_hash(token),))
 
 
 def session_person(request: Request) -> dict[str, Any] | None:
@@ -172,35 +148,31 @@ def session_person(request: Request) -> dict[str, Any] | None:
     token = request.cookies.get(COOKIE)
     if not token:
         return None
-    connection = _connect()
-    try:
-        with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(
-                """
-                SELECT u.id, u.email, u.full_name, u.role, u.company_id, c.name AS company_name,
-                       s.expires_at
-                FROM sessions s
-                JOIN users u ON u.id = s.user_id
-                JOIN companies c ON c.id = u.company_id
-                WHERE s.token_hash = %s AND s.expires_at > now()
-                """,
-                (token_hash(token),),
-            )
-            row = cursor.fetchone()
-            if not row:
-                return None
-            cursor.execute(
-                "UPDATE sessions SET last_seen_at = now() WHERE token_hash = %s "
-                "AND last_seen_at < now() - interval '5 minutes'",
-                (token_hash(token),),
-            )
-            # The request log reads these: a line that names the person and the
-            # company answers "who did it" without opening another query.
-            request.state.user = row["email"]
-            request.state.company = row["company_name"]
-            return dict(row)
-    finally:
-        connection.close()
+    with db.connection() as connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
+        cursor.execute(
+            """
+            SELECT u.id, u.email, u.full_name, u.role, u.company_id, c.name AS company_name,
+                   s.expires_at
+            FROM sessions s
+            JOIN users u ON u.id = s.user_id
+            JOIN companies c ON c.id = u.company_id
+            WHERE s.token_hash = %s AND s.expires_at > now()
+            """,
+            (token_hash(token),),
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+        cursor.execute(
+            "UPDATE sessions SET last_seen_at = now() WHERE token_hash = %s "
+            "AND last_seen_at < now() - interval '5 minutes'",
+            (token_hash(token),),
+        )
+        # The request log reads these: a line that names the person and the
+        # company answers "who did it" without opening another query.
+        request.state.user = row["email"]
+        request.state.company = row["company_name"]
+        return dict(row)
 
 
 # --- pages ---------------------------------------------------------------------
@@ -307,15 +279,11 @@ def login_submit(
             "/auth/login?error=Too+many+attempts.+Try+again+in+fifteen+minutes", status_code=303
         )
 
-    connection = _connect()
-    try:
-        with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(
-                "SELECT id, password_hash, role FROM users WHERE lower(email) = %s", (normalised,)
-            )
-            row = cursor.fetchone()
-    finally:
-        connection.close()
+    with db.connection() as connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
+        cursor.execute(
+            "SELECT id, password_hash, role FROM users WHERE lower(email) = %s", (normalised,)
+        )
+        row = cursor.fetchone()
 
     # Same answer for "no such person" and "wrong password": a login form that
     # tells an attacker which e-mails exist is an account enumeration leak.
@@ -417,25 +385,21 @@ def google_callback(request: Request, code: str = "", state: str = "", error: st
         record_event(email, "google", "denied", request, detail="unverified email")
         return RedirectResponse("/auth/login?error=Google+account+has+no+verified+e-mail", status_code=303)
 
-    connection = _connect()
-    try:
-        with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("SELECT id FROM users WHERE lower(email) = %s", (email,))
-            row = cursor.fetchone()
-            if row is None:
-                # An unknown Google account joins nobody: being able to prove an
-                # e-mail address is not the same as belonging to a company.
-                record_event(email, "google", "denied", request, detail="no such person")
-                return RedirectResponse(
-                    "/auth/login?error=This+e-mail+is+not+invited+to+any+company", status_code=303
-                )
-            cursor.execute(
-                "UPDATE users SET google_sub = coalesce(google_sub, %s) WHERE id = %s",
-                (subject, row["id"]),
+    with db.connection() as connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
+        cursor.execute("SELECT id FROM users WHERE lower(email) = %s", (email,))
+        row = cursor.fetchone()
+        if row is None:
+            # An unknown Google account joins nobody: being able to prove an
+            # e-mail address is not the same as belonging to a company.
+            record_event(email, "google", "denied", request, detail="no such person")
+            return RedirectResponse(
+                "/auth/login?error=This+e-mail+is+not+invited+to+any+company", status_code=303
             )
-            user_id = row["id"]
-    finally:
-        connection.close()
+        cursor.execute(
+            "UPDATE users SET google_sub = coalesce(google_sub, %s) WHERE id = %s",
+            (subject, row["id"]),
+        )
+        user_id = row["id"]
 
     token = create_session(user_id, request, method="google")
     record_event(email, "google", "ok", request)

@@ -18,6 +18,7 @@ import json
 import logging
 import logging.handlers
 import os
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -42,6 +43,30 @@ COOKIE = "docflow_session"
 
 logger = logging.getLogger("docflow")
 access_logger = logging.getLogger("docflow.access")
+
+# Process counters for /api/metrics. A lock, not a clever atomic: the point is
+# that two threads adding one each never lose one, and that costs nothing here.
+_COUNTERS = {"requests": 0, "client_errors": 0, "server_errors": 0}
+_COUNTERS_LOCK = threading.Lock()
+_STARTED_AT = time.time()
+
+
+def count_request(status: int) -> None:
+    """One request finished: count it, and count it as a failure if it was one."""
+    with _COUNTERS_LOCK:
+        _COUNTERS["requests"] += 1
+        if status >= 500:
+            _COUNTERS["server_errors"] += 1
+        elif status >= 400:
+            _COUNTERS["client_errors"] += 1
+
+
+def counters() -> dict[str, int]:
+    """What this process has served since it started."""
+    with _COUNTERS_LOCK:
+        snapshot = dict(_COUNTERS)
+    snapshot["uptime_seconds"] = int(time.time() - _STARTED_AT)
+    return snapshot
 
 
 class JsonFormatter(logging.Formatter):
@@ -131,6 +156,7 @@ def install(app: FastAPI) -> dict[str, bool]:
             response = await call_next(request)
         except Exception:
             duration = round((time.perf_counter() - started) * 1000, 1)
+            count_request(500)
             user, company = _person(request)
             access_logger.exception(
                 "request failed",
@@ -161,6 +187,7 @@ def install(app: FastAPI) -> dict[str, bool]:
                 "company": company,
             },
         )
+        count_request(response.status_code)
         response.headers["X-Request-Id"] = request_id
         return response
 

@@ -16,9 +16,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+import db
 import mailbox
 import profiles
 import routing
@@ -107,12 +108,28 @@ async def lifespan(app: FastAPI):
         uspacy.start_retry_worker()
     watcher = asyncio.create_task(_folder_watcher())
     mail_watcher = asyncio.create_task(_mailbox_worker())
+    # The background worker runs in this process so a demonstration does not need
+    # a second terminal; `python3 -m worker` runs the same code as another process.
+    worker_stop = None
+    if os.environ.get('DOCFLOW_JOBS', 'on').strip().lower() not in {'0', 'false', 'off', 'no'}:
+        try:
+            import tasks  # noqa: F401  (importing registers the job handlers)
+            import worker
+
+            _, worker_stop = worker.start()
+        except ImportError:  # pragma: no cover - depends on the environment
+            worker_stop = None
     try:
         yield
     finally:
         watcher.cancel()
         mail_watcher.cancel()
         uspacy.stop_retry_worker()
+        if worker_stop is not None:
+            worker_stop.set()
+        # The pool belongs to the process: closing it here means a reload or a
+        # restart does not leave sessions behind on the database.
+        db.close_pool()
 
 
 app = FastAPI(title='DocFlow', lifespan=lifespan)
@@ -1044,10 +1061,50 @@ def health():
     return {'status': 'ok', 'time': _now(), 'ts': time.time()}
 
 
+def _file_counts() -> dict[str, int]:
+    """What the file store holds: how many are waiting and how many were confirmed."""
+    confirmed = _read_confirmed()
+    ids = {row.get('id') for row in confirmed}
+    waiting = sum(1 for path in PENDING.glob('*.json') if path.stem not in ids)
+    return {'waiting': waiting, 'confirmed': len(ids)}
+
+
+@app.get('/api/metrics')
+def metrics_snapshot(format: str = 'json'):
+    """What this process is carrying: the queue, the pool, the tenants, the requests.
+
+    JSON for a person, `?format=prometheus` for a scraper. Without a database the
+    answer still comes back: the file store is the product, and a metrics endpoint
+    that fails is worse than one that says zero.
+    """
+    files = _file_counts()
+    try:
+        import metrics as metrics_module
+    except ImportError:  # pragma: no cover - the driver is optional
+        data = {
+            'process': observability.counters(),
+            'pool': {},
+            'queue': {},
+            'tenants': [],
+            'files': files,
+        }
+        if format == 'prometheus':
+            return PlainTextResponse(
+                f'docflow_files_waiting {files["waiting"]}\n'
+                f'docflow_files_confirmed {files["confirmed"]}\n'
+            )
+        return data
+    data = metrics_module.snapshot(files)
+    if format == 'prometheus':
+        return PlainTextResponse(metrics_module.prometheus(data))
+    return data
+
+
 @app.get('/api/health/detail')
 def health_detail():
     """What the service has wired: the log file and error reporting."""
     detail = {'status': 'ok', 'observability': observability.status()}
+    detail['pool'] = db.status()
     if auth is not None:
         detail['auth'] = auth.status()
     return detail

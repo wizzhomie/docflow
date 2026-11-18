@@ -17,7 +17,6 @@ where a company value overrides the platform default.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 from urllib.parse import quote
 
@@ -27,13 +26,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from psycopg2.extras import Json, RealDictCursor
 
 import auth
+import db
 import profiles
 import routing
 from validation import blocking_issues, field_names, validate
 from webutil import esc, shown
 
 router = APIRouter(prefix="/pg", tags=["pg-queue"])
-DSN = os.environ.get("DOCFLOW_PG_DSN", "dbname=docflow_dev")
 STYLE = """
 body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:36px;background:#faf9f7;color:#1d1b1a}
 h1{font-size:21px;margin:0 0 4px} h2{font-size:16px;margin:28px 0 10px}
@@ -107,29 +106,20 @@ def _amount(value: Any, currency: str | None) -> str:
     return esc(f"{text} {currency}".strip())
 
 
-def _connect() -> psycopg2.extensions.connection:
+def _rows(user: dict[str, Any], sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+    """Read inside the tenant of that person, in one transaction.
+
+    The company is set by `db.tenant`, which scopes it to the transaction: a
+    connection that goes back to the pool carries no tenant at all, so the next
+    request cannot inherit this one's company.
+    """
     try:
-        return psycopg2.connect(DSN)
+        with db.tenant(user["company_id"]) as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(sql, params)
+                return [dict(row) for row in cursor.fetchall()]
     except psycopg2.Error as error:
         raise HTTPException(status_code=503, detail="PostgreSQL is unavailable") from error
-
-
-def _tenant(user: dict[str, Any]):
-    """A connection that has told the database which company it serves."""
-    connection = _connect()
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT set_config('app.company_id', %s, false)", (str(user["company_id"]),))
-    return connection
-
-
-def _rows(user: dict[str, Any], sql: str, params: tuple = ()) -> list[dict[str, Any]]:
-    connection = _tenant(user)
-    try:
-        with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(sql, params)
-            return [dict(row) for row in cursor.fetchall()]
-    finally:
-        connection.close()
 
 
 def _threshold(user: dict[str, Any]) -> float:
@@ -299,10 +289,14 @@ async def confirm(doc_id: int, request: Request) -> Any:
 
     form = await request.form()
     submitted = {key: str(form.get(key, "")).strip() for key in ("number", "doc_date", "total", "currency")}
+    # Read the company's threshold before the write transaction opens: a second
+    # connection inside the first one is how a pool with one connection deadlocks.
+    threshold = _threshold(person)
 
-    connection = _tenant(person)
     try:
-        with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
+        with db.tenant(person["company_id"]) as connection, connection.cursor(
+            cursor_factory=RealDictCursor
+        ) as cursor:
             cursor.execute(
                 """
                 SELECT d.id, d.doc_type, d.number, d.doc_date, d.total, d.vat, d.currency, d.status,
@@ -375,7 +369,7 @@ async def confirm(doc_id: int, request: Request) -> Any:
             destination = routing.route(
                 current["doc_type"],
                 {"total": submitted["total"] or current["total"]},
-                threshold=_threshold(person),
+                threshold=threshold,
             )
 
             cursor.execute(
@@ -411,8 +405,8 @@ async def confirm(doc_id: int, request: Request) -> Any:
         return RedirectResponse(
             f"/pg/queue/{doc_id}?invalid={quote(str(refused))}", status_code=303
         )
-    finally:
-        connection.close()
+    except psycopg2.Error as error:
+        raise HTTPException(status_code=503, detail="PostgreSQL is unavailable") from error
 
     return RedirectResponse("/pg/queue?ok=1", status_code=303)
 
@@ -539,9 +533,11 @@ def confirm_document(person: dict[str, Any], doc_id: str, submitted: dict[str, A
         raise HTTPException(status_code=404, detail="No such document in this company")
 
     deal_id: int | None = None
-    connection = _tenant(person)
+    threshold = _threshold(person)
     try:
-        with connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
+        with db.tenant(person["company_id"]) as connection, connection.cursor(
+            cursor_factory=RealDictCursor
+        ) as cursor:
             cursor.execute(
                 """
                 SELECT id, doc_type, number, doc_date, total, currency, status, parsed
@@ -587,7 +583,7 @@ def confirm_document(person: dict[str, Any], doc_id: str, submitted: dict[str, A
                 ),
             )
 
-            destination = routing.route(current["doc_type"], effective, threshold=_threshold(person))
+            destination = routing.route(current["doc_type"], effective, threshold=threshold)
 
             cursor.execute(
                 """
@@ -616,8 +612,8 @@ def confirm_document(person: dict[str, Any], doc_id: str, submitted: dict[str, A
                     }),
                 ),
             )
-    finally:
-        connection.close()
+    except psycopg2.Error as error:
+        raise HTTPException(status_code=503, detail="PostgreSQL is unavailable") from error
 
     return {
         "ok": True,

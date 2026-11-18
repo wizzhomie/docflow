@@ -336,7 +336,52 @@ class FailedDeal:
     created_at: float = 0.0
 
 
+def retry_deal_payload(payload: dict) -> dict:
+    """Send a deal payload once, with the same token refresh a first attempt gets.
+
+    One place knows how to re-send a deal: the confirm, the retry worker and the
+    database-backed job all call it, so a retry cannot drift from the original
+    request.
+    """
+    res = _post('/crm/v1/entities/deals', payload)
+    if res.status_code == 401 and EMAIL and PASSWORD:
+        _sign_in()
+        res = _post('/crm/v1/entities/deals', payload)
+    res.raise_for_status()
+    return res.json()
+
+
+def _enqueue_retry(deal: FailedDeal) -> bool:
+    """Put the failed deal in the database queue, if there is a database.
+
+    Lazy import: the file-based demo runs on a machine without PostgreSQL, and a
+    module that cannot be imported must not stop the process from starting.
+    """
+    try:
+        import jobqueue
+    except ImportError:
+        return False
+    try:
+        jobqueue.enqueue(
+            company_id=int(os.environ.get('DOCFLOW_DEFAULT_COMPANY', '1')),
+            kind='crm.deal',
+            payload={'deal': deal.payload},
+            delay_seconds=30,
+        )
+        return True
+    except Exception:  # noqa: BLE001 - no database, no queue: fall back to the file
+        return False
+
+
 def _save_failed_deal(deal: FailedDeal) -> None:
+    """Keep a failed deal where a worker can find it.
+
+    The database queue when there is one — durable across a restart, drainable by a
+    second process, with the attempt count kept — and the JSONL file when there is
+    not, because the demo must keep working without PostgreSQL.
+    """
+    if _enqueue_retry(deal):
+        return
     with _retry_lock, FAILED_DEALS_PATH.open('a', encoding='utf-8') as f:
         f.write(json.dumps(asdict(deal), ensure_ascii=False) + '\n')
 
@@ -454,12 +499,7 @@ def create_deal(
     if contact_ids:
         payload['contacts'] = list(contact_ids)
     try:
-        res = _post('/crm/v1/entities/deals', payload)
-        if res.status_code == 401 and EMAIL and PASSWORD:
-            _sign_in()
-            res = _post('/crm/v1/entities/deals', payload)
-        res.raise_for_status()
-        return res.json()
+        return retry_deal_payload(payload)
     except Exception as exc:
         # Queue for retry
         failed = FailedDeal(

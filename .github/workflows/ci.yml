@@ -60,12 +60,10 @@ jobs:
             -c "CREATE ROLE docflow LOGIN PASSWORD 'docflow' NOSUPERUSER NOBYPASSRLS;"
           PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d docflow_dev -v ON_ERROR_STOP=1 \
             -c "GRANT ALL ON SCHEMA public TO docflow;"
-          for file in sql/001_schema.sql sql/002_service_tables.sql sql/003_multi_tenant.sql \
-                      sql/004_roles_and_company_settings.sql sql/005_auth.sql; do
-            echo "== $file"
-            PGPASSWORD=docflow psql -h 127.0.0.1 -U docflow -d docflow_dev -v ON_ERROR_STOP=1 \
-              -q -f "$file"
-          done
+          # The same migrations the server runs, through the same tool, so CI
+          # tests the path a deploy actually takes.
+          python3 tools/migrate.py
+          python3 tools/migrate.py --status
           # If this ever prints t, the isolation suite has stopped testing isolation.
           PGPASSWORD=docflow psql -h 127.0.0.1 -U docflow -d docflow_dev -tAc \
             "select rolsuper, rolbypassrls from pg_roles where rolname = current_user" \

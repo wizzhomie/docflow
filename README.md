@@ -73,6 +73,23 @@ shape, so a defect belongs to exactly one stage. The human is a stage, not an ex
 handler: the review form shows per-field confidence and tripped invariants, and the
 confirmation is the only moment a document can reach the CRM.
 
+### What makes it serve more than one company at a time
+
+Four pieces, each answering a question that only appears when the second customer arrives:
+
+| Piece | The question it answers | Where |
+| --- | --- | --- |
+| Connection pool with a transaction-local tenant | Can one process serve many companies without handing one's rows to another? | `db.py` |
+| Durable job queue with `FOR UPDATE SKIP LOCKED` | What happens to slow, flaky work when there are two workers, or when one dies mid-job? | `jobqueue.py`, `worker.py`, `sql/006_jobs.sql` |
+| Metrics | Is the queue backed up, is the pool exhausted, who is actually using it? | `metrics.py`, `/api/metrics` |
+| Migrations with a version table | Is this database at the same version as the code, and did the last deploy really finish? | `tools/migrate.py`, `schema_migrations` |
+
+The queue replaces a JSONL file with a lock in one process: two workers overwrote each
+other, a restart lost the attempt count, and "how much is stuck" was answered by opening a
+file. The pool replaces a connection per query, and the tenant is set with `SET LOCAL` so it
+cannot survive into the next request on a reused connection — `tests/test_db.py` runs both
+tenants through one pooled connection and checks that the second sees nothing.
+
 ## Why this pipeline
 
 - **Interpretation is separated from execution.** Reading a document is a judgement;
@@ -147,6 +164,7 @@ pip install -r requirements.txt
 
 - overview → <http://127.0.0.1:8765/>
 - workspace → <http://127.0.0.1:8765/app>
+- metrics → <http://127.0.0.1:8765/api/metrics> (or `?format=prometheus`)
 
 Docker:
 
@@ -173,6 +191,9 @@ Everything is optional; the application starts with no CRM and no mailbox.
 | `DOCFLOW_ASSISTANT_URL` | optional URL of an assistant widget script shown on the pages; empty disables it |
 | `DOCFLOW_MAX_UPLOAD_MB` | upload size limit, enforced while the body is streaming (default 20) |
 | `DOCFLOW_MAX_PDF_PAGES` | page limit for one PDF (default 200); a page count is a cost bound, not a validity rule |
+| `DOCFLOW_PG_POOL_MIN` / `DOCFLOW_PG_POOL_MAX` | connection pool size (default 1…8); one connection serves many requests |
+| `DOCFLOW_JOBS` | `off` disables the in-process background worker (the queue is then drained by `python3 -m worker`) |
+| `DOCFLOW_DEFAULT_COMPANY` | the company a file-demo retry belongs to (default 1); a multi-company deployment passes the tenant with the job |
 
 Secrets live only in `.env` (git-ignored). `.env.example` documents the keys with empty values.
 
@@ -190,9 +211,10 @@ for suite in tests/test_*.py; do python3 "$suite" || exit 1; done
 mapping, the review queue, document-type detection, routing rules, roadmap data, the
 connector layer (Bitrix24 over a local fake HTTP server), mailbox intake (MIME parsing,
 retries, dedupe, login errors — over a local fake IMAP server), tenancy, sign-in, upload
-limits, the request log and the two ways a demo becomes an incident: a request that becomes
-a path and a document that becomes markup. CI runs the same suites plus a Docker build on
-manual dispatch and on pull requests.
+limits, the request log, the pool (two tenants on one connection), the queue (six workers
+claiming at once), the migration runner and the two ways a demo becomes an incident: a
+request that becomes a path and a document that becomes markup. CI runs the same suites plus
+a Docker build on manual dispatch and on pull requests.
 
 What the number means, because it is easy to read it as more than it is: 104 checks over 13
 fixtures is a regression baseline, not evidence of generalisation. The fixtures were used
@@ -236,6 +258,9 @@ sql/002_service_tables.sql  settings: named values with an explicit type
 sql/003_multi_tenant.sql    companies, users and the row-level isolation policy
 sql/004_roles_and_company_settings.sql  a read-only role, a company override of a
                             platform setting, and the lookup that resolves them
+sql/005_auth.sql            users' password hash and Google subject, sessions, auth events
+sql/006_jobs.sql            the durable queue: queued work, attempts, backoff, the worker
+tools/migrate.py            applies sql/*.sql once each and records the version
 tools/import_demo_to_pg.py  loads the demo files into the schema
 pg_report.py                /api/pg/summary and /api/pg/
 ```
@@ -308,10 +333,34 @@ Load and read it:
 
 ```bash
 createdb docflow_dev
-psql -d docflow_dev -f sql/001_schema.sql -f sql/002_service_tables.sql
+python3 tools/migrate.py                      # applies sql/*.sql once each, in order
 python3 tools/import_demo_to_pg.py && psql -d docflow_dev -f /tmp/import_pg/import.sql
 curl -s http://127.0.0.1:8765/api/pg/summary
 ```
+
+`tools/migrate.py --status` prints which files are applied and which are not, and
+`--baseline VERSION` records a database that was migrated by hand before the tool existed
+(the server's own database was baselined that way). A file is applied in one transaction
+together with its version row, so a failed migration leaves neither the schema nor the
+bookkeeping half-done.
+
+### The queue and the worker
+
+Slow, flaky work — a CRM call that timed out — goes into `jobs` instead of being retried by
+a thread next to the request:
+
+```bash
+python3 -m worker              # drain the queue in the foreground
+python3 -m worker --once       # drain what is ready and exit
+```
+
+The web process runs one worker thread by default, so a demonstration needs no second
+terminal; `DOCFLOW_JOBS=off` turns that off and leaves the queue to a separate process.
+Two workers cannot take the same job: the claim is one `UPDATE ... WHERE id = (SELECT ...
+FOR UPDATE SKIP LOCKED)`, and `tests/test_jobs.py` starts six workers at once to prove it.
+A failed job goes back with exponential backoff (15 s doubling, capped at an hour, five
+attempts by default) and a job that used up its attempts stops instead of looping; both
+the attempt count and the last error stay on the row.
 
 ## Observability
 
@@ -347,7 +396,16 @@ This is a prototype for a client demonstration, not a production platform:
 - the confidence shown next to a field is an a-priori weight per anchor type (`0.95` for a
   label found exactly, `0.85` for an OCR variant, `0.6` for a fallback), not a calibrated
   probability of being right. The human review, not the number, is the safety net — and a
-  validated contradiction still halves the weight of the total and the VAT.
+  validated contradiction still halves the weight of the total and the VAT;
+- the `jobs` table is the one working table without row-level security, deliberately: a
+  worker serves every company, and a policy keyed on the current tenant would hide work
+  from the only process able to do it. Every row carries its company, the API only reads
+  it filtered by that company, and the worker sets the tenant from the row before it
+  touches a tenant table;
+- the metrics endpoint counts documents per company by opening one short transaction per
+  company, because that is the only way row-level security lets it see the counts. Two
+  companies are two cheap queries; ten thousand would need a counter updated on write, and
+  that is a different piece of work.
 
 ## Repository layout and documentation
 

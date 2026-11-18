@@ -70,6 +70,20 @@ def test_the_demo_error_is_a_real_server_error():
     assert response.status_code == 500
 
 
+def test_the_metrics_endpoint_answers_with_and_without_a_database():
+    client = TestClient(app.app)
+    response = client.get('/api/metrics')
+    assert response.status_code == 200
+    data = response.json()
+    for key in ('process', 'pool', 'queue', 'tenants', 'files'):
+        assert key in data
+    text = client.get('/api/metrics', params={'format': 'prometheus'})
+    assert text.status_code == 200
+    assert text.headers['content-type'].startswith('text/plain')
+    assert 'docflow_queue_oldest_seconds' in text.text
+    assert 'docflow_files_confirmed' in text.text
+
+
 def test_status_reports_where_the_log_lives():
     status = observability.status()
     assert status['log_file'].endswith('app.jsonl')
