@@ -248,6 +248,22 @@ python3 tools/import_demo_to_pg.py && psql -d docflow_dev -f /tmp/import_pg/impo
 curl -s http://127.0.0.1:8765/api/pg/summary
 ```
 
+## Observability
+
+- **Structured log.** `data/logs/app.jsonl` gets one JSON object per request with
+  `request_id`, method, path, status, duration and, when the request carries a session, the
+  person. The same id comes back in the `X-Request-Id` header, so a support message that
+  quotes it can be followed through the file. Rotated at 5 MB, three files kept.
+- **Health with detail.** `GET /api/health/detail` says where the log lives and whether
+  error reporting is switched on.
+- **Error tracking.** With `SENTRY_DSN` set, exceptions go to GlitchTip over the Sentry
+  protocol, tagged with the request id. Without the variable the SDK is not installed and
+  the demo runs unchanged. `GET /api/demo/error` raises a deliberate exception so the whole
+  path — log line, response id, tracker entry — can be seen in one minute.
+- **GlitchTip itself** runs next to the demo in Docker (`deploy/glitchtip/compose.yaml`):
+  three containers, about 250 MB of RAM, bound to loopback or a tailnet address, never to
+  the open internet.
+
 ## Status and limits
 
 This is a prototype for a client demonstration, not a production platform:

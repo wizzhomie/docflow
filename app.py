@@ -97,6 +97,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title='DocFlow', lifespan=lifespan)
 
+import observability  # noqa: E402  (needs the app object below)
+
+OBSERVABILITY = observability.install(app)
+
 # The PostgreSQL report is a pilot next to the file-based demo: it is mounted when
 # psycopg2 is installed, and its absence never stops the demo from starting.
 try:
@@ -851,3 +855,15 @@ def document_file(doc_id: str):
 @app.get('/api/health')
 def health():
     return {'status': 'ok', 'time': _now(), 'ts': time.time()}
+
+
+@app.get('/api/health/detail')
+def health_detail():
+    """What the service has wired: the log file and error reporting."""
+    return {'status': 'ok', 'observability': observability.status()}
+
+
+@app.get('/api/demo/error')
+def demo_error():
+    """A deliberate failure: taken on purpose to see it in the log and the tracker."""
+    raise RuntimeError('deliberate demo error: this is what a captured exception looks like')

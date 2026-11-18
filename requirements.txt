@@ -15,3 +15,6 @@ httpx==0.28.1
 
 # PostgreSQL pilot (/api/pg, sql/): optional, the file-based demo runs without it
 psycopg2-binary==2.9.13
+
+# Error reporting (optional: without SENTRY_DSN it is a no-op)
+sentry-sdk[fastapi]==2.42.1

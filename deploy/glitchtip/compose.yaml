@@ -1,0 +1,54 @@
+# GlitchTip next to the demo: error tracking that speaks the Sentry protocol,
+# without the 30-container Sentry installation.
+#
+#   mkdir -p /srv/glitchtip && cd /srv/glitchtip
+#   cp compose.yaml . && printf 'SECRET_KEY=%s\n' "$(openssl rand -hex 32)" > .env
+#   docker compose up -d
+#
+# The whole stack stays under ~250 MB of RAM: postgres, valkey and one all-in-one
+# web process. Bind it to loopback or to a tailnet address — never to 0.0.0.0.
+
+x-environment: &default-environment
+  DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+  VALKEY_URL: redis://valkey:6379
+  SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+  EMAIL_URL: consolemail://
+  GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:-http://127.0.0.1:8770}
+  DEFAULT_FROM_EMAIL: docflow@demo.local
+  ENABLE_ADMIN: "False"
+  ENABLE_OPENAPI: "False"
+  GLITCHTIP_ENABLE_MCP: "False"
+  GLITCHTIP_ENABLE_DUCKDB: "False"
+  GLITCHTIP_ENABLE_UPTIME: "False"
+
+x-depends_on: &default-depends_on
+  - postgres
+  - valkey
+
+services:
+  postgres:
+    image: postgres:18
+    command: -c max_locks_per_transaction=512
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+    restart: unless-stopped
+    volumes:
+      - pg-data:/var/lib/postgresql
+  valkey:
+    image: valkey/valkey:9
+    restart: unless-stopped
+  web:
+    image: glitchtip/glitchtip:6
+    depends_on: *default-depends_on
+    ports:
+      - "${GLITCHTIP_BIND:-127.0.0.1}:${GLITCHTIP_PORT:-8770}:8000"
+    environment:
+      <<: *default-environment
+      SERVER_ROLE: all_in_one
+    restart: unless-stopped
+    volumes:
+      - uploads:/code/uploads
+
+volumes:
+  pg-data:
+  uploads:
