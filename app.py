@@ -142,6 +142,10 @@ OBSERVABILITY = observability.install(app)
 # psycopg2 is installed, and its absence never stops the demo from starting.
 try:
     import auth
+    import pg_documents
+    from pg_documents import history as pg_history
+    from pg_documents import store_upload as pg_store_upload
+    from pg_documents import document_file_path as pg_document_file_path
     from pg_report import router as pg_router
     from pg_queue import (
         confirm_document as pg_confirm_document,
@@ -152,7 +156,8 @@ try:
     )
 except ImportError:  # pragma: no cover - depends on the environment
     auth = None
-    pg_router = None
+    pg_documents = None
+    pg_history = None
     pg_session_person = None
 else:
     app.include_router(auth.router)
@@ -203,14 +208,18 @@ def _parse_ts(value: str | None) -> datetime | None:
 
 
 def _review_seconds(row: dict) -> float | None:
-    """Seconds between upload and confirmation for one record.
+    """Seconds one person actually spent on the document.
 
-    Older records predate the stored `review_seconds` field, so the value is
-    derived from the two timestamps instead of re-measuring anything.
+    The stored value wins, including when it is explicitly empty: a document that
+    was never opened has no measured review time, and deriving one from the upload
+    timestamp would count the waiting as work. Older file records predate the
+    stored field, so those are still derived from their two timestamps.
     """
-    stored = row.get('review_seconds')
-    if isinstance(stored, (int, float)):
-        return max(0.0, float(stored))
+    if 'review_seconds' in row:
+        stored = row['review_seconds']
+        if isinstance(stored, (int, float)):
+            return max(0.0, float(stored))
+        return None
     started = _parse_ts(row.get('uploaded_at'))
     finished = _parse_ts(row.get('confirmed_at'))
     if started is None or finished is None:
@@ -638,7 +647,7 @@ def _document_problem(path: Path, size: int | None = None) -> str | None:
 
 
 def _process(doc_id: str, filename: str, path: Path, source: str = 'upload',
-             extra: dict | None = None) -> dict:
+             extra: dict | None = None, persist: bool = True) -> dict:
     text = extract_text(path)
     items = parse_items(text)
     # First pass to get tax_id/supplier for supplier profile
@@ -659,7 +668,10 @@ def _process(doc_id: str, filename: str, path: Path, source: str = 'upload',
     }
     if extra:
         meta.update(extra)
-    _meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
+    if persist:
+        # Signed in, the document's state is the row in the database, and a pending
+        # JSON next to it would be a second truth to keep in sync.
+        _meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
     return meta
 
 
@@ -695,7 +707,7 @@ def load_sample(name: str):
 
 
 @app.post('/api/upload')
-async def upload(file: UploadFile = File(...)):
+async def upload(request: Request, file: UploadFile = File(...)):
     suffix = Path(file.filename or 'doc').suffix.lower()
     if suffix not in ALLOWED:
         raise HTTPException(400, 'Supported formats: PDF, TXT, HTML and images (PNG/JPG/TIFF)')
@@ -717,7 +729,21 @@ async def upload(file: UploadFile = File(...)):
     except HTTPException:
         target.unlink(missing_ok=True)
         raise
-    meta = _process(doc_id, file.filename or target.name, target)
+    person = pg_session_person(request) if pg_session_person else None
+    meta = _process(
+        doc_id, file.filename or target.name, target, persist=person is None
+    )
+    if person is not None:
+        # Signed in, the document is a row in the database: the queue, the confirm
+        # and the history read that row, not a snapshot next to it.
+        try:
+            meta['id'] = pg_store_upload(person, meta, f'data/uploads/{target.name}')
+        except HTTPException:
+            target.unlink(missing_ok=True)
+            raise
+        except Exception as error:  # noqa: BLE001 - the driver's errors are one class here
+            target.unlink(missing_ok=True)
+            raise HTTPException(503, f'The document could not be stored: {error}') from error
     if not meta['text_preview'].strip():
         meta['warning'] = 'No text extracted: the file may be a scan. OCR is not enabled yet.'
     return meta
@@ -933,23 +959,36 @@ def document_meta(doc_id: str, request: Request):
     return json.loads(path.read_text(encoding='utf-8'))
 
 
+def _confirmed_rows(request: Request) -> list[dict]:
+    """Confirmed documents: the database for a signed-in person, files otherwise.
+
+    The shape is the same on purpose — the reports below were written against the
+    file records, and a signed-in person must not get a different answer because
+    the row happens to live in PostgreSQL.
+    """
+    person = pg_session_person(request) if pg_session_person else None
+    if person is not None:
+        return pg_history(person)
+    return _read_confirmed()
+
+
 @app.get('/api/documents')
-def documents(limit: int = 50):
-    rows = list(reversed(_read_confirmed()))[:limit]
+def documents(request: Request, limit: int = 50):
+    rows = list(reversed(_confirmed_rows(request)))[:limit]
     # Surface the measured review time per document; legacy rows derive it from
     # the stored timestamps instead of showing an empty cell.
     return [{**row, 'review_seconds': _review_seconds(row)} for row in rows]
 
 
 @app.get('/api/stats')
-def stats():
+def stats(request: Request):
     """Headline numbers for the page.
 
     They are taken from the impact report instead of being computed again: two
     endpoints that count the same thing differently (six fields here, seven
     there) are a way to be wrong in public.
     """
-    rows = _read_confirmed()
+    rows = _confirmed_rows(request)
     report = build_impact(rows, MANUAL_BASELINE_MINUTES)
     total = len(rows)
     avg_conf = round(sum(r['confidence'] for r in rows) / total, 2) if total else 0.0
@@ -999,14 +1038,14 @@ def config():
 
 
 @app.get('/api/impact')
-def impact():
+def impact(request: Request):
     """Automation effect over confirmed documents: auto-pass, review time, risk."""
-    return build_impact(_read_confirmed(), MANUAL_BASELINE_MINUTES)
+    return build_impact(_confirmed_rows(request), MANUAL_BASELINE_MINUTES)
 
 
 @app.get('/api/export.csv')
-def export_csv():
-    rows = _read_confirmed()
+def export_csv(request: Request):
+    rows = _confirmed_rows(request)
     columns = [
         'id',
         'filename',
@@ -1040,13 +1079,21 @@ def export_csv():
 
 
 @app.get('/files/{doc_id}')
-def document_file(doc_id: str):
+def document_file(doc_id: str, request: Request):
     """The original upload, by id.
 
-    The id is checked before it becomes a path, and the candidates are the
-    known extensions rather than a pattern: a pattern would resolve `..`
-    segments and serve whatever it found.
+    Two kinds of id reach this route: a ten-character id from the file store, and
+    an integer from the database when a person is signed in. Neither becomes a
+    path without a check — the integer is looked up inside the person's tenant,
+    the hex id is matched against the known extensions instead of a pattern that
+    would resolve `..` segments and serve whatever it found.
     """
+    person = pg_session_person(request) if pg_session_person else None
+    if person is not None and doc_id.isdigit():
+        stored = pg_document_file_path(person, doc_id, UPLOADS)
+        if stored is not None:
+            return FileResponse(stored)
+        raise HTTPException(404, 'Not found')
     if not DEMO_ID_RE.fullmatch(doc_id):
         raise HTTPException(404, 'Not found')
     for suffix in ALLOWED:

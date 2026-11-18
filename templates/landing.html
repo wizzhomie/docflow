@@ -847,9 +847,13 @@ function initStats() {
         fetch('/api/config').then((r) => r.json()),
       ]);
       document.getElementById('stat-docs').textContent = stats.documents ?? '—';
+      const measured = (impact.review && impact.review.measured_documents) || 0;
       const saved = impact.time_saved_minutes || 0;
-      document.getElementById('stat-saved').textContent =
-        saved >= 60 ? (saved / 60).toFixed(1) + ' h' : Math.round(saved) + ' min';
+      document.getElementById('stat-saved').textContent = !measured
+        ? '—'
+        : saved >= 60
+          ? (saved / 60).toFixed(1) + ' h'
+          : Math.round(saved) + ' min';
       document.getElementById('stat-auto').textContent =
         impact.documents ? impact.auto_pass_rate + '%' : '—';
       const types = (config.document_types || []).length;

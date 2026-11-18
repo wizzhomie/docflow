@@ -327,8 +327,8 @@ def test_the_headline_and_the_report_report_agree():
     original = app._read_confirmed
     app._read_confirmed = lambda: rows
     try:
-        headline = app.stats()
-        report = app.impact()
+        headline = app.stats(_request())
+        report = app.impact(_request())
     finally:
         app._read_confirmed = original
     assert headline['documents'] == report['documents']

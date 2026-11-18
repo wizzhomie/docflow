@@ -460,11 +460,12 @@ function renderImpact(impact) {
   const review = impact.review || {};
   $('#kpi-review').textContent = duration(review.median_seconds);
 
+  const measured = (impact.review && impact.review.measured_documents) || 0;
   const saved = impact.time_saved_minutes || 0;
-  $('#kpi-saved').textContent = minutesLabel(saved);
-  $('#kpi-saved-note').textContent = docs
+  $('#kpi-saved').textContent = measured ? minutesLabel(saved) : '—';
+  $('#kpi-saved-note').textContent = measured
     ? `at ${impact.assumptions.manual_minutes_per_document} min manual`
-    : 'vs manual entry';
+    : 'no measured reviews yet';
 
   $('#corr-list').innerHTML = impact.top_corrections.length
     ? barList(impact.top_corrections, 'count', 'label')
@@ -872,7 +873,8 @@ async function refresh() {
       fetch('/api/mailbox').then((r) => r.json()),
     ]);
     $('#st-docs').textContent = stats.documents;
-    $('#st-saved').textContent = minutesLabel(impact.time_saved_minutes);
+    const measured = (impact.review && impact.review.measured_documents) || 0;
+    $('#st-saved').textContent = measured ? minutesLabel(impact.time_saved_minutes) : '—';
     $('#st-acc').textContent = stats.accuracy + '%';
     renderImpact(impact);
     renderInbox(inbox);

@@ -37,6 +37,10 @@ the decision path; that is a design choice, explained below.
   top manual corrections and tripped invariants. The headline numbers on the page and the
   report are the same numbers: one function computes them, and the accuracy denominator is
   the field count of the document profile, not a constant typed into a screen.
+- **Review time is a session, not a wait.** The clock starts when a person opens the
+  document and stops when they confirm it. Measuring upload → confirmation counted the
+  queue, so a document confirmed a week later reported a week of review; a document nobody
+  opened now reports nothing, and the report says how many sessions it is based on.
 
 ## Architecture
 
@@ -212,9 +216,10 @@ mapping, the review queue, document-type detection, routing rules, roadmap data,
 connector layer (Bitrix24 over a local fake HTTP server), mailbox intake (MIME parsing,
 retries, dedupe, login errors — over a local fake IMAP server), tenancy, sign-in, upload
 limits, the request log, the pool (two tenants on one connection), the queue (six workers
-claiming at once), the migration runner and the two ways a demo becomes an incident: a
-request that becomes a path and a document that becomes markup. CI runs the same suites plus
-a Docker build on manual dispatch and on pull requests.
+claiming at once), the migration runner, the signed-in lifecycle (upload → row → confirm →
+history → export, and a stranger seeing none of it) and the two ways a demo becomes an
+incident: a request that becomes a path and a document that becomes markup. CI runs the same
+suites plus a Docker build on manual dispatch and on pull requests.
 
 What the number means, because it is easy to read it as more than it is: 104 checks over 13
 fixtures is a regression baseline, not evidence of generalisation. The fixtures were used
@@ -229,27 +234,29 @@ ignore them — a superuser would make the test pass without testing anything.
 
 ## Data model in PostgreSQL
 
-### Where the file store ends and the database begins
+### Where a document lives
 
 Two contours exist on purpose, and the line between them is stated here rather than left to
 be discovered:
 
-| | File store | PostgreSQL |
+There is one lifecycle, and it runs through the database. Signed in, an upload creates the
+`documents` row (supplier, parsed snapshot, per-field confidence, the file it came from),
+the review queue reads that row, the confirm finishes it — status, confirmed values, the
+deal and the audit event, in one transaction — and the history, the impact report, the CSV
+and the preview all read the same row. `pg_documents.py` is that path.
+
+| | Signed in | Signed out |
 | --- | --- | --- |
-| What it is | the product, as it runs today | the SaaS contour: tenancy, roles, sessions, a queue |
-| Owns | upload, extraction, review, history, exports | documents waiting for review, confirm, deal, audit event |
-| Isolation | one deployment, one workspace | row-level security per company |
-| Sign-in | none (the demo runs open) | password or Google, session in the database |
+| Where a document lives | the `documents` row, from upload to history | `data/pending/*.json` and `data/confirmed.jsonl` |
+| Isolation | row-level security per company | one deployment, one workspace |
+| Sign-in | password or Google, session in the database | none |
+| Why it exists | the product | a demonstration on a machine with no database |
 
-The consequence is honest: a document uploaded today is confirmed in the database when a
-person is signed in, and its history row is still written to the file store. There is no
-single lifecycle that runs through the database from upload to history. Closing that gap —
-intake into `documents` instead of `data/pending` — is the next architectural step, not
-something this demo pretends to have done.
-
-The demo persists to files (`data/pending/*.json`, `data/confirmed.jsonl`). A PostgreSQL
-schema sits next to them as the destination for the same records, and `/api/pg/summary`
-answers straight from the database, so the two can be compared side by side.
+The file store is not a second product and not a parallel contour: it is the standalone mode,
+and both modes return the same shapes, which is why the interface never learns where a row
+came from. `tests/test_lifecycle.py` drives the signed-in path end to end — upload, queue,
+preview, confirm, history, impact, export, another company seeing nothing — and checks the
+signed-out upload stays a file with no database row.
 
 ```text
 sql/001_schema.sql          suppliers, supplier_contacts, documents, document_items,
@@ -260,8 +267,13 @@ sql/004_roles_and_company_settings.sql  a read-only role, a company override of 
                             platform setting, and the lookup that resolves them
 sql/005_auth.sql            users' password hash and Google subject, sessions, auth events
 sql/006_jobs.sql            the durable queue: queued work, attempts, backoff, the worker
+sql/007_document_lifecycle.sql  filename, source and confirmed_at: the row is the document
+sql/008_confirmed_fields.sql    what the person approved, next to what the parser read
+sql/009_backfill_confirmed_at.sql  confirmation time for documents confirmed before it
+sql/010_review_session.sql      viewed_at: review time is the session, not the wait
 tools/migrate.py            applies sql/*.sql once each and records the version
 tools/import_demo_to_pg.py  loads the demo files into the schema
+pg_documents.py             upload → row → history, the signed-in lifecycle
 pg_report.py                /api/pg/summary and /api/pg/
 ```
 
@@ -314,10 +326,11 @@ event in one transaction, and the destination comes from `routing.route` with th
 own approval threshold — the second demo company approves from 5 000, the first from
 100 000, and neither value is in the code.
 
-The workspace at `/app` uses the same source: signed in, its queue panel, its document
-panel and its confirm read and write the database; signed out, the demo runs on files as
-before. Upload and extraction stay on files in both cases — they are the part that works
-and there is no reason to move them for a demonstration.
+The workspace at `/app` uses the same source. Signed in, the upload writes the row and the
+document lives in the database from there: the queue panel, the document panel, the confirm,
+the history and the reports all read it. Signed out, the demo runs on files as before, with
+no database at all. Extraction is the same code in both modes — it reads the uploaded file
+and writes the parsed snapshot into whichever store is active.
 
 A viewer may open the queue and read documents, but the confirm is refused before anything
 is written. The tenant is never taken from the URL: it comes from the person, so a link
@@ -388,8 +401,9 @@ This is a prototype for a client demonstration, not a production platform:
 - sign-in has no e-mail verification, no password reset and no multi-factor: a demo has no
   mail delivery, and claiming otherwise would be a lie. Accounts are seeded by the operator,
   never by the repository, and the deployment stays a demonstration rather than a service;
-- the workspace at `/app` reads the database only when signed in; signed out it is the
-  file-based demo, by design;
+- signed out, `/app` is the standalone demonstration with its state in files: no database,
+  no tenancy, one workspace. It exists so the thing runs on a machine with nothing installed,
+  and it returns the same shapes as the database path, but it is not the product;
 - Bitrix24 works against a local fake of the REST protocol; a live portal check is pending;
 - Uspacy attachment upload and a payment task are not available in the test tenant API;
 - routing rules by supplier and several recipients per document are not implemented yet;

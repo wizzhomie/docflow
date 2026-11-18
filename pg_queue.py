@@ -97,6 +97,24 @@ def _invariant_problem(
     return "Fix before confirming: " + ", ".join(names)
 
 
+def _mark_viewed(person: dict[str, Any], doc_id: int | str) -> None:
+    """Start the review session the first time the document is opened.
+
+    Review time used to be measured from upload to confirmation, which counts the
+    waiting: a document confirmed a week later reported a week of review. The
+    session is what a person actually spends, and it is measured from here.
+    """
+    try:
+        with db.tenant(person["company_id"]) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE documents SET viewed_at = coalesce(viewed_at, now()) WHERE id = %s",
+                (int(doc_id),),
+            )
+    except (psycopg2.Error, ValueError):
+        # Never lose a page because the timer could not be started.
+        pass
+
+
 def _amount(value: Any, currency: str | None) -> str:
     """A number as the page shows it: grouped with spaces, unit appended."""
     try:
@@ -212,6 +230,7 @@ def document(doc_id: int, request: Request, invalid: str | None = None) -> Any:
     if not found:
         raise HTTPException(status_code=404, detail="No such document in this company")
     item = found[0]
+    _mark_viewed(person, doc_id)
 
     events = _rows(
         person,
@@ -334,8 +353,10 @@ async def confirm(doc_id: int, request: Request) -> Any:
                 ),
                 "supplier": current["supplier"],
                 "tax_id": current["tax_id"],
-                "total": submitted["total"] or current["total"],
-                "vat": current["vat"],
+                # numeric columns arrive as Decimal, which jsonb cannot take:
+                # the confirmed snapshot is JSON, so the numbers are floats here.
+                "total": _number(submitted["total"]) if submitted["total"] else _number(current["total"]),
+                "vat": _number(current["vat"]),
                 "currency": submitted["currency"] or current["currency"],
             }
             problem = _invariant_problem(effective, current["doc_type"], changed)
@@ -352,7 +373,9 @@ async def confirm(doc_id: int, request: Request) -> Any:
                        status = 'confirmed',
                        edited_fields = %s,
                        edited_at = now(),
-                       edited_by = %s
+                       edited_by = %s,
+                       confirmed_at = coalesce(confirmed_at, now()),
+                       confirmed_fields = %s
                  WHERE id = %s
                 """,
                 (
@@ -362,6 +385,7 @@ async def confirm(doc_id: int, request: Request) -> Any:
                     submitted["currency"],
                     changed or None,
                     person["email"],
+                    Json(effective),
                     doc_id,
                 ),
             )
@@ -481,10 +505,11 @@ def queue_documents(person: dict[str, Any], limit: int = 20) -> list[dict[str, A
 def document_meta(person: dict[str, Any], doc_id: str) -> dict[str, Any]:
     if not str(doc_id).isdigit():
         raise HTTPException(status_code=404, detail="No such document in this company")
+    _mark_viewed(person, doc_id)
     rows = _rows(
         person,
         """
-        SELECT d.id, d.doc_type, d.number, d.received_at, d.parsed, d.status,
+        SELECT d.id, d.doc_type, d.number, d.received_at, d.parsed, d.confirmed_fields, d.status,
                coalesce(s.name, 'unknown supplier') AS supplier
         FROM documents d LEFT JOIN suppliers s ON s.id = d.supplier_id
         WHERE d.id = %s
@@ -495,6 +520,12 @@ def document_meta(person: dict[str, Any], doc_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="No such document in this company")
     row = rows[0]
     parsed = row.get("parsed") or {}
+    # A confirmed document shows what the person approved, not what was read.
+    values = row.get("confirmed_fields") or parsed.get("fields") or {}
+    values = {
+        key: (entry.get("value") if isinstance(entry, dict) else entry)
+        for key, entry in values.items()
+    }
     return {
         "id": str(row["id"]),
         "filename": f"{row['doc_type']}-{row.get('number') or row['id']}.pdf",
@@ -506,7 +537,7 @@ def document_meta(person: dict[str, Any], doc_id: str) -> dict[str, Any]:
         "parsed": {
             "fields": {
                 key: {"value": value, "confidence": _field_confidence(parsed, key)}
-                for key, value in _document_fields(parsed).items()
+                for key, value in values.items()
             },
             "issues": list(parsed.get("issues") or []),
             "confidence": parsed.get("confidence"),
@@ -569,7 +600,9 @@ def confirm_document(person: dict[str, Any], doc_id: str, submitted: dict[str, A
                        status = 'confirmed',
                        edited_fields = %s,
                        edited_at = now(),
-                       edited_by = %s
+                       edited_by = %s,
+                       confirmed_at = coalesce(confirmed_at, now()),
+                       confirmed_fields = %s
                  WHERE id = %s
                 """,
                 (
@@ -579,6 +612,7 @@ def confirm_document(person: dict[str, Any], doc_id: str, submitted: dict[str, A
                     str(submitted.get("currency") or ""),
                     edited or None,
                     person["email"],
+                    Json(effective),
                     int(doc_id),
                 ),
             )
