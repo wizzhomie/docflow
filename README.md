@@ -196,6 +196,8 @@ sql/001_schema.sql          suppliers, supplier_contacts, documents, document_it
                             deals, document_events
 sql/002_service_tables.sql  settings: named values with an explicit type
 sql/003_multi_tenant.sql    companies, users and the row-level isolation policy
+sql/004_roles_and_company_settings.sql  a read-only role, a company override of a
+                            platform setting, and the lookup that resolves them
 tools/import_demo_to_pg.py  loads the demo files into the schema
 pg_report.py                /api/pg/summary and /api/pg/
 ```
@@ -217,6 +219,19 @@ The decisions worth naming:
   `FORCE ROW LEVEL SECURITY`. A query that forgets a filter returns nothing instead of
   another company's rows: the connection states which company it serves, and the counts,
   the uniqueness rules and the writes all obey it.
+
+### The review queue on PostgreSQL
+
+`/pg/login` is a demo sign-in without passwords: pick a person, and the session is that
+person's company and role. `/pg/queue` then lists the documents waiting for review, and
+`/pg/queue/{id}` opens one with its history. Confirming writes the document, a deal and an
+event in one transaction, and the destination comes from `routing.route` with the company's
+own approval threshold — the second demo company approves from 5 000, the first from
+100 000, and neither value is in the code.
+
+A viewer may open the queue and read documents, but the confirm is refused before anything
+is written. The tenant is never taken from the URL: it comes from the person, so a link
+cannot be edited to reach another company.
 
 `tests/test_tenancy.py` proves the isolation instead of describing it: a second company
 sees an empty list, cannot read a foreign supplier, cannot write a row stamped with
@@ -240,8 +255,9 @@ This is a prototype for a client demonstration, not a production platform:
 - three document profiles are implemented (Ukrainian invoice, act and delivery note);
   other markets need a profile each, and the review form is one fixed field set rather
   than profile-specific;
-- the review workspace itself has no login yet: it runs as one company, while companies,
-  roles and isolation live in the schema and are covered by tests;
+- the main review workspace (`/app`) still runs on files and has no login; the tenant-aware
+  queue lives at `/pg/queue` and signs in by picking a person, with no passwords — a demo
+  shortcut, not an authentication story;
 - the app has no authentication of its own and is published to a private tailnet only;
 - Bitrix24 works against a local fake of the REST protocol; a live portal check is pending;
 - Uspacy attachment upload and a payment task are not available in the test tenant API;

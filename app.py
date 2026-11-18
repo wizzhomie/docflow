@@ -101,10 +101,12 @@ app = FastAPI(title='DocFlow', lifespan=lifespan)
 # psycopg2 is installed, and its absence never stops the demo from starting.
 try:
     from pg_report import router as pg_router
+    from pg_queue import router as pg_queue_router
 except ImportError:  # pragma: no cover - depends on the environment
     pg_router = None
-if pg_router is not None:
+else:
     app.include_router(pg_router)
+    app.include_router(pg_queue_router)
 
 
 class ConfirmPayload(BaseModel):

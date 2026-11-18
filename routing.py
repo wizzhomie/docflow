@@ -37,14 +37,19 @@ def _total(fields: dict) -> float | None:
         return None
 
 
-def route(doc_type: str | None, fields: dict) -> dict:
-    """Return {'destination': label, 'destination_code', 'reason'}."""
+def route(doc_type: str | None, fields: dict, threshold: float | None = None) -> dict:
+    """Return {'destination': label, 'destination_code', 'reason'}.
+
+    `threshold` lets the caller pass the value that belongs to the client being
+    served (from the settings table); without it the environment default is used.
+    """
+    limit = APPROVAL_THRESHOLD if threshold is None else threshold
     total = _total(fields)
-    if total is not None and total >= APPROVAL_THRESHOLD:
+    if total is not None and total >= limit:
         return {
             'destination': DESTINATIONS['approval'],
             'destination_code': 'approval',
-            'reason': f'amount {total:,.2f} is above the approval threshold {APPROVAL_THRESHOLD:,.2f}',
+            'reason': f'amount {total:,.2f} is above the approval threshold {limit:,.2f}',
         }
 
     code, reason = _BY_DOCUMENT_TYPE.get(doc_type or '', ('crm', 'no specific process for this document type'))
