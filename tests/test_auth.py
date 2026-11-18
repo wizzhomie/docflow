@@ -96,10 +96,16 @@ def test_a_session_token_is_not_stored_as_is():
 
 
 def test_a_redirect_stays_inside_the_site():
+    assert auth._next_path('/app') == '/app'
     assert auth._next_path('/pg/queue') == '/pg/queue'
-    assert auth._next_path('https://evil.test/collect') == '/pg/queue'
-    assert auth._next_path('//evil.test/collect') == '/pg/queue'
-    assert auth._next_path(None) == '/pg/queue'
+    assert auth._next_path('https://evil.test/collect') == auth.DEFAULT_LANDING
+    assert auth._next_path('//evil.test/collect') == auth.DEFAULT_LANDING
+    assert auth._next_path(None) == auth.DEFAULT_LANDING
+
+
+def test_signing_in_lands_in_the_workspace():
+    """The queue is a part of the platform, not a separate destination."""
+    assert auth.DEFAULT_LANDING == '/app'
 
 
 def test_a_failed_attempt_is_counted_for_the_throttle():

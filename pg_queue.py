@@ -132,8 +132,9 @@ def queue(request: Request, ok: str | None = None) -> Any:
     ) or '<tr><td colspan="6">Nothing is waiting for review.</td></tr>'
 
     body = (
-        f'<div class="sub">Signed in as {person["full_name"]} · {person["company_name"]} · '
-        f'<span class="pill">{person["role"]}</span> · <a href="/pg/login">switch</a></div>'
+        f'<div class="sub"><a href="/app">← workspace</a> · signed in as {person["full_name"]}'
+        f' · {person["company_name"]} · <span class="pill">{person["role"]}</span>'
+        f' · <a href="/auth/logout">sign out</a></div>'
         f'<table><tr><th>Type</th><th>Supplier</th><th>Number</th><th>Date</th>'
         f'<th class="n">Total</th><th class="n">Events</th></tr>{rows}</table>'
         f'<div class="sub">{len(documents)} waiting for review. Every read and write is '
@@ -197,8 +198,8 @@ def document(doc_id: int, request: Request) -> Any:
                 'queue, but confirming a document is refused before anything is written.</div>')
 
     body = (
-        f'<div class="sub"><a href="/pg/queue">← queue</a> · {person["company_name"]} · '
-        f'<span class="pill">{person["role"]}</span></div>'
+        f'<div class="sub"><a href="/app">← workspace</a> · <a href="/pg/queue">queue</a>'
+        f' · {person["company_name"]} · <span class="pill">{person["role"]}</span></div>'
         f'<div class="card"><h2>{item["doc_type"]} · {item["supplier"]}</h2>'
         f'<table><tr><th>Field</th><th>Value</th></tr>'
         f'<tr><td>Tax ID</td><td>{item["tax_id"] or "—"}</td></tr>'

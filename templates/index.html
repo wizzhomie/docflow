@@ -955,9 +955,10 @@ $('#mb-check').onclick = checkMailbox;
         `Tenant <strong>${session.company}</strong> · ${session.person}` +
         ` · <span class="role">${session.role}</span>` +
         (session.can_confirm ? '' : ' · <span class="readonly">read-only</span>') +
-        ' · <a href="/pg/queue">queue</a> · <a href="/pg/login">switch</a>';
+        ' · <a href="/pg/queue">queue</a> · <a href="/auth/logout">sign out</a>';
     } else {
-      bar.innerHTML = 'File-based demo · <a href="/pg/login">sign in</a> to see the tenant-aware queue';
+      bar.innerHTML = 'File-based demo · <a href="/auth/login?next=/app">sign in</a>' +
+        ' to work inside a company';
     }
   } catch (error) {
     return;

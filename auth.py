@@ -200,17 +200,35 @@ def session_person(request: Request) -> dict[str, Any] | None:
 # --- pages ---------------------------------------------------------------------
 
 STYLE = """
-body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;margin:0;padding:48px;background:#faf9f7;color:#1d1b1a}
-.wrap{max-width:400px;margin:0 auto;background:#fff;border:1px solid #e8e4df;border-radius:16px;padding:28px}
-h1{font-size:20px;margin:0 0 6px}
-.sub{color:#6b6560;margin:0 0 22px;font-size:14px}
-label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#6b6560;margin:14px 0 5px}
-input{font:15px inherit;padding:10px 12px;border:1px solid #d8d3cc;border-radius:10px;width:100%;box-sizing:border-box}
-button{font:15px inherit;margin-top:20px;padding:11px 18px;border:0;border-radius:999px;background:#4a3aff;color:#fff;width:100%;cursor:pointer}
-.google{display:block;text-align:center;margin-top:12px;padding:11px 18px;border:1px solid #d8d3cc;border-radius:999px;color:#1d1b1a;text-decoration:none;font-size:14px}
-.error{background:#fdf2f2;border:1px solid #f3d0d0;border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:14px}
-.foot{margin-top:18px;font-size:13px;color:#6b6560}
-.foot a{color:#4a3aff}
+:root{--bg:#07080d;--surface:#0e1018;--line:#232637;--text:#eceef5;--muted:#9aa0b4;--accent:#7c5cff;--accent-2:#22d3ee}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;
+  font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;color:var(--text);
+  background:radial-gradient(1200px 600px at 15% -10%,rgba(124,92,255,.22),transparent 60%),
+             radial-gradient(900px 500px at 95% 110%,rgba(34,211,238,.16),transparent 55%),var(--bg)}
+.shell{width:100%;max-width:420px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.mark{width:26px;height:26px;border-radius:50%;position:relative;
+  background:conic-gradient(from 180deg,var(--accent),var(--accent-2),#ff5c9d,var(--accent))}
+.mark::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--bg);border:2px solid rgba(255,255,255,.7)}
+.brand b{font-size:17px;letter-spacing:-.01em}
+.wrap{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px}
+h1{font-size:20px;margin:0 0 6px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0 0 22px;font-size:14px}
+label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:14px 0 5px}
+input{font:15px inherit;padding:11px 13px;border:1px solid var(--line);border-radius:11px;width:100%;
+  background:#0b0d16;color:var(--text)}
+input:focus{outline:none;border-color:var(--accent)}
+button{font:15px inherit;margin-top:20px;padding:12px 18px;border:0;border-radius:999px;
+  background:var(--accent);color:#fff;width:100%;cursor:pointer}
+button:hover{filter:brightness(1.08)}
+.google{display:block;text-align:center;margin-top:12px;padding:12px 18px;border:1px solid var(--line);
+  border-radius:999px;color:var(--text);text-decoration:none;font-size:14px;background:rgba(255,255,255,.04)}
+.google:hover{background:rgba(255,255,255,.08)}
+.error{background:rgba(255,92,92,.12);border:1px solid rgba(255,92,92,.35);border-radius:12px;
+  padding:10px 14px;margin-bottom:16px;font-size:14px}
+.foot{margin-top:18px;font-size:13px;color:var(--muted);text-align:center}
+.foot a{color:#a9a4ff}
 """
 
 
@@ -218,14 +236,25 @@ def _page(title: str, body: str) -> str:
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DocFlow · {title}</title><style>{STYLE}</style></head>
-<body><div class="wrap"><h1>{title}</h1>{body}</div></body></html>"""
+<body><div class="shell">
+  <div class="brand"><span class="mark"></span><b>DocFlow</b></div>
+  <div class="wrap"><h1>{title}</h1>{body}</div>
+  <div class="foot"><a href="/">← back to the overview</a></div>
+</div></body></html>"""
+
+
+DEFAULT_LANDING = "/app"
 
 
 def _next_path(next_path: str | None) -> str:
-    """Only a local path may be a redirect target, never another host."""
+    """Only a local path may be a redirect target, never another host.
+
+    Signing in lands in the workspace: the queue is part of the platform, not a
+    separate destination the person has to know about.
+    """
     if next_path and next_path.startswith("/") and not next_path.startswith("//"):
         return next_path
-    return "/pg/queue"
+    return DEFAULT_LANDING
 
 
 def google_configured() -> bool:
@@ -260,7 +289,7 @@ def login_submit(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
-    next: str = Form("/pg/queue"),
+    next: str = Form("/app"),
 ) -> Any:
     normalised = email.strip().lower()
     if recent_failures(normalised) >= MAX_FAILURES:
@@ -401,7 +430,7 @@ def google_callback(request: Request, code: str = "", state: str = "", error: st
 
     token = create_session(user_id, request, method="google")
     record_event(email, "google", "ok", request)
-    response = RedirectResponse("/pg/queue", status_code=303)
+    response = RedirectResponse(DEFAULT_LANDING, status_code=303)
     response.set_cookie(
         COOKIE, token, httponly=True, samesite="lax", max_age=SESSION_HOURS * 3600,
         secure=request.url.scheme == "https",

@@ -244,8 +244,8 @@ writes only the hash); `--clear` makes the account Google-only.
 
 ### The review queue on PostgreSQL
 
-`/auth/login` signs a person in — a password or a Google account — and the session is that
-person's company and role. `/pg/queue` then lists the documents waiting for review, and
+`/auth/login` signs a person in — a password or a Google account — and lands in the
+workspace at `/app`, where the session decides the company and the role. `/pg/queue` then lists the documents waiting for review, and
 `/pg/queue/{id}` opens one with its history. Confirming writes the document, a deal and an
 event in one transaction, and the destination comes from `routing.route` with the company's
 own approval threshold — the second demo company approves from 5 000, the first from
