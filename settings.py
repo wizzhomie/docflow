@@ -54,6 +54,21 @@ MAX_UPLOAD_MB = float(os.environ.get('DOCFLOW_MAX_UPLOAD_MB', '20'))
 MAX_UPLOAD_BYTES = int(MAX_UPLOAD_MB * 1024 * 1024)
 MAX_PDF_PAGES = int(os.environ.get('DOCFLOW_MAX_PDF_PAGES', '200'))
 
+# Reading a text PDF is milliseconds; reading a scan is not. OCR renders every
+# page at 300 dpi and runs Tesseract on it, so the page count of a PDF is not
+# the cost that matters — the number of pages that reach OCR is. The fields an
+# invoice or an act carries live on the first pages, and a scan deeper than this
+# is either a bundle or a mistake, not a document a reviewer will read here.
+MAX_OCR_PAGES = int(os.environ.get('DOCFLOW_MAX_OCR_PAGES', '10'))
+MAX_OCR_SECONDS = float(os.environ.get('DOCFLOW_MAX_OCR_SECONDS', '180'))
+
+# Extraction is CPU work in a CPython process: two at a time keeps the box
+# responsive, and a third waits instead of stacking GIL-bound work. A request
+# that cannot get a slot in this many seconds is refused with 503 and a
+# Retry-After, so a burst of uploads slows the queue instead of the endpoint.
+EXTRACTIONS = int(os.environ.get('DOCFLOW_MAX_EXTRACTIONS', '2'))
+EXTRACTION_WAIT_SECONDS = float(os.environ.get('DOCFLOW_EXTRACTION_WAIT', '10'))
+
 FIELD_LABELS = {
     'number': 'Invoice number',
     'date': 'Date',

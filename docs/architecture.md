@@ -186,6 +186,26 @@ to the queue while keeping the attempt count.
 7. Confirm and persist history.
 8. Create Uspacy deal if configured.
 
+## Cost limits on intake
+
+A text PDF is cheap: `pdftotext` reads 200 pages in about a fifth of a second. A
+scan is not — every page is rendered at 300 dpi and goes through Tesseract, about
+three seconds a page — so the limits are on the work, not only on the file:
+
+- the upload body is refused while it streams past `DOCFLOW_MAX_UPLOAD_MB` (20 by
+  default), and a PDF over `DOCFLOW_MAX_PDF_PAGES` (200) is refused after the page
+  tree is counted, before a character is read;
+- OCR renders and reads the first `DOCFLOW_MAX_OCR_PAGES` (10) pages within
+  `DOCFLOW_MAX_OCR_SECONDS` (180), because the fields a reviewer needs are on the
+  first pages and a deeper scan is a bundle, not one document;
+- extraction runs on a worker thread behind a gate of `DOCFLOW_MAX_EXTRACTIONS`
+  (2), so a scan no longer stops the event loop — health checks and the review
+  page keep answering while it is read — and a request that cannot get a slot in
+  `DOCFLOW_EXTRACTION_WAIT` (10 s) is refused with `503` and `Retry-After: 5`;
+- a database connection lost mid-request is `503 PostgreSQL is unavailable` with
+  a `Retry-After`, not a stack trace; the pool discards the broken connection and
+  the next request reconnects.
+
 ## Engineering approach
 
 **Deterministic core, one human checkpoint.** Reading a document is a judgement;

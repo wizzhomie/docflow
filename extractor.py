@@ -2,7 +2,10 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
+
+import settings
 
 from profiles import DEFAULT_PROFILE, detect_profile, ocr_langs, source_labels
 from profiles.suppliers import get_supplier_profile
@@ -119,21 +122,40 @@ def _ocr_image(path: Path) -> str:
 
 
 def _ocr_pdf(path: Path) -> str:
+    """Text of the first pages of a scan, within a time budget.
+
+    The upload limit bounds the PDF, not the OCR: rendering every page of a
+    200-page scan at 300 dpi fills the temporary folder, and Tesseract needs
+    around three seconds a page — a document that would occupy the process for
+    ten minutes and fails the request anyway. The fields an invoice or an act
+    carries are on the first pages, so only those are read, and the budget stops
+    a pathological scan even before the page count would.
+    """
     if not shutil.which('tesseract') or not shutil.which('pdftoppm'):
         return ''
+    limit = max(1, settings.MAX_OCR_PAGES)
+    deadline = time.monotonic() + settings.MAX_OCR_SECONDS
     with tempfile.TemporaryDirectory() as tmp:
         prefix = str(Path(tmp) / 'page')
         try:
             subprocess.run(
-                ['pdftoppm', '-r', '300', '-png', str(path), prefix],
+                [
+                    'pdftoppm', '-r', '300', '-f', '1', '-l', str(limit),
+                    '-png', str(path), prefix,
+                ],
                 capture_output=True,
                 check=True,
                 timeout=180,
             )
         except Exception:
             return ''
-        pages = sorted(Path(tmp).glob('page*.png'))
-        return '\n'.join(_ocr_image(page) for page in pages)
+        pages = sorted(Path(tmp).glob('page*.png'))[:limit]
+        text: list[str] = []
+        for page in pages:
+            if time.monotonic() > deadline:
+                break
+            text.append(_ocr_image(page))
+        return '\n'.join(text)
 
 
 def extract_text(path: Path) -> str:

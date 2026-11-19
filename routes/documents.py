@@ -65,10 +65,25 @@ async def upload(request: Request, file: UploadFile = File(...)):
     except HTTPException:
         target.unlink(missing_ok=True)
         raise
+    # Resolved before the document is read: a database that is down refuses the
+    # upload at once instead of taking the whole document in and then failing.
     person = pgapi.person(request)
-    meta = intake._process(
-        doc_id, file.filename or target.name, target, persist=person is None
-    )
+    try:
+        meta = await intake.process_async(
+            doc_id, file.filename or target.name, target, persist=person is None
+        )
+    except intake.ExtractionBusy as busy:
+        target.unlink(missing_ok=True)
+        raise HTTPException(
+            503,
+            'The extraction queue is busy, try again in a few seconds',
+            headers={'Retry-After': '5'},
+        ) from busy
+    except Exception:
+        # A refused or broken document is not a file: leaving it behind would be
+        # an unreachable upload that still takes disk.
+        target.unlink(missing_ok=True)
+        raise
     if person is not None:
         # Signed in, the document is a row in the database: the queue, the confirm
         # and the history read that row, not a snapshot next to it.

@@ -8,10 +8,12 @@ live in the modules above; there is deliberately no re-export layer here.
 Start: `python3 -m uvicorn app:app` — the object below is the whole entry point.
 """
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 import db
 import intake
@@ -56,6 +58,21 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title='DocFlow', lifespan=lifespan)
+logger = logging.getLogger('docflow')
+
+
+async def _database_unavailable(request: Request, error: Exception) -> JSONResponse:
+    """The database went away under a request: 503, not a stack trace."""
+    logger.warning('database unavailable on %s: %s', request.url.path, error)
+    return JSONResponse(
+        {'detail': 'PostgreSQL is unavailable'},
+        status_code=503,
+        headers={'Retry-After': '5'},
+    )
+
+
+for _connection_error in db.CONNECTION_ERRORS:
+    app.add_exception_handler(_connection_error, _database_unavailable)
 
 OBSERVABILITY = observability.install(app)
 

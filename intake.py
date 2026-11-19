@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import shutil
+import threading
 import time
 import uuid
 from contextlib import suppress
@@ -19,6 +20,52 @@ import settings
 from extractor import extract_text, parse_invoice, parse_items
 
 logger = logging.getLogger('docflow')
+
+
+class ExtractionBusy(RuntimeError):
+    """Every extraction slot is taken by someone else.
+
+    Raised instead of waiting forever: the upload route turns it into a 503 with
+    a `Retry-After`, so a burst sees a fast, honest refusal while the documents
+    already being read still get the CPU.
+    """
+
+
+class _Gate:
+    """A bounded number of extractions at once, readable from any thread.
+
+    A `threading.Semaphore` would be simpler, but its size is fixed when it is
+    built, and the knob here is a settings value like every other one. The
+    condition also makes the waiting time countable, so a caller can decide how
+    long "busy" may last before it is told to come back.
+    """
+
+    def __init__(self) -> None:
+        self._condition = threading.Condition()
+        self._active = 0
+
+    def acquire(self, timeout: float) -> bool:
+        deadline = time.monotonic() + timeout
+        with self._condition:
+            while self._active >= max(1, settings.EXTRACTIONS):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                self._condition.wait(remaining)
+            self._active += 1
+            return True
+
+    def release(self) -> None:
+        with self._condition:
+            self._active = max(0, self._active - 1)
+            self._condition.notify()
+
+    def active(self) -> int:
+        with self._condition:
+            return self._active
+
+
+GATE = _Gate()
 
 
 def _pdf_page_count(path: Path) -> int | None:
@@ -92,6 +139,44 @@ def _process(
     return meta
 
 
+async def process_async(
+    doc_id: str,
+    filename: str,
+    path: Path,
+    source: str = 'upload',
+    extra: dict | None = None,
+    persist: bool = True,
+) -> dict:
+    """`_process` off the event loop, behind the extraction gate.
+
+    Reading a scan takes tens of seconds and happens in Python and Tesseract, so
+    running it in the event loop stopped the whole service — health checks
+    included — for the length of one upload. The work goes to a worker thread;
+    the gate keeps at most `settings.EXTRACTIONS` of them running at once.
+    """
+    acquired = await asyncio.to_thread(GATE.acquire, settings.EXTRACTION_WAIT_SECONDS)
+    if not acquired:
+        raise ExtractionBusy(
+            f'all {settings.EXTRACTIONS} extraction slot(s) are busy'
+        )
+    try:
+        return await asyncio.to_thread(
+            _process, doc_id, filename, path, source=source, extra=extra, persist=persist
+        )
+    finally:
+        GATE.release()
+
+
+def _process_guarded(*args, **kwargs) -> dict:
+    """The same gate for a caller that is already on a worker thread."""
+    if not GATE.acquire(settings.EXTRACTION_WAIT_SECONDS):
+        raise ExtractionBusy(f'all {settings.EXTRACTIONS} extraction slot(s) are busy')
+    try:
+        return _process(*args, **kwargs)
+    finally:
+        GATE.release()
+
+
 def _ingest_folder_once() -> list[dict]:
     """Pick up documents dropped into the intake folder.
 
@@ -116,7 +201,7 @@ def _ingest_folder_once() -> list[dict]:
             doc_id = uuid.uuid4().hex[:10]
             target = settings.UPLOADS / f'{doc_id}{path.suffix.lower()}'
             shutil.copyfile(path, target)
-            _process(doc_id, path.name, target, source='folder')
+            _process_guarded(doc_id, path.name, target, source='folder')
             path.replace(settings.INBOX_DONE / f'{path.stem}-{doc_id}{path.suffix.lower()}')
             handled.append({'id': doc_id, 'filename': path.name})
         except Exception:
@@ -129,7 +214,9 @@ async def _folder_watcher() -> None:
     while True:
         # A broken folder must not stop the watch: the next pass tries again.
         with suppress(Exception):
-            _ingest_folder_once()
+            # Parsing a scan is seconds of CPU: the watch keeps running, the
+            # event loop does not wait for it.
+            await asyncio.to_thread(_ingest_folder_once)
         await asyncio.sleep(3)
 
 

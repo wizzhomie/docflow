@@ -34,6 +34,14 @@ except ImportError:  # pragma: no cover - depends on the environment
     psycopg2 = None  # type: ignore[assignment]
     pg_pool = None  # type: ignore[assignment]
 
+# A connection that dies mid-request raises one of these: a dropped socket, a
+# server restart, a statement on a connection the other end already closed.
+# They are not bugs in a route, and a 503 with Retry-After says "come back" —
+# a 500 says "the code is broken".
+CONNECTION_ERRORS: tuple[type[Exception], ...] = ()
+if psycopg2 is not None:
+    CONNECTION_ERRORS = (psycopg2.OperationalError, psycopg2.InterfaceError)
+
 DSN = os.environ.get("DOCFLOW_PG_DSN", "dbname=docflow_dev")
 POOL_MIN = int(os.environ.get("DOCFLOW_PG_POOL_MIN", "1"))
 POOL_MAX = int(os.environ.get("DOCFLOW_PG_POOL_MAX", "8"))
