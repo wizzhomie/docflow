@@ -22,7 +22,7 @@ def _ru(text: str) -> bool:
 SUPPORT_FACTS = """\
 FACTS about DocFlow:
 - DocFlow turns documents (PDF, scan, photo) into structured records. Sources: upload, watched folder, IMAP mailbox.
-- Extraction is deterministic rules, not a language model: invoice, act or delivery note; fields with confidence and issues; OCR for scans.
+- Extraction is deterministic rules by default: invoice, act or delivery note; fields with confidence and issues; OCR for scans. An optional meaning layer can ask a model where a value is printed: the model returns the line and the exact substring, the code copies and validates it. The model never produces a value. On the public demo that layer is on and the extracted text is sent to the configured model provider (Groq); it can be switched off with DOCFLOW_MEANING=off.
 - Routing: invoice goes to Payments, act and delivery note to Accounting, total at or above the approval threshold (100 000 by default) to Approval.
 - Every document is confirmed by a person; confirmed rows go to history and the CRM. A duplicate is the same supplier with the same number, or the same date and amount.
 - Typical issues: amounts do not add up, a tax id or IBAN is missing, number or date unreadable, low OCR quality. Fix: open the document, correct the field, confirm.
@@ -111,24 +111,32 @@ FAQ: list[dict] = [
         'ru': ('DocFlow превращает документы — PDF, сканы, фото — в структурированные '
                'записи: определяет тип (счёт, акт, накладная), вытаскивает номер, дату, '
                'поставщика и суммы, находит замечания и предлагает маршрут. Разбор '
-               'детерминированный: правила и профили, без языковой модели. Дальше документ '
-               'проверяет человек и подтверждает, а данные уходят в CRM.'),
+               'по умолчанию — правила и профили; есть необязательный слой, где модель '
+               'только указывает, в какой строке напечатано значение, а код переносит его '
+               'и проверяет. Дальше документ проверяет человек и подтверждает, а данные '
+               'уходят в CRM.'),
         'en': ('DocFlow turns documents — PDFs, scans, photos — into structured records: it '
                'detects the type (invoice, act, delivery note), extracts number, date, '
                'supplier and amounts, flags issues and proposes a route. Extraction is '
-               'deterministic: rules and profiles, no language model. A person then reviews '
-               'and confirms, and the data goes to the CRM.'),
+               'rules and profiles by default; an optional layer can have a model point at '
+               'the line where a value is printed, and the code copies and validates it. A '
+               'person then reviews and confirms, and the data goes to the CRM.'),
     },
     {
         'id': 'odm',
         'keywords': ['ии', 'нейросет', 'ai ', 'machine learning', 'llm', 'модель использ'],
-        'ru': ('Разбор документов идёт без языковой модели — это правила, профили и '
-               'проверки. Языковая модель используется только мной, ассистентом: чтобы '
-               'понять вопрос и выбрать инструмент. Модель работает локально, документы '
-               'никуда не отправляются.'),
-        'en': ('Document extraction uses no language model: it is rules, profiles and '
-               'checks. The language model is only in this assistant, to understand the '
-               'question and pick a tool. It runs locally; documents are not sent anywhere.'),
+        'ru': ('Разбор документов по умолчанию — правила, профили и проверки. '
+               'Необязательный слой может спросить модель, где напечатано значение: '
+               'модель возвращает номер строки и точную подстроку, код копирует её и '
+               'проверяет, сама модель значения не пишет. На публичном демо слой включён, '
+               'и текст документа отправляется в Groq; выключается через '
+               'DOCFLOW_MEANING=off. Этот чат работает на локальной модели.'),
+        'en': ('Document extraction is rules, profiles and checks by default. An optional '
+               'layer can ask a model where a value is printed: the model returns a line '
+               'and the exact substring, the code copies and validates it, and the model '
+               'never writes the value. On the public demo that layer is on and the '
+               'document text is sent to Groq; DOCFLOW_MEANING=off turns it off. This chat '
+               'runs on a local model.'),
     },
 ]
 

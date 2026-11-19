@@ -456,6 +456,10 @@ demo door, not a security boundary — real documents belong on a private instal
 - a model call sits in the upload path when the layer is on, and its latency is someone
   else's: the free tier throttles, so the demo's pointers can take a second or two (and
   minute-scale under a rate limit), while a model outage silently falls back to the rules;
+- with the layer on, the extracted text of the document leaves the machine for the model
+  provider: the public demo sends it to Groq. That is acceptable for sample documents and
+  is the reason the layer is a switch — a private installation that cannot send documents
+  anywhere runs with `DOCFLOW_MEANING=off` and keeps the rules;
 - the `jobs` table is the one working table without row-level security, deliberately: a
   worker serves every company, and a policy keyed on the current tenant would hide work
   from the only process able to do it. Every row carries its company, the API only reads

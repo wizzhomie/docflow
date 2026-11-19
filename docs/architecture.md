@@ -99,6 +99,10 @@ Measured on the 45-document synthetic corpus with `qwen3.8-27b`: number, date an
 parser read 35/31/28/42/42 on the same set). The value is always the document's own text:
 the model chooses a line, never a number.
 
+The layer is a network call: with it on, the extracted text is sent to the configured
+provider (the demo uses Groq). A deployment that cannot send documents anywhere turns it
+off and keeps the rules — nothing else in the pipeline depends on it.
+
 ### `mailbox.py`
 
 IMAP polling: finds unseen messages, decodes their attachments, hands each file to the application (which ingests it through the same path as an upload) and marks the message seen only after the ingest succeeded. Polling state (seen Message-IDs, counters, last error) is persisted in `data/mailbox_state.json`.
