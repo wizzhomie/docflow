@@ -214,17 +214,17 @@ DocFlow; without it the widget is off. Model URL, step limit and time budget use
 
 The public surface is locked down by default, because the demo runs behind a public URL:
 
-- `OPERATOR_CORS_ORIGINS` is empty — the widget is served by this API and talks to its own
-  origin, so no cross-origin access is needed. Set it only to embed the widget on another
-  domain.
+- `OPERATOR_CORS_ORIGINS` is a short explicit list, not `*`. On the demo server the widget is
+  served from the bare host and embedded by the DocFlow demo on `:8443`, so the installer
+  puts exactly that page in the list. Empty means same origin only.
 - `OPERATOR_CHAT_RATE_LIMIT` (6) and `OPERATOR_CHAT_RATE_WINDOW` (60 s) cap questions per
   client address; a client over the limit gets `429` with `Retry-After`.
 - `OPERATOR_CHAT_QUEUE_TIMEOUT` (20 s) is how long a question waits for the single model
   slot before it also gets `429` instead of holding the request for two minutes.
 - `OPERATOR_TRACES_PUBLIC=1` exposes `/api/traces`, the file with every visitor's question;
   it answers `404` unless explicitly switched on.
-- `/api/config` returns the model name and the step limit only: no internal addresses, no
-  filesystem paths.
+- `/api/config` returns the model name, the step limit and the address of the product demo
+  (for the link on this page) — no internal addresses, no filesystem paths.
 
 ## Deploying to a real server
 

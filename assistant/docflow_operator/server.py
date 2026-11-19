@@ -146,6 +146,7 @@ def config() -> dict:
     return {
         'model': settings.model_name,
         'max_steps': settings.max_steps,
+        'demo_url': settings.demo_url,
     }
 
 

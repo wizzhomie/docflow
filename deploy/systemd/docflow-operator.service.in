@@ -10,6 +10,10 @@ WorkingDirectory=__ASSISTANT_ROOT__
 Environment=DOCFLOW_URL=http://127.0.0.1:8765
 Environment=OPERATOR_MODEL_URL=http://127.0.0.1:8080
 Environment=OPERATOR_PORT=8769
+# The DocFlow demo page on :8443 embeds this widget from :443, so that page is the
+# one allowed origin; the bare host is the demo page served by this same service.
+Environment=OPERATOR_CORS_ORIGINS=__CORS_ORIGINS__
+Environment=OPERATOR_DEMO_URL=__DEMO_URL__
 ExecStart=__ASSISTANT_ROOT__/.venv/bin/python -m uvicorn docflow_operator.server:app --host 0.0.0.0 --port 8769
 Restart=always
 RestartSec=3

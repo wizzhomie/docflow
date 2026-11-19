@@ -37,7 +37,10 @@ def test_demo_page_hosts_the_widget(client):
 
 def test_config_endpoint_stays_public_but_shows_no_internal_addresses(client):
     body = client.get('/api/config').json()
-    assert body == {'model': server.settings.model_name, 'max_steps': server.settings.max_steps}
+    assert body['model'] == server.settings.model_name
+    assert body['max_steps'] == server.settings.max_steps
+    assert 'demo_url' in body
+    assert not any(key in body for key in ('model_url', 'docflow_url', 'drafts_dir'))
 
 
 # --- health -----------------------------------------------------------------

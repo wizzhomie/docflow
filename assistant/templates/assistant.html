@@ -68,12 +68,23 @@
     padding: 2px 6px; border-radius: 6px;
   }
   .hint { margin-top: 14px; font-size: .8rem; color: var(--muted); }
+  .topbar .spacer { flex: 1; }
+  .demo-cta {
+    font-size: .82rem; color: var(--text); text-decoration: none;
+    border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.05);
+    padding: 8px 14px; border-radius: 999px; white-space: nowrap;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .demo-cta:hover { background: rgba(124,92,255,.22); border-color: rgba(124,92,255,.5); }
+  @media (max-width: 640px) { .nav-note { display: none; } }
 </style>
 </head>
 <body data-assistant-open="true">
 <header class="topbar">
   <span class="logo"><span class="logo-mark"></span> DocFlow</span>
   <span class="nav-note">assistant demo host</span>
+  <span class="spacer"></span>
+  <a class="demo-cta" id="demo-link" hidden>Open the DocFlow demo →</a>
 </header>
 <div class="wrap">
   <span class="eyebrow">Assistant demo</span>
@@ -82,6 +93,10 @@
     This page hosts the same widget that DocFlow loads in the corner of its pages. Ask it how
     the platform works or what is in the review queue. It reads DocFlow through the API,
     prepares drafts and proposals, and never confirms, pays or sends anything.
+  </p>
+  <p class="lead" id="demo-note" hidden>
+    The product demo — the review queue on sample documents, works without an account — is
+    here: <a id="demo-link-inline" href="#" style="color:#c9c0ff">open the DocFlow demo</a>.
   </p>
   <div class="card">
     <h2>How it is embedded</h2>
@@ -95,6 +110,17 @@
 </div>
 <script src="/widget.js" defer></script>
 <script>
+fetch('/api/config').then(function (r) { return r.json(); }).then(function (config) {
+  if (!config.demo_url) return;
+  ['demo-link', 'demo-link-inline'].forEach(function (id) {
+    var link = document.getElementById(id);
+    if (!link) return;
+    link.href = config.demo_url;
+    link.hidden = false;
+  });
+  var note = document.getElementById('demo-note');
+  if (note) note.hidden = false;
+}).catch(function () {});
 window.addEventListener('load', function () {
   var question = new URLSearchParams(window.location.search).get('ask');
   if (!question || !window.DocFlowAssistant) return;

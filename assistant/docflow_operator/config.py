@@ -31,10 +31,12 @@ class Settings:
     temperature: float = field(default_factory=lambda: float(_env('OPERATOR_TEMPERATURE', '0')))
 
     port: int = field(default_factory=lambda: int(_env('OPERATOR_PORT', '8769')))
-    # Extra origins allowed to call the chat API. Empty by default: the widget is served
-    # by this same service and talks to its own origin, so the API needs no CORS at all.
-    # Set it only when the widget is embedded in a page on another origin.
+    # Origins allowed to call the chat API. The public demo embeds the widget (served
+    # here) into the DocFlow pages on another origin, so the deployment names that page
+    # explicitly; an empty value means "same origin only", which is the safe default.
     cors_origins: str = field(default_factory=lambda: _env('OPERATOR_CORS_ORIGINS', ''))
+    # Absolute address of the product demo, shown as a link on this demo page.
+    demo_url: str = field(default_factory=lambda: _env('OPERATOR_DEMO_URL', ''))
 
     # One visitor must not be able to occupy the single model slot for long.
     chat_rate_limit: int = field(default_factory=lambda: int(_env('OPERATOR_CHAT_RATE_LIMIT', '6')))
