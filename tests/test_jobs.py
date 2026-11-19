@@ -212,11 +212,26 @@ def test_an_unknown_kind_is_a_failed_job_not_a_crash():
         return
     company = _company()
     try:
-        job_id = jobqueue.enqueue(company, 'nobody.handles.this')
+        job_id = jobqueue.enqueue(company, 'test.nobody.handles.this')
         assert worker.run_once('test-worker') is True
         state = _status(job_id)
         assert state['status'] == 'queued'  # first attempt: retried, with the error kept
         assert 'no handler' in state['error']
+    finally:
+        _drop(company)
+
+
+def test_a_long_running_worker_leaves_the_suites_jobs_alone():
+    """The live worker must not take a job a running test created for itself."""
+    if not POSTGRES_AVAILABLE:
+        return
+    company = _company()
+    try:
+        job_id = jobqueue.enqueue(company, 'test.noop')
+        assert jobqueue.claim('live-worker', exclude_prefix='test.') is None
+        job = jobqueue.claim('test-worker')
+        assert job is not None and job['id'] == job_id
+        jobqueue.done(job_id)
     finally:
         _drop(company)
 

@@ -224,7 +224,8 @@ limits, the request log, the pool (two tenants on one connection), the queue (si
 claiming at once), the migration runner, the signed-in lifecycle (upload → row → confirm →
 history → export, and a stranger seeing none of it) and the two ways a demo becomes an
 incident: a request that becomes a path and a document that becomes markup. CI runs the same
-suites, the lint, and a Docker build on manual dispatch and on pull requests.
+suites, the lint, and a Docker build on every push to `main`, on pull requests and on
+manual dispatch.
 
 What the number means, because it is easy to read it as more than it is: 104 checks over 13
 fixtures is a regression baseline, not evidence of generalisation. The fixtures were used

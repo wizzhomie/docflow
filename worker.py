@@ -47,10 +47,10 @@ def worker_id() -> str:
     return f'{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:6]}'
 
 
-def run_once(identifier: str | None = None) -> bool:
+def run_once(identifier: str | None = None, exclude_prefix: str | None = None) -> bool:
     """Claim and run one job. True when there was work, False when the queue is empty."""
     identifier = identifier or worker_id()
-    job = jobqueue.claim(identifier)
+    job = jobqueue.claim(identifier, exclude_prefix=exclude_prefix)
     if job is None:
         return False
     kind = job['kind']
@@ -74,7 +74,12 @@ def run_once(identifier: str | None = None) -> bool:
     return True
 
 
-def run_forever(stop: threading.Event, interval: float = 2.0, identifier: str | None = None) -> None:
+def run_forever(
+    stop: threading.Event,
+    interval: float = 2.0,
+    identifier: str | None = None,
+    exclude_prefix: str | None = jobqueue.TEST_KIND_PREFIX,
+) -> None:
     """Drain the queue until `stop` is set.
 
     An empty queue costs one statement every `interval` seconds; a database that
@@ -85,7 +90,7 @@ def run_forever(stop: threading.Event, interval: float = 2.0, identifier: str | 
     logger.info('worker %s started', identifier, extra={'user': identifier})
     while not stop.is_set():
         try:
-            busy = run_once(identifier)
+            busy = run_once(identifier, exclude_prefix=exclude_prefix)
         except Exception as exc:  # noqa: BLE001 - a worker must outlive its database
             logger.warning('worker %s paused: %s', identifier, exc, extra={'user': identifier})
             stop.wait(max(interval, 10.0))

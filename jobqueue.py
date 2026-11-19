@@ -44,12 +44,17 @@ UPDATE jobs
          FROM jobs
         WHERE status = 'queued'
           AND run_after <= now()
+          {exclude}
         ORDER BY run_after, id
         LIMIT 1
         FOR UPDATE SKIP LOCKED
  )
  RETURNING id, company_id, kind, payload, attempts, max_attempts
 """
+
+# Kinds that belong to the suite. A long-running worker skips them, so running
+# the tests next to the live worker does not hand the test's job to production.
+TEST_KIND_PREFIX = 'test.'
 
 
 def enqueue(
@@ -72,10 +77,19 @@ def enqueue(
         return cursor.fetchone()[0]
 
 
-def claim(worker_id: str) -> dict[str, Any] | None:
-    """Take the oldest ready job, or None when there is nothing to do."""
+def claim(worker_id: str, exclude_prefix: str | None = None) -> dict[str, Any] | None:
+    """Take the oldest ready job, or None when there is nothing to do.
+
+    `exclude_prefix` exists for the long-running worker: it leaves the suite's
+    jobs (`test.…`) alone, so a test that checks the queue is not racing the live
+    worker for its own row.
+    """
+    sql = CLAIM_SQL.format(exclude='AND kind NOT LIKE %s' if exclude_prefix else '')
+    params: tuple[Any, ...] = (worker_id,)
+    if exclude_prefix:
+        params += (f'{exclude_prefix}%',)
     with db.connection() as connection, connection.cursor(cursor_factory=RealDictCursor) as cursor:
-        cursor.execute(CLAIM_SQL, (worker_id,))
+        cursor.execute(sql, params)
         row = cursor.fetchone()
         return dict(row) if row else None
 

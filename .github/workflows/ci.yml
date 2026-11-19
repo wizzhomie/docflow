@@ -1,12 +1,20 @@
 # .github/workflows/ci.yml
 name: CI
 
-# Runs on demand and on pull requests only. Pushes are batched, so the owner is
-# not notified by a check run every time a small change lands.
+# Every push to main is checked, and a pull request is checked before it lands:
+# the demo server deploys itself from main (deploy/release.sh in the operator
+# repo), so a red main is a red deployment. `workflow_dispatch` stays for a
+# deliberate re-run.
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
   pull_request:
     branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tests:
