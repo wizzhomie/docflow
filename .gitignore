@@ -43,4 +43,4 @@ assistant/data/
 .ruff_cache/
 
 # Generated synthetic corpus for the independent parser check
-data/synthetic-corpus/
+data/synthetic-corpus*/
