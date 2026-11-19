@@ -268,8 +268,10 @@ def test_without_a_session_the_document_stays_in_the_file_store():
         return
     client = TestClient(app.app)
     meta = _upload(client)
-    assert not meta['id'].isdigit(), 'a signed-out upload must stay a file id'
     try:
+        # The distinction is not the shape of the id (a hex id can be all
+        # digits): a signed-out upload writes the file store, a signed-in one
+        # writes a row and no snapshot.
         assert docstore._meta_path(meta['id']).exists(), 'the file store lost its snapshot'
     finally:
         docstore._meta_path(meta['id']).unlink(missing_ok=True)
