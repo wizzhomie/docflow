@@ -228,4 +228,5 @@ test → fix → regression, not by patching one example. `docs/` records the cl
 | Process as-is / to-be | `docs/process-map.md` |
 | Case-study structure | `docs/case-study.md` |
 | Architecture and decisions | `docs/architecture.md` |
+| One document end to end | `docs/walkthrough.md` |
 | Executable expectations | `tests/` |

@@ -486,11 +486,13 @@ templates/         showcase page (/) and review workspace (/app)
 assistant/         the assistant service, its model contract, tools, tests and widget
 deploy/            systemd units, release script, backups, healthcheck, logrotate, fail2ban
 tests/             deterministic suites and labelled fixtures
-docs/              architecture, process map, design system
+docs/              architecture, walkthrough, process map, design system
 sql/               PostgreSQL schema of the practice database
 ```
 
-- Architecture in detail: [`docs/architecture.md`](docs/architecture.md) · process map:
+- Architecture in detail: [`docs/architecture.md`](docs/architecture.md) · one document
+  end to end, with transactions and failures:
+  [`docs/walkthrough.md`](docs/walkthrough.md) · process map:
   [`docs/process-map.md`](docs/process-map.md) · design system:
   [`docs/design-system.md`](docs/design-system.md) · case-study structure:
   [`docs/case-study.md`](docs/case-study.md).
