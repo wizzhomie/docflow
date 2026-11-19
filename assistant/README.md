@@ -236,8 +236,16 @@ The demo also runs on a plain Ubuntu server (currently an Oracle Always Free ARM
 # once, after both repositories are on the server and the model is in .models/
 sudo ../deploy/systemd/install.sh          # installs and enables the stack
 systemctl status docflow-operator        # model + API + demo DocFlow
-tailscale funnel --bg --https=443 http://127.0.0.1:8765   # DocFlow demo, public HTTPS
-tailscale funnel --bg --https=8443 http://127.0.0.1:8769  # assistant with the widget, cross-origin
+```
+
+Public access uses the owner's domain through a Cloudflare tunnel (`cloudflared`,
+installed as its own service, config in `/etc/cloudflared/config.yml`):
+`https://docflow.website` for the product and `https://chat.docflow.website` for the
+assistant the demo embeds. Tailscale Funnel stays as the fallback entrance:
+
+```bash
+tailscale funnel --bg --https=443 http://127.0.0.1:8765   # DocFlow demo
+tailscale funnel --bg --https=8443 http://127.0.0.1:8769  # assistant with the widget
 tailscale funnel --bg --https=10000 http://127.0.0.1:10000  # DSH web UI (optional)
 ```
 

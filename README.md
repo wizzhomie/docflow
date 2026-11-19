@@ -13,7 +13,8 @@ only probabilistic step — deciding what a human still needs to check — is su
 the review queue instead of being hidden behind a model. No LLM orchestrator sits in
 the decision path; that is a design choice, explained below.
 
-**Public demo.** The demonstration instance runs on sample documents only. Its API is
+**Public demo.** The demonstration instance runs at <https://docflow.website> on sample
+documents only. Its API is
 anonymous on purpose — the sign-in guards the review queue on PostgreSQL, not a showcase
 with no real data — so do not upload real documents to a public instance. Clone the
 repository and run it locally for that.

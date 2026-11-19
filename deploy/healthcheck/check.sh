@@ -27,9 +27,25 @@ check_url() {
     fi
 }
 
+# The public names go through Cloudflare: resolve them with a public resolver and pin the
+# address, because the VCN resolver can cache a stale answer for hours and the tunnel would
+# then look broken while it is fine.
+check_public() {
+    local name="$1" host="$2" want="$3" code ip
+    ip="$(dig +short A "$host" @1.1.1.1 2>/dev/null | head -1 || true)"
+    if [ -n "$ip" ]; then
+        code="$(curl -fsS -o /dev/null -m 10 -w '%{http_code}' --resolve "$host:443:$ip"             "https://$host/api/health" 2>/dev/null || true)"
+    else
+        code="$(curl -fsS -o /dev/null -m 10 -w '%{http_code}' "https://$host/api/health"             2>/dev/null || true)"
+    fi
+    if [ "$code" != "$want" ]; then
+        problems+=("$name: HTTP ${code:-none} from https://$host/api/health (wanted $want)")
+    fi
+}
+
 check_url docflow-local http://127.0.0.1:8765/api/health 200
-check_url docflow-public https://docflow-demo.tail5bc03a.ts.net/api/health 200
-check_url operator-public https://docflow-demo.tail5bc03a.ts.net:8443/api/health 200
+check_public docflow-public docflow.website 200
+check_public operator-public chat.docflow.website 200
 
 for unit in docflow docflow-worker docflow-operator docflow-operator-model; do
     systemctl is-active --quiet "$unit" || problems+=("service $unit is not active")

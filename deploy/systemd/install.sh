@@ -39,10 +39,13 @@ public_host() {
   printf '%s' "${name:-$(hostname)}"
 }
 DSH_HOST="$(public_host)"
-# The DocFlow demo is the public root (:443) and embeds the widget served here on
-# :8443, so the bare host is the one allowed origin: a short list instead of *.
-CORS_ORIGINS="${OPERATOR_CORS_ORIGINS:-https://$DSH_HOST}"
-DEMO_URL="${OPERATOR_DEMO_URL:-https://$DSH_HOST/}"
+# Public access is the owner's domain through a Cloudflare tunnel; the demo embeds the
+# widget from its chat subdomain, so the demo (and its www alias) are the allowed origins.
+SITE_DOMAIN="${DOCFLOW_SITE_DOMAIN:-docflow.website}"
+# The owner's domain is canonical; the tailnet funnel stays a working fallback, so its
+# two public names are allowed as well.
+CORS_ORIGINS="${OPERATOR_CORS_ORIGINS:-https://$SITE_DOMAIN,https://www.$SITE_DOMAIN,https://$DSH_HOST,https://$DSH_HOST:8443}"
+DEMO_URL="${OPERATOR_DEMO_URL:-https://$SITE_DOMAIN/}"
 
 SERVICES=(docflow docflow-worker docflow-operator-model docflow-operator)
 RESTART=(docflow docflow-worker docflow-operator-model docflow-operator)
