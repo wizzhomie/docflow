@@ -198,6 +198,7 @@ def _record(row: dict[str, Any]) -> dict[str, Any]:
     confirmed_at = row.get('confirmed_at')
     viewed_at = row.get('viewed_at')
     deal_id = row.get('deal_id')
+    deal_external_id = row.get('deal_external_id')
     # Measured only when a person actually opened the document: the time between
     # upload and confirmation is mostly waiting, and reporting it as review time
     # would flatter the product with someone else's queue.
@@ -217,7 +218,9 @@ def _record(row: dict[str, Any]) -> dict[str, Any]:
         'review_seconds': review_seconds,
         'confidence': parsed.get('confidence'),
         'issues': list(parsed.get('issues') or []),
-        'crm_deal_id': f'DEMO-DB-{deal_id}' if deal_id else None,
+        # The number the CRM returned is what a person would search for; only
+        # a deal that never left the host gets the demo marker.
+        'crm_deal_id': deal_external_id or (f'DEMO-DB-{deal_id}' if deal_id else None),
         'doc_type': row['doc_type'],
         'source': row.get('source') or 'upload',
     }
@@ -228,7 +231,8 @@ def history(person: dict[str, Any], limit: int | None = None) -> list[dict[str, 
     sql = """
         SELECT d.id, d.filename, d.received_at, d.confirmed_at, d.viewed_at, d.parsed,
                d.confirmed_fields, d.edited_fields, d.doc_type, d.source,
-               (SELECT max(deals.id) FROM deals WHERE deals.document_id = d.id) AS deal_id
+               (SELECT max(deals.id) FROM deals WHERE deals.document_id = d.id) AS deal_id,
+               (SELECT max(deals.external_id) FROM deals WHERE deals.document_id = d.id) AS deal_external_id
           FROM documents d
          WHERE d.status IN ('confirmed', 'sent')
          ORDER BY d.confirmed_at NULLS LAST, d.id

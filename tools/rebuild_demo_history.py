@@ -45,9 +45,15 @@ def load_history(path: Path = HISTORY) -> list[dict[str, Any]]:
 
 
 def document_type(filename: str) -> str:
-    """What the file name says. A type is a profile, so an unknown name stays unknown."""
+    """What the file name says about the document.
+
+    The seed's `receipt_photo.jpg` is an invoice-shaped synthetic document (items,
+    totals, VAT — see `tools/seed_demo.py`); the profile registry already treats an
+    unknown code as the invoice profile, so the name is made explicit here instead
+    of leaving seven rows typed "unknown".
+    """
     name = (filename or '').lower()
-    if 'invoice' in name:
+    if 'invoice' in name or 'receipt' in name:
         return 'invoice_ua'
     if 'act' in name:
         return 'act_ua'

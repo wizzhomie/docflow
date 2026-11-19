@@ -13,6 +13,7 @@ Skipped when PostgreSQL is not reachable.
 import os
 import sys
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -23,6 +24,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 import app  # noqa: E402
 import auth  # noqa: E402
 import docstore  # noqa: E402
+import pg_documents  # noqa: E402
 import settings  # noqa: E402
 
 DSN = os.environ.get('DOCFLOW_PG_DSN', 'dbname=docflow_dev')
@@ -261,6 +263,26 @@ def test_another_company_neither_sees_nor_opens_the_document():
         _cleanup_files(owner['company_id'])
         _drop(owner['company_id'])
         _drop(stranger['company_id'])
+
+
+def test_a_history_row_shows_the_deal_id_that_was_recorded():
+    base = {
+        'id': 42,
+        'doc_type': 'invoice_ua',
+        'received_at': datetime(2026, 11, 1, tzinfo=UTC),
+        'parsed': {},
+        'confirmed_fields': {},
+        'edited_fields': None,
+        'confirmed_at': None,
+        'viewed_at': None,
+        'source': 'synthetic',
+        'filename': 'invoice.pdf',
+        'deal_id': 7,
+        'deal_external_id': 'DEMO-00',
+    }
+    assert pg_documents._record(base)['crm_deal_id'] == 'DEMO-00'
+    base['deal_external_id'] = None
+    assert pg_documents._record(base)['crm_deal_id'] == 'DEMO-DB-7'
 
 
 def test_without_a_session_the_document_stays_in_the_file_store():

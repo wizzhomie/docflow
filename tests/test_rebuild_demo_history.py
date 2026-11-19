@@ -68,7 +68,7 @@ def test_the_document_type_comes_from_the_file_name():
     assert rebuild.document_type('invoice_2026-455.pdf') == 'invoice_ua'
     assert rebuild.document_type('act_01.pdf') == 'act_ua'
     assert rebuild.document_type('delivery_note.pdf') == 'delivery_ua'
-    assert rebuild.document_type('receipt_photo.jpg') == 'unknown'
+    assert rebuild.document_type('receipt_photo.jpg') == 'invoice_ua'
 
 
 def test_a_duplicated_invoice_keeps_its_row_without_a_supplier_link():

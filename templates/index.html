@@ -399,6 +399,7 @@ const CURRENCY_SYMBOL = { UAH: '₴', USD: '$', EUR: '€' };
 const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp'];
 // Deployment default from /api/config (the registered document profile).
 let defaultCurrency = '';
+let typeLabels = {};
 
 function money(v, cur = defaultCurrency) {
   if (v === null || v === undefined || v === '') return '—';
@@ -408,6 +409,12 @@ function money(v, cur = defaultCurrency) {
     maximumFractionDigits: 2,
   });
   return sym ? amount + ' ' + sym : amount;
+}
+
+function typeLabel(code, fallback) {
+  if (!code) return fallback;
+  const name = typeLabels[code] || code;
+  return name.split(' (')[0].replace('Ukrainian ', '');
 }
 
 function duration(seconds) {
@@ -612,7 +619,7 @@ function renderInbox(items) {
     const badge = issues.length
       ? `<span class="pill bad">${issues.length} issue${issues.length > 1 ? 's' : ''}</span>`
       : '<span class="pill">no issues</span>';
-    const type = item.doc_type ? item.doc_type.split(' (')[0] : 'Document';
+    const type = typeLabel(item.doc_type, 'Document');
     const destination = item.route && item.route.destination ? item.route.destination : '';
     return `<button class="inbox-row" data-id="${item.id}">
       <span class="inbox-file">${item.filename || 'document'}</span>
@@ -858,6 +865,7 @@ async function loadConfig() {
     const config = await fetch('/api/config').then((r) => r.json());
     $('#demo-badge').hidden = !config.demo_mode;
     defaultCurrency = config.default_currency || '';
+    typeLabels = Object.fromEntries((config.document_types || []).map((t) => [t.code, t.name]));
     window.__docflowConfig = config;
   } catch (e) {}
 }
@@ -893,7 +901,7 @@ async function refresh() {
       <tbody>${docs.map((d) => {
         const f = d.fields;
         const edited = d.edited_fields.length;
-        const dtype = d.doc_type ? d.doc_type.split(' (')[0].replace('Ukrainian ', '') : 'Invoice';
+        const dtype = typeLabel(d.doc_type, 'Invoice');
         return `<tr>
           <td>${d.source === 'synthetic' ? '<span class="tag-synth">synthetic</span>' : ''}${d.filename}</td>
           <td class="type-cell">${dtype}</td>
@@ -912,8 +920,8 @@ async function refresh() {
 
 bindDrop();
 loadSamples();
-loadConfig();
-refresh();
+// The type labels come from the config, so the first render waits for it.
+loadConfig().finally(refresh);
 $('#confirm').onclick = confirmDoc;
 $('#reject').onclick = resetDoc;
 $('#mb-check').onclick = checkMailbox;
