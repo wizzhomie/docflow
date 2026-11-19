@@ -123,6 +123,9 @@ def _pending_documents(limit: int = 20) -> list[dict]:
                 'uploaded_at': meta.get('uploaded_at'),
                 'suffix': meta.get('suffix'),
                 'source': meta.get('source', 'upload'),
+                # The demo session that uploaded it: what makes the queue "yours"
+                # without a sign-in. Not a credential — the visitor already has it.
+                'session': meta.get('session'),
                 'issues': list(parsed.get('issues') or []),
                 'confidence': parsed.get('confidence'),
                 'doc_type': parsed.get('type_label'),

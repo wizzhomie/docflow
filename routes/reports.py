@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
+import demo
 import docstore
 import impact
 import pgapi
@@ -16,6 +17,21 @@ from connectors import active as active_connector
 from connectors import provider_name
 
 router = APIRouter()
+
+
+def _visible_rows(request: Request) -> list[dict]:
+    """Confirmed rows a request is allowed to see.
+
+    A signed-in person sees their company, and the database decides that. A visitor
+    of the public demo sees the labelled synthetic showcase and nothing else: the
+    operator's own uploads, test uploads and mail intake are working data, not a
+    demo, and a visitor must not count them or read them.
+    """
+    rows = _confirmed_rows(request)
+    if pgapi.person(request) is not None:
+        return rows
+    session = demo.session_id(request)
+    return [row for row in rows if demo.visible(row, session)]
 
 
 def _confirmed_rows(request: Request) -> list[dict]:
@@ -33,7 +49,7 @@ def _confirmed_rows(request: Request) -> list[dict]:
 
 @router.get('/api/documents')
 def documents(request: Request, limit: int = 50):
-    rows = list(reversed(_confirmed_rows(request)))[:limit]
+    rows = list(reversed(_visible_rows(request)))[:limit]
     # Surface the measured review time per document; legacy rows derive it from
     # the stored timestamps instead of showing an empty cell.
     return [{**row, 'review_seconds': docstore._review_seconds(row)} for row in rows]
@@ -47,7 +63,7 @@ def stats(request: Request):
     endpoints that count the same thing differently (six fields here, seven
     there) are a way to be wrong in public.
     """
-    rows = _confirmed_rows(request)
+    rows = _visible_rows(request)
     report = impact.build_impact(rows, settings.MANUAL_BASELINE_MINUTES)
     total = len(rows)
     avg_conf = round(sum(r['confidence'] for r in rows) / total, 2) if total else 0.0
@@ -64,12 +80,12 @@ def stats(request: Request):
 @router.get('/api/impact')
 def impact_report(request: Request):
     """Automation effect over confirmed documents: auto-pass, review time, risk."""
-    return impact.build_impact(_confirmed_rows(request), settings.MANUAL_BASELINE_MINUTES)
+    return impact.build_impact(_visible_rows(request), settings.MANUAL_BASELINE_MINUTES)
 
 
 @router.get('/api/export.csv')
 def export_csv(request: Request):
-    rows = _confirmed_rows(request)
+    rows = _visible_rows(request)
     columns = [
         'id',
         'filename',

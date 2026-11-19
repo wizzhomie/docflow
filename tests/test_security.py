@@ -433,7 +433,7 @@ def test_the_confirm_holds_the_lock_across_the_check_and_the_write():
     seen: dict[str, bool] = {}
     original = documents._confirm_in_files
 
-    def probe(payload):
+    def probe(payload, session=''):
         seen['locked'] = documents.CONFIRM_LOCK.locked()
         return {'ok': True}
 

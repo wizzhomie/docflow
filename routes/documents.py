@@ -4,11 +4,12 @@ import threading
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 import crm
+import demo
 import docstore
 import intake
 import pgapi
@@ -41,7 +42,7 @@ CONFIRM_LOCK = threading.Lock()
 
 
 @router.post('/api/upload')
-async def upload(request: Request, file: UploadFile = File(...)):
+async def upload(request: Request, response: Response, file: UploadFile = File(...)):
     suffix = Path(file.filename or 'doc').suffix.lower()
     if suffix not in settings.ALLOWED:
         raise HTTPException(400, 'Supported formats: PDF, TXT, HTML and images (PNG/JPG/TIFF)')
@@ -68,9 +69,16 @@ async def upload(request: Request, file: UploadFile = File(...)):
     # Resolved before the document is read: a database that is down refuses the
     # upload at once instead of taking the whole document in and then failing.
     person = pgapi.person(request)
+    # Signed out, the upload belongs to this browser's demo session: it is the only
+    # visitor who will see it in the lists.
+    session = '' if person is not None else (demo.session_id(request) or demo.new_session())
     try:
         meta = await intake.process_async(
-            doc_id, file.filename or target.name, target, persist=person is None
+            doc_id,
+            file.filename or target.name,
+            target,
+            extra={'session': session} if session else None,
+            persist=person is None,
         )
     except intake.ExtractionBusy as busy:
         target.unlink(missing_ok=True)
@@ -95,6 +103,10 @@ async def upload(request: Request, file: UploadFile = File(...)):
         except Exception as error:  # noqa: BLE001 - the driver's errors are one class here
             target.unlink(missing_ok=True)
             raise HTTPException(503, f'The document could not be stored: {error}') from error
+    if session:
+        response.set_cookie(
+            demo.COOKIE, session, max_age=demo.MAX_AGE, httponly=True, samesite='lax'
+        )
     if not meta['text_preview'].strip():
         meta['warning'] = 'No text extracted: the file may be a scan. OCR is not enabled yet.'
     return meta
@@ -107,10 +119,10 @@ def confirm(payload: ConfirmPayload, request: Request):
     if person is not None:
         return pgapi.confirm_document(person, payload.id, payload.fields)
     with CONFIRM_LOCK:
-        return _confirm_in_files(payload)
+        return _confirm_in_files(payload, demo.session_id(request))
 
 
-def _confirm_in_files(payload: ConfirmPayload) -> dict:
+def _confirm_in_files(payload: ConfirmPayload, session: str = '') -> dict:
     meta_path = docstore._meta_path(payload.id)
     if not meta_path.exists():
         raise HTTPException(404, 'Document not found')
@@ -176,6 +188,7 @@ def _confirm_in_files(payload: ConfirmPayload) -> dict:
         'destination_code': route_info['destination_code'],
         'route_reason': route_info['reason'],
         'source': meta.get('source', 'upload'),
+        'session': meta.get('session') or session,
         'validation_warnings': validation_warnings,
     }
     with settings.CONFIRMED.open('a', encoding='utf-8') as out:
@@ -212,7 +225,11 @@ def inbox(request: Request, limit: int = 20):
     person = pgapi.person(request)
     if person is not None:
         return pgapi.queue_documents(person, limit)
-    return docstore._pending_documents(limit)
+    # The file store is one shared workspace; the queue in it is the operator's
+    # working data plus whatever this browser uploaded. A visitor sees only the
+    # second part, never our uploads and test documents.
+    session = demo.session_id(request)
+    return [item for item in docstore._pending_documents(limit) if demo.visible(item, session)]
 
 
 @router.get('/api/documents/{doc_id}')
