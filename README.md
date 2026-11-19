@@ -455,10 +455,14 @@ demo door, not a security boundary — real documents belong on a private instal
   corpus is generated, so this is a robustness result, not a claim of real-world accuracy;
 - a model call sits in the upload path when the layer is on, and its latency is someone
   else's: the free tier throttles, so the demo's pointers can take a second or two (and
-  minute-scale under a rate limit), while a model outage silently falls back to the rules;
+  minute-scale under a rate limit), while a model outage falls back to the rules and
+  writes the reason to the log;
 - a pointer is not trusted because it is a pointer: after the layer changes a field, the
   invariants run again over the result, a value the model chose gets the weight of the
-  weakest anchor (not a made-up 0.97) and is marked `verified: false`. The case that
+  weakest anchor (not a made-up 0.97), is marked `verified: false` and carries a
+  "not verified" mark in the review form, so the person confirming the document sees
+  which fields the rules did not confirm. If the revalidation itself fails, the
+  record is rolled back to the parser's values rather than kept unrevalidated. The case that
   motivated this — a pointer to the VAT line copied as the total — is caught by validation
   and shown as an issue;
 - with the layer on, the extracted text of the document leaves the machine for the model
