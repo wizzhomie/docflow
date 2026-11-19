@@ -5,6 +5,7 @@ end in `_process`, so a document that arrives by e-mail is recognised, reviewed
 and routed exactly like one dropped into the folder.
 """
 import asyncio
+import copy
 import json
 import logging
 import shutil
@@ -121,7 +122,10 @@ def _process(
     )
     if settings.MEANING != 'off':
         # The model only says where the value is printed; a pointer whose text is
-        # not on that line is dropped and the parser's value stays.
+        # not on that line is dropped and the parser's value stays. The merge is in
+        # place, so a failure after it would leave a value no invariant has seen:
+        # keep the parser's record and put it back if anything in the layer raises.
+        snapshot = copy.deepcopy(parsed)
         try:
             import meaning
 
@@ -140,6 +144,8 @@ def _process(
             }
         except Exception as error:  # noqa: BLE001 - the model must never break intake
             logger.warning('meaning layer skipped: %s', error)
+            parsed.clear()
+            parsed.update(snapshot)
             meta_meaning = None
     else:
         meta_meaning = None

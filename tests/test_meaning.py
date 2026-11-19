@@ -137,6 +137,45 @@ def test_a_pointer_to_the_vat_line_is_caught_by_revalidation(monkeypatch, tmp_pa
     assert total['confidence'] == 0.3
 
 
+def test_a_failed_revalidation_does_not_leave_the_model_value_behind(monkeypatch, tmp_path):
+    """The merge is in place: if the invariants cannot run, the parser's record stands."""
+    import intake
+    import settings
+
+    monkeypatch.setattr(settings, 'MEANING', 'on')
+    monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(
+        total={'line': 4, 'text': '1 234,56 грн'}))
+
+    def broken(*args, **kwargs):
+        raise RuntimeError('the invariants could not run')
+
+    monkeypatch.setattr(intake, 'revise', broken)
+    path = tmp_path / 'invoice.txt'
+    path.write_text(invoice_text(), encoding='utf-8')
+    meta = intake._process('doc0000002', 'invoice.txt', path, persist=False)
+    # The record is the parser's record, field for field: no value survived that no
+    # invariant has seen.
+    monkeypatch.setattr(settings, 'MEANING', 'off')
+    plain = intake._process('doc0000003', 'invoice.txt', path, persist=False)
+    assert meta['parsed']['fields'] == plain['parsed']['fields']
+    assert 'meaning' not in meta
+
+
+def test_a_failed_model_call_is_logged_with_its_reason(monkeypatch, caplog):
+    """A throttled model must not look like an answer with no pointers."""
+    import logging
+
+    import httpx
+
+    def refuse(*args, **kwargs):
+        raise httpx.ConnectError('boom')
+
+    monkeypatch.setattr(meaning.httpx, 'post', refuse)
+    with caplog.at_level(logging.WARNING, logger='docflow'):
+        assert meaning._ask(doc_text()) == {}
+    assert 'meaning layer' in caplog.text
+
+
 def test_the_layer_does_not_run_when_it_is_off(monkeypatch, tmp_path):
     import intake
     import settings

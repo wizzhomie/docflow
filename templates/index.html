@@ -120,6 +120,9 @@
   .conf.high i { background: var(--ok); }
   .conf.mid i { background: var(--warn); }
   .conf.low i { background: var(--bad); }
+  .unverified { font-size: .62rem; letter-spacing: .02em; text-transform: uppercase;
+                color: var(--warn); border: 1px solid rgba(251,191,36,.45);
+                border-radius: 999px; padding: 1px 6px; margin-left: 6px; }
 
   .actions { display: flex; gap: 10px; margin-top: 18px; }
   .actions .btn { flex: 1; padding: 11px; }
@@ -661,6 +664,7 @@ function renderFields(meta) {
     return `<div class="field ${f.wide ? 'wide' : ''}">
       <label>${labels[f.key] || f.label}
         <span class="conf ${confClass(c)}"><i></i>${Math.round(c * 100)}%</span>
+        ${item.verified === false ? '<span class="unverified" title="The model pointed at this line; the rules did not confirm it">not verified</span>' : ''}
       </label>
       <input data-key="${f.key}" type="${f.type}" step="0.01" value="${String(value).replace(/"/g, '&quot;')}" class="${cls}" />
     </div>`;

@@ -20,12 +20,15 @@ provenance the review has asked for since the first architecture pass.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
+
+logger = logging.getLogger('docflow')
 
 FIELDS = ('number', 'date', 'supplier', 'tax_id', 'total', 'vat', 'currency')
 DEFAULT_URL = 'http://127.0.0.1:8080/v1/chat/completions'
@@ -103,14 +106,20 @@ def _ask(text: str) -> dict:
         response = httpx.post(url, headers=headers, json=payload, timeout=30)
         response.raise_for_status()
         content = response.json()['choices'][0]['message']['content']
-    except Exception:  # noqa: BLE001 - the model is an optional helper, never a gate
+    except Exception as error:  # noqa: BLE001 - the model is an optional helper, never a gate
+        # Falling back to the rules is the design, but it must not be invisible:
+        # a throttled or unreachable model looks exactly like an answer with no
+        # pointers unless the log says which one happened.
+        logger.warning('meaning layer: no answer from %s (%s)', url, error)
         return {}
     match = re.search(r'\{.*\}', content, re.S)
     if not match:
+        logger.warning('meaning layer: no JSON in the answer from %s', url)
         return {}
     try:
         return json.loads(match.group(0))
     except json.JSONDecodeError:
+        logger.warning('meaning layer: unparsable JSON from %s', url)
         return {}
 
 

@@ -19,3 +19,9 @@ def test_internal_plans_are_not_on_the_public_page():
     assert '#path' not in LANDING
     assert 'See the path' not in LANDING
     assert 'Our path' not in INDEX
+
+def test_a_value_the_rules_did_not_confirm_is_marked_in_the_review_form():
+    # The weight alone is not enough: the person reviewing must see that the rules
+    # did not check this field.
+    assert 'item.verified === false' in INDEX
+    assert 'unverified' in INDEX
