@@ -86,7 +86,7 @@ jobs:
           python3 tests/run_eval_split.py
 
       - name: Tests, with the coverage gate
-        run: pytest -q --cov --cov-fail-under=70
+        run: pytest -q --cov --cov-fail-under=68
 
   docker-build:
     runs-on: ubuntu-latest

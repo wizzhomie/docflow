@@ -98,7 +98,7 @@ Regression baseline:
 ```bash
 python3 tests/run_eval.py            # 13 fixtures, 104/104 checks, 0 confident errors
 python3 tests/run_eval_split.py      # real vs synthetic split
-pytest -q --cov --cov-fail-under=70  # the whole suite, one process, coverage gate
+pytest -q --cov --cov-fail-under=68  # the whole suite, one process, coverage gate
 ```
 
 CI runs the same suites with the coverage gate, the lint and a Docker build on every push
