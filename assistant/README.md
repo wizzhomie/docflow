@@ -212,6 +212,20 @@ inside DocFlow, set `DOCFLOW_ASSISTANT_URL=https://<operator-host>/widget.js` an
 DocFlow; without it the widget is off. Model URL, step limit and time budget use the
 `OPERATOR_*` environment variables.
 
+The public surface is locked down by default, because the demo runs behind a public URL:
+
+- `OPERATOR_CORS_ORIGINS` is empty — the widget is served by this API and talks to its own
+  origin, so no cross-origin access is needed. Set it only to embed the widget on another
+  domain.
+- `OPERATOR_CHAT_RATE_LIMIT` (6) and `OPERATOR_CHAT_RATE_WINDOW` (60 s) cap questions per
+  client address; a client over the limit gets `429` with `Retry-After`.
+- `OPERATOR_CHAT_QUEUE_TIMEOUT` (20 s) is how long a question waits for the single model
+  slot before it also gets `429` instead of holding the request for two minutes.
+- `OPERATOR_TRACES_PUBLIC=1` exposes `/api/traces`, the file with every visitor's question;
+  it answers `404` unless explicitly switched on.
+- `/api/config` returns the model name and the step limit only: no internal addresses, no
+  filesystem paths.
+
 ## Deploying to a real server
 
 The demo also runs on a plain Ubuntu server (currently an Oracle Always Free ARM VM:

@@ -13,6 +13,11 @@ only probabilistic step — deciding what a human still needs to check — is su
 the review queue instead of being hidden behind a model. No LLM orchestrator sits in
 the decision path; that is a design choice, explained below.
 
+**Public demo.** The demonstration instance runs on sample documents only. Its API is
+anonymous on purpose — the sign-in guards the review queue on PostgreSQL, not a showcase
+with no real data — so do not upload real documents to a public instance. Clone the
+repository and run it locally for that.
+
 ![Showcase page](docs/screenshots/landing.webp)
 
 ## What it does
@@ -407,7 +412,9 @@ the attempt count and the last error stay on the row.
 
 ## Status and limits
 
-This is a prototype for a client demonstration, not a production platform:
+This is a prototype for a client demonstration, not a production platform. The public
+instance is a showcase: it serves sample documents, and its anonymous API is a deliberate
+demo door, not a security boundary — real documents belong on a private installation.
 
 - three document profiles are implemented (Ukrainian invoice, act and delivery note);
   other markets need a profile each, and the review form is one fixed field set rather

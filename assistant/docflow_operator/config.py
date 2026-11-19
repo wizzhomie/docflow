@@ -31,8 +31,18 @@ class Settings:
     temperature: float = field(default_factory=lambda: float(_env('OPERATOR_TEMPERATURE', '0')))
 
     port: int = field(default_factory=lambda: int(_env('OPERATOR_PORT', '8769')))
-    # Origins allowed to call the chat API (the widget runs on the DocFlow pages).
-    cors_origins: str = field(default_factory=lambda: _env('OPERATOR_CORS_ORIGINS', '*'))
+    # Extra origins allowed to call the chat API. Empty by default: the widget is served
+    # by this same service and talks to its own origin, so the API needs no CORS at all.
+    # Set it only when the widget is embedded in a page on another origin.
+    cors_origins: str = field(default_factory=lambda: _env('OPERATOR_CORS_ORIGINS', ''))
+
+    # One visitor must not be able to occupy the single model slot for long.
+    chat_rate_limit: int = field(default_factory=lambda: int(_env('OPERATOR_CHAT_RATE_LIMIT', '6')))
+    chat_rate_window: float = field(default_factory=lambda: float(_env('OPERATOR_CHAT_RATE_WINDOW', '60')))
+    chat_queue_timeout: float = field(default_factory=lambda: float(_env('OPERATOR_CHAT_QUEUE_TIMEOUT', '20')))
+
+    # Traces hold every question asked of the public demo; off unless explicitly turned on.
+    traces_public: bool = field(default_factory=lambda: _env('OPERATOR_TRACES_PUBLIC', '0') in {'1', 'true', 'yes'})
     data_dir: Path = field(default_factory=lambda: Path(_env('OPERATOR_DATA_DIR', str(BASE_DIR / 'data'))))
 
     @property

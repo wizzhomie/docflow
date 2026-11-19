@@ -30,8 +30,8 @@ application's files.
    (90%). "Works" means the command passed, not that the code was written.
 10. Tests fake DocFlow, llama-server and model decisions. A test that needs the real
     services is marked `live` and must be skipped when they are down.
-11. Deploy only through `scripts/deploy.sh` and check it with `status` plus one real
-    question — never by "the process is running".
+11. Deploy only through `scripts/deploy.sh` (laptop) or `../deploy/release.sh` (server),
+    and check it with `status` plus one real question — never by "the process is running".
 
 ## Stack
 
@@ -41,16 +41,17 @@ application's files.
 - DocFlow API (`http://127.0.0.1:8765`) as the only external dependency.
 - Tests: pytest with fakes; ruff and coverage configured in `pyproject.toml`.
 
-Ports: DocFlow `8765`, MarketEye `8767`, this project `8769`.
+Ports: DocFlow `8765`, this assistant `8769`, its model `8080`.
 
 ## Tests, CI and deploy
 
 - `scripts/ci.sh` — lint, offline tests, coverage gate (90%, currently 98%). Green before done.
 - `scripts/ci.sh --live` — the opt-in live smoke (real DocFlow, model, `/api/chat`).
-- `scripts/deploy.sh deploy|status|restart|stop|logs` — the only way to start the service.
-  Pids, logs and the supervisor state live in `.run/` (git-ignored). There is no systemd and
-  no Docker daemon in this container: the supervisor is a plain process, so a container
-  restart needs `deploy` again.
+- `scripts/deploy.sh deploy|status|restart|stop|logs` — the laptop/container path: a plain
+  process supervisor, pids and logs in `.run/` (git-ignored).
+- On the demo server systemd owns the services: units live in `../deploy/systemd`
+  (`docflow-operator.service`, `docflow-operator-model.service`), installed once with
+  `sudo ../deploy/systemd/install.sh` and released with `sudo ../deploy/release.sh`.
 - `.github/workflows/ci.yml` mirrors lint, coverage and an API boot smoke on GitHub.
 
 ## Working with the product owner

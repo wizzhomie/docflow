@@ -12,6 +12,8 @@ OPERATOR_ENV = [
     'DOCFLOW_URL', 'DOCFLOW_TIMEOUT', 'OPERATOR_MODEL_URL', 'OPERATOR_MODEL_NAME',
     'OPERATOR_MODEL_TIMEOUT', 'OPERATOR_MAX_STEPS', 'OPERATOR_TIME_BUDGET',
     'OPERATOR_TEMPERATURE', 'OPERATOR_PORT', 'OPERATOR_CORS_ORIGINS', 'OPERATOR_DATA_DIR',
+    'OPERATOR_CHAT_RATE_LIMIT', 'OPERATOR_CHAT_RATE_WINDOW', 'OPERATOR_CHAT_QUEUE_TIMEOUT',
+    'OPERATOR_TRACES_PUBLIC',
 ]
 
 
@@ -32,7 +34,11 @@ def test_defaults_match_a_local_demo(clean_env):
     assert settings.time_budget == 120.0
     assert settings.temperature == 0.0
     assert settings.port == 8769
-    assert settings.cors_origins == '*'
+    assert settings.cors_origins == ''
+    assert settings.chat_rate_limit == 6
+    assert settings.chat_rate_window == 60.0
+    assert settings.chat_queue_timeout == 20.0
+    assert settings.traces_public is False
     assert settings.data_dir == BASE_DIR / 'data'
 
 
@@ -47,6 +53,10 @@ def test_environment_overrides_every_knob(monkeypatch):
     monkeypatch.setenv('OPERATOR_TEMPERATURE', '0.2')
     monkeypatch.setenv('OPERATOR_PORT', '9999')
     monkeypatch.setenv('OPERATOR_CORS_ORIGINS', 'https://docflow.test, http://localhost:5000')
+    monkeypatch.setenv('OPERATOR_CHAT_RATE_LIMIT', '3')
+    monkeypatch.setenv('OPERATOR_CHAT_RATE_WINDOW', '30')
+    monkeypatch.setenv('OPERATOR_CHAT_QUEUE_TIMEOUT', '5')
+    monkeypatch.setenv('OPERATOR_TRACES_PUBLIC', '1')
     monkeypatch.setenv('OPERATOR_DATA_DIR', '/tmp/operator-data')
     settings = Settings()
     assert settings.docflow_url == 'http://docflow.internal:9000'
@@ -59,6 +69,10 @@ def test_environment_overrides_every_knob(monkeypatch):
     assert settings.temperature == 0.2
     assert settings.port == 9999
     assert settings.cors_origins == 'https://docflow.test, http://localhost:5000'
+    assert settings.chat_rate_limit == 3
+    assert settings.chat_rate_window == 30.0
+    assert settings.chat_queue_timeout == 5.0
+    assert settings.traces_public is True
     assert settings.data_dir == Path('/tmp/operator-data')
 
 

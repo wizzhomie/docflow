@@ -35,13 +35,9 @@ def test_demo_page_hosts_the_widget(client):
     assert '/widget.js' in response.text
 
 
-def test_config_endpoint_tells_the_page_where_everything_is(client):
+def test_config_endpoint_stays_public_but_shows_no_internal_addresses(client):
     body = client.get('/api/config').json()
-    assert body['model'] == server.settings.model_name
-    assert body['model_url'] == server.settings.model_url
-    assert body['docflow_url'] == server.settings.docflow_url
-    assert isinstance(body['max_steps'], int)
-    assert body['drafts_dir'].endswith('drafts')
+    assert body == {'model': server.settings.model_name, 'max_steps': server.settings.max_steps}
 
 
 # --- health -----------------------------------------------------------------
@@ -157,18 +153,68 @@ def test_chat_is_post_only(client):
     assert client.get('/api/chat').status_code == 405
 
 
-def test_cors_allows_the_docflow_page_to_call_the_api(client, monkeypatch):
+def test_chat_is_rate_limited_per_client(client, monkeypatch):
+    monkeypatch.setattr(server, '_run_agent', lambda task, history: {'answer': 'ok'})
+    server._chat_limiter.reset()
+    try:
+        for _ in range(server.settings.chat_rate_limit):
+            ok = client.post('/api/chat', json={'messages': [{'role': 'user', 'content': 'hi'}]})
+            assert ok.status_code == 200
+        blocked = client.post('/api/chat', json={'messages': [{'role': 'user', 'content': 'hi'}]})
+        assert blocked.status_code == 429
+        assert int(blocked.headers['retry-after']) >= 1
+        # the proxy's client address is what counts, not the proxy itself
+        other = client.post('/api/chat', headers={'X-Forwarded-For': '203.0.113.9'},
+                            json={'messages': [{'role': 'user', 'content': 'hi'}]})
+        assert other.status_code == 200
+    finally:
+        server._chat_limiter.reset()
+
+
+def test_a_question_does_not_wait_forever_for_a_busy_model(monkeypatch, tmp_path):
+    closed = []
+    settings = SimpleNamespace(
+        ensure_dirs=lambda: None, docflow_url='x', docflow_timeout=1.0,
+        model_url='x', model_name='m', model_timeout=1.0, temperature=0.0,
+        drafts_dir=tmp_path, max_steps=4, time_budget=10.0, traces_path=tmp_path / 't.jsonl',
+        chat_queue_timeout=0.01,
+    )
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def close(self):
+            closed.append(True)
+
+    monkeypatch.setattr(server, 'settings', settings)
+    monkeypatch.setattr(server, 'DocFlowClient', FakeClient)
+    monkeypatch.setattr(server, 'ModelClient', FakeClient)
+    monkeypatch.setattr(server, 'Toolbox', lambda *args: None)
+
+    assert server._chat_lock.acquire(timeout=1)
+    try:
+        with pytest.raises(Exception) as error:
+            server._run_agent('hi', [])
+    finally:
+        server._chat_lock.release()
+    assert getattr(error.value, 'status_code', None) == 429
+    assert closed == [True, True]
+
+
+def test_no_cors_by_default_because_the_widget_is_same_origin(client, monkeypatch):
     monkeypatch.setattr(server, '_run_agent', lambda task, history: {'answer': 'ok'})
     origin = 'https://docflow.example'
     response = client.post('/api/chat', headers={'Origin': origin},
                            json={'messages': [{'role': 'user', 'content': 'hi'}]})
-    assert response.headers.get('access-control-allow-origin') in ('*', origin)
+    assert 'access-control-allow-origin' not in response.headers
+    # no middleware means the browser's preflight is not answered either
     preflight = client.options('/api/chat', headers={
         'Origin': origin,
         'Access-Control-Request-Method': 'POST',
         'Access-Control-Request-Headers': 'content-type',
     })
-    assert preflight.status_code in (200, 204)
+    assert preflight.status_code == 405
 
 
 # --- one-shot evaluation endpoint -------------------------------------------
@@ -201,7 +247,7 @@ def test_traces_are_returned_newest_first_and_invalid_lines_are_skipped(client, 
         json.dumps({'n': 2}),
         json.dumps({'n': 3}),
     ]) + '\n', encoding='utf-8')
-    monkeypatch.setattr(server, 'settings', SimpleNamespace(traces_path=path))
+    monkeypatch.setattr(server, 'settings', SimpleNamespace(traces_path=path, traces_public=True))
     body = client.get('/api/traces', params={'limit': 2}).json()
     assert [row['n'] for row in body] == [3, 2]
     # reading past the invalid line proves it is skipped, not fatal
@@ -210,8 +256,23 @@ def test_traces_are_returned_newest_first_and_invalid_lines_are_skipped(client, 
 
 
 def test_traces_are_empty_when_nothing_ran(client, monkeypatch, tmp_path):
-    monkeypatch.setattr(server, 'settings', SimpleNamespace(traces_path=tmp_path / 'missing.jsonl'))
+    monkeypatch.setattr(server, 'settings', SimpleNamespace(
+        traces_path=tmp_path / 'missing.jsonl', traces_public=True))
     assert client.get('/api/traces').json() == []
+
+
+def test_traces_are_off_unless_explicitly_turned_on(client):
+    # the trace file holds every visitor's question; it is not a public feed
+    assert client.get('/api/traces').status_code == 404
+
+
+def test_traces_limit_is_clamped(client, monkeypatch, tmp_path):
+    path = tmp_path / 'traces.jsonl'
+    path.write_text('\n'.join(json.dumps({'n': index}) for index in range(40)) + '\n',
+                    encoding='utf-8')
+    monkeypatch.setattr(server, 'settings', SimpleNamespace(traces_path=path, traces_public=True))
+    body = client.get('/api/traces', params={'limit': 1000}).json()
+    assert len(body) == 20
 
 
 def test_save_trace_appends_one_json_line(monkeypatch, tmp_path):

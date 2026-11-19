@@ -8,14 +8,15 @@ import time
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .agent import Agent, ModelClient
 from .config import BASE_DIR, get_settings
 from .docflow import DocFlowClient, DocFlowError
+from .limits import SlidingWindow
 from .tools import Toolbox
 
 TEMPLATES = BASE_DIR / 'templates'
@@ -23,17 +24,39 @@ STATIC = BASE_DIR / 'static'
 app = FastAPI(title='DocFlow Operator', version='0.2.0')
 settings = get_settings()
 
-# The widget is loaded by another origin (the DocFlow pages), so the API must allow it.
-# The API is read-only and has no credentials; keep this list tight where possible.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[origin.strip() for origin in settings.cors_origins.split(',') if origin.strip()],
-    allow_methods=['GET', 'POST', 'OPTIONS'],
-    allow_headers=['Content-Type'],
-)
+# The widget is served by this service and calls its own origin, so no cross-origin
+# access is needed. OPERATOR_CORS_ORIGINS is the explicit opt-in for embedding the
+# widget in a page on another domain; without it the browser cannot call the API.
+_cors_origins = [origin.strip() for origin in settings.cors_origins.split(',') if origin.strip()]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_methods=['GET', 'POST', 'OPTIONS'],
+        allow_headers=['Content-Type'],
+    )
 
 # llama-server runs one slot; serialise requests instead of thrashing its KV cache.
 _chat_lock = threading.Lock()
+
+# A public demo on two CPU cores: one visitor must not keep the slot for long.
+_chat_limiter = SlidingWindow(settings.chat_rate_limit, settings.chat_rate_window)
+
+
+def _client_key(request: Request) -> str:
+    """The address to count against: the proxy's client when it says so, else the peer."""
+    forwarded = request.headers.get('x-forwarded-for', '').split(',')[0].strip()
+    if forwarded:
+        return forwarded
+    return request.client.host if request.client else 'unknown'
+
+
+def _too_many(retry_after: int) -> JSONResponse:
+    return JSONResponse(
+        {'detail': 'too many questions from this address; try again in a moment'},
+        status_code=429,
+        headers={'Retry-After': str(max(1, retry_after))},
+    )
 
 
 def _warm_model(client_factory=None) -> None:
@@ -86,12 +109,19 @@ def _run_agent(task: str, history: list[dict]) -> dict:
                         settings.temperature)
     toolbox = Toolbox(docflow, settings.drafts_dir)
     started = time.time()
+    queue_timeout = float(getattr(settings, 'chat_queue_timeout', 20))
+    if not _chat_lock.acquire(timeout=max(0.0, queue_timeout)):
+        model.close()
+        docflow.close()
+        raise HTTPException(429, 'the assistant is busy; try again in a moment')
     try:
-        with _chat_lock:
-            result = Agent(model, toolbox, settings.max_steps, settings.time_budget).run(task, history)
+        result = Agent(model, toolbox, settings.max_steps, settings.time_budget).run(task, history)
+    except HTTPException:
+        raise
     except Exception as error:  # noqa: BLE001 - the widget should show a message, not a stack
         raise HTTPException(500, f'assistant failed: {error}') from error
     finally:
+        _chat_lock.release()
         model.close()
         docflow.close()
     result['total_ms'] = round((time.time() - started) * 1000)
@@ -112,12 +142,10 @@ def widget() -> FileResponse:
 
 @app.get('/api/config')
 def config() -> dict:
+    """What the demo page may show to a visitor; internal addresses stay inside."""
     return {
         'model': settings.model_name,
-        'model_url': settings.model_url,
-        'docflow_url': settings.docflow_url,
         'max_steps': settings.max_steps,
-        'drafts_dir': str(settings.drafts_dir),
     }
 
 
@@ -137,13 +165,16 @@ def health() -> dict:
 
 
 @app.post('/api/chat')
-def chat(request: ChatRequest) -> dict:
-    messages = [message.model_dump() for message in request.messages]
+def chat(message: ChatRequest, request: Request):
+    messages = [item.model_dump() for item in message.messages]
     if not messages or messages[-1]['role'] != 'user':
         raise HTTPException(400, 'the last message must be from the user')
     task = messages[-1]['content'].strip()
     if not task:
         raise HTTPException(400, 'empty question')
+    key = _client_key(request)
+    if not _chat_limiter.allow(key):
+        return _too_many(_chat_limiter.retry_after(key))
     history = messages[:-1]
     result = _run_agent(task, history)
     return result
@@ -170,6 +201,10 @@ def _save_trace(result: dict) -> None:
 
 @app.get('/api/traces')
 def traces(limit: int = 20) -> list[dict]:
+    """Every question asked of the public demo. Off by default: it is not a public feed."""
+    if not getattr(settings, 'traces_public', False):
+        raise HTTPException(404, 'traces are off')
+    limit = max(1, min(limit, 20))
     path: Path = settings.traces_path
     if not path.exists():
         return []
