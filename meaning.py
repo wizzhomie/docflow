@@ -30,6 +30,10 @@ import httpx
 FIELDS = ('number', 'date', 'supplier', 'tax_id', 'total', 'vat', 'currency')
 DEFAULT_URL = 'http://127.0.0.1:8080/v1/chat/completions'
 KEY_FILE = Path.home() / '.config' / 'docflow' / 'models.env'
+# A long text PDF can carry hundreds of lines; the fields of an invoice are in the
+# first pages, and the prompt has a budget. The limit is documented, not silent:
+# the prompt says how many lines were shown.
+MAX_LINES = int(os.environ.get('DOCFLOW_MEANING_LINES', '200'))
 
 MONTHS = {
     'січня': 1, 'лютого': 2, 'березня': 3, 'квітня': 4, 'травня': 5, 'червня': 6,
@@ -81,9 +85,13 @@ def _ask(text: str) -> dict:
     url = os.environ.get('DOCFLOW_MEANING_URL', DEFAULT_URL)
     model = os.environ.get('DOCFLOW_MEANING_MODEL', 'qwen/qwen3.8-27b')
     key = _api_key()
+    lines = text.splitlines()
+    shown = lines[:MAX_LINES]
     numbered = '\n'.join(
-        f'{index}\t{line}' for index, line in enumerate(text.splitlines()[:100], start=1)
+        f'{index}\t{line}' for index, line in enumerate(shown, start=1)
     )
+    if len(lines) > len(shown):
+        numbered += f'\n…(показано {len(shown)} рядків із {len(lines)})'
     payload = {
         'model': model,
         'messages': [{'role': 'user', 'content': PROMPT.format(lines=numbered)}],
@@ -178,6 +186,22 @@ def resolve(plan: dict, text: str) -> dict[str, Resolved]:
     return out
 
 
+def _agrees(name: str, left, right) -> bool:
+    """Whether the parser and the pointer produced the same value."""
+    if left is None or right is None:
+        return False
+    if name in ('total', 'vat'):
+        try:
+            return abs(float(left) - float(right)) <= 0.05
+        except (TypeError, ValueError):
+            return False
+    if name == 'tax_id':
+        return re.sub(r'\D', '', str(left)) == re.sub(r'\D', '', str(right))
+    if name == 'date':
+        return str(left).strip() == str(right).strip()
+    return str(left).strip().casefold() == str(right).strip().casefold()
+
+
 def apply(parsed: dict, text: str, shadow: bool = False) -> dict[str, Resolved]:
     """Merge resolved pointers into `parsed`, keeping the parser value as fallback.
 
@@ -190,10 +214,23 @@ def apply(parsed: dict, text: str, shadow: bool = False) -> dict[str, Resolved]:
         return resolved
     fields = parsed.setdefault('fields', {})
     for name, item in resolved.items():
+        existing = fields.get(name) or {}
+        provenance = {'line': item.line, 'text': item.text, 'by': 'model-pointer'}
+        if _agrees(name, existing.get('value'), item.value):
+            # Two independent readers agree: keep the parser's weight and only
+            # record where the value can be found.
+            existing['provenance'] = provenance
+            continue
+        # The model chose a different value. It is not a measured probability that
+        # this one is right, so it gets the weight of the weakest anchor and is
+        # marked as not verified by the rules; `revise` then runs the invariants
+        # over it like over any other field.
         fields[name] = {
             'value': item.value,
-            'source': f'pointer line {item.line}',
-            'confidence': 0.97,
-            'provenance': {'line': item.line, 'text': item.text, 'by': 'model-pointer'},
+            'source': f'model pointer line {item.line}',
+            'confidence': 0.6,
+            'base_confidence': 0.6,
+            'verified': False,
+            'provenance': provenance,
         }
     return resolved

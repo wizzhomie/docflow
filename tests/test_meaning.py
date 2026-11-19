@@ -83,3 +83,69 @@ def test_an_unreachable_model_returns_nothing_and_changes_nothing(monkeypatch):
     monkeypatch.setattr(meaning, '_ask', lambda text: {})
     assert meaning.apply(parsed, doc_text()) == {}
     assert parsed['fields']['date']['value'] == '2026-01-01'
+
+
+def invoice_text() -> str:
+    return '\n'.join([
+        'Рахунок на оплату № 2026-501 від 27 січня 2026',
+        'Постачальник  ТОВ «Смак-Дистрибуція»',
+        'ЄДРПОУ  41234567',
+        'Всього до сплати: 1 234,56 грн',
+        'в т.ч. ПДВ 20% — 205,76 грн',
+    ])
+
+
+def test_a_changed_value_gets_an_honest_weight_and_is_not_called_verified(monkeypatch):
+    parsed = {'fields': {'total': {'value': 1.0, 'confidence': 0.9, 'base_confidence': 0.9}}}
+    monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(
+        total={'line': 4, 'text': '1 234,56 грн'}))
+    meaning.apply(parsed, invoice_text())
+    field = parsed['fields']['total']
+    assert field['value'] == 1234.56
+    assert field['verified'] is False
+    assert field['confidence'] == 0.6  # the weakest anchor, not a made-up 0.97
+    assert field['provenance']['by'] == 'model-pointer'
+
+
+def test_an_agreeing_pointer_keeps_the_parser_weight(monkeypatch):
+    parsed = {'fields': {'date': {'value': '2026-01-27', 'confidence': 0.9,
+                                  'base_confidence': 0.9}}}
+    monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(
+        date={'line': 1, 'text': '27 січня 2026'}))
+    meaning.apply(parsed, invoice_text())
+    field = parsed['fields']['date']
+    assert field['confidence'] == 0.9
+    assert field['provenance']['line'] == 1
+
+
+def test_a_pointer_to_the_vat_line_is_caught_by_revalidation(monkeypatch, tmp_path):
+    """The defect: a real line, the wrong one — the VAT line copied as the total."""
+    import intake
+    import settings
+
+    monkeypatch.setattr(settings, 'MEANING', 'on')
+    monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(
+        total={'line': 5, 'text': '205,76 грн'}))
+    path = tmp_path / 'invoice.txt'
+    path.write_text(invoice_text(), encoding='utf-8')
+    meta = intake._process('doc0000001', 'invoice.txt', path, persist=False)
+    total = meta['parsed']['fields']['total']
+    assert total['value'] == 205.76
+    assert total['verified'] is False
+    # The invariants saw the change: total is not above its own VAT line.
+    assert any(issue.startswith('total') for issue in meta['parsed']['issues'])
+    assert total['confidence'] == 0.3
+
+
+def test_the_layer_does_not_run_when_it_is_off(monkeypatch, tmp_path):
+    import intake
+    import settings
+
+    monkeypatch.setattr(settings, 'MEANING', 'off')
+    calls: list[str] = []
+    monkeypatch.setattr(meaning, '_ask', lambda text: calls.append(text) or {})
+    path = tmp_path / 'invoice.txt'
+    path.write_text(invoice_text(), encoding='utf-8')
+    meta = intake._process('doc0000002', 'invoice.txt', path, persist=False)
+    assert calls == []
+    assert 'meaning' not in meta

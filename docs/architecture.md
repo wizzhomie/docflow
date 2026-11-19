@@ -99,9 +99,17 @@ Measured on the 45-document synthetic corpus with `qwen3.8-27b`: number, date an
 parser read 35/31/28/42/42 on the same set). The value is always the document's own text:
 the model chooses a line, never a number.
 
+A pointer is not a verdict. After the layer changes a field, `extractor.revise` runs the
+invariants again over the result: a value chosen by the model gets the weight of the weakest
+anchor (0.6) instead of a made-up 0.97, is marked `verified: false`, and is still subject to
+the rules. The case that motivated this is a pointer to a line that really exists but means
+something else — the VAT line copied as the total — and `validation.py` now refuses a total
+that is not above its own VAT line.
+
 The layer is a network call: with it on, the extracted text is sent to the configured
 provider (the demo uses Groq). A deployment that cannot send documents anywhere turns it
-off and keeps the rules — nothing else in the pipeline depends on it.
+off and keeps the rules — nothing else in the pipeline depends on it. Real personal or
+financial documents need a data-processing agreement with the provider first.
 
 ### `mailbox.py`
 

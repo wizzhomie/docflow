@@ -16,8 +16,9 @@ from pathlib import Path
 
 import docstore
 import mailbox
+import profiles
 import settings
-from extractor import extract_text, parse_invoice, parse_items
+from extractor import extract_text, parse_invoice, parse_items, revise
 
 logger = logging.getLogger('docflow')
 
@@ -125,6 +126,11 @@ def _process(
             import meaning
 
             resolved = meaning.apply(parsed, text, shadow=settings.MEANING == 'shadow')
+            if settings.MEANING == 'on':
+                # A pointer can name a real line and still the wrong one (the VAT
+                # line as the total), so the changed fields go back through the
+                # invariants before anyone sees them.
+                parsed = revise(parsed, items, profiles.get_profile(parsed.get('type')))
             meta_meaning = {
                 'mode': settings.MEANING,
                 'fields': {

@@ -456,10 +456,16 @@ demo door, not a security boundary — real documents belong on a private instal
 - a model call sits in the upload path when the layer is on, and its latency is someone
   else's: the free tier throttles, so the demo's pointers can take a second or two (and
   minute-scale under a rate limit), while a model outage silently falls back to the rules;
+- a pointer is not trusted because it is a pointer: after the layer changes a field, the
+  invariants run again over the result, a value the model chose gets the weight of the
+  weakest anchor (not a made-up 0.97) and is marked `verified: false`. The case that
+  motivated this — a pointer to the VAT line copied as the total — is caught by validation
+  and shown as an issue;
 - with the layer on, the extracted text of the document leaves the machine for the model
   provider: the public demo sends it to Groq. That is acceptable for sample documents and
   is the reason the layer is a switch — a private installation that cannot send documents
-  anywhere runs with `DOCFLOW_MEANING=off` and keeps the rules;
+  anywhere runs with `DOCFLOW_MEANING=off` and keeps the rules. Real personal or financial
+  documents need a data-processing agreement with the provider before the switch is on;
 - the `jobs` table is the one working table without row-level security, deliberately: a
   worker serves every company, and a policy keyed on the current tenant would hide work
   from the only process able to do it. Every row carries its company, the API only reads

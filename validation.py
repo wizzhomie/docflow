@@ -88,6 +88,12 @@ def validate(fields: dict, items: list | None = None, profile=None) -> dict:
         expected = round(total * vat_rate / (100 + vat_rate), 2)
         ok['vat'] = vat == 0 or _close(float(vat), expected)
 
+    # A total that is not above its own VAT line is the classic "copied the wrong
+    # number from the right document": the VAT line looks like a total to any
+    # reader, human or model. Zero VAT is fine; equal or negative is not.
+    if total_is_number and isinstance(vat, (int, float)) and vat > 0:
+        ok['total'] = ok['total'] and float(total) > float(vat)
+
     ok['currency'] = values.get('currency') in set(profile.CURRENCY)
 
     ok['email'] = _optional(values.get('email'), lambda v: bool(EMAIL_RE.fullmatch(v)))

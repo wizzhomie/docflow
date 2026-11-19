@@ -244,7 +244,12 @@ def _tidy_supplier(value: str | None, tax_prefixes: str) -> str | None:
 
 
 def _field(value, source, confidence):
-    return {'value': value, 'source': source, 'confidence': confidence}
+    # The base weight is kept apart from the current one: `revise` may run more
+    # than once (the meaning layer changes fields after the first parse) and a
+    # penalty applied twice would quietly halve a confidence that was already
+    # halved.
+    return {'value': value, 'source': source, 'confidence': confidence,
+            'base_confidence': confidence}
 
 
 def _last_money(line: str) -> float | None:
@@ -432,30 +437,40 @@ def parse_invoice(
         'contact_person': _field(contact_person, labels['contact_person'], 0.65 if contact_person else 0.0),
     }
 
-    validation = validate(fields, items, profile)
-    for key, passed in validation['ok'].items():
-        if passed is False:
-            if key == 'items_sum':
-                for field_key in ('total', 'vat'):
-                    fields[field_key]['confidence'] = round(
-                        fields[field_key]['confidence'] * 0.5, 2
-                    )
-            elif key in fields:
-                fields[key]['confidence'] = round(fields[key]['confidence'] * 0.5, 2)
-
-    core_confidences = [fields[key]['confidence'] for key in profile.CORE_FIELD_KEYS]
-    overall = round(sum(core_confidences) / len(core_confidences), 2)
-
-    return {
+    return revise({
         'fields': fields,
-        'confidence': overall,
         'type': profile.CODE,
-        'issues': validation['issues'],
         'type_label': profile.NAME,
         'doc_title': profile.DOC_TITLE,
         'field_labels': dict(getattr(profile, 'UI_LABELS', {})),
         'default_currency': profile.DEFAULT_CURRENCY,
-    }
+    }, items, profile)
+
+
+def revise(parsed: dict, items: list | None, profile) -> dict:
+    """Run the invariants over a parse and fold the verdict back into it.
+
+    Any step that changes a field after the first parse — the meaning layer is
+    the one that does — has to come back through here. Otherwise a pointer that
+    names a real line but the wrong line (the VAT line as the total) would be
+    copied into the record with no invariant seeing it, which is the exact class
+    of confident error this pipeline exists to stop.
+    """
+    fields = parsed['fields']
+    validation = validate(fields, items, profile)
+    for key, passed in validation['ok'].items():
+        if key in fields:
+            base = fields[key].get('base_confidence', fields[key]['confidence'])
+            fields[key]['confidence'] = round(base * 0.5, 2) if passed is False else base
+        elif key == 'items_sum' and passed is False:
+            for field_key in ('total', 'vat'):
+                base = fields[field_key].get('base_confidence', fields[field_key]['confidence'])
+                fields[field_key]['confidence'] = round(base * 0.5, 2)
+
+    core_confidences = [fields[key]['confidence'] for key in profile.CORE_FIELD_KEYS]
+    parsed['confidence'] = round(sum(core_confidences) / len(core_confidences), 2)
+    parsed['issues'] = validation['issues']
+    return parsed
 
 
 def parse_items(text: str) -> list[dict]:
