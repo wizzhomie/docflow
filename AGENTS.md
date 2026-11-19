@@ -10,7 +10,11 @@ Ukrainian invoice, an act of completed work and a delivery note. Adding a docume
 or a second market is a new profile, not a rewrite of the core. UI in English.
 
 The pipeline is deterministic on purpose: profiles interpret, code validates and routes,
-a human confirms. There is no LLM or agent framework in the decision path.
+a human confirms. There is no LLM orchestrator in the decision path. The one optional
+model step is the meaning layer (`meaning.py`): the model names the line where a value is
+printed, the code checks the text is there, copies it and validates it. The model never
+produces a value; a pointer that does not resolve is dropped and the rules keep their
+value. The layer is off unless `DOCFLOW_MEANING` is `shadow` or `on`.
 
 ## Architecture map
 
@@ -20,6 +24,8 @@ a human confirms. There is no LLM or agent framework in the decision path.
   the CRM mapping and duplicate suppression, `impact.py` the impact report, `pgapi.py`
   the optional database layer.
 - `extractor.py` — text acquisition, OCR fallback and field interpretation.
+- `meaning.py` — the optional meaning layer: a model points at the line a value is
+  printed on, the code copies it and records the provenance.
 - `mailbox.py` — IMAP intake: attachments of new mail go through the same pipeline as an upload.
 - `profiles/market_ua.py` — shared facts of the Ukrainian market: currency, VAT, label
   vocabulary, tax-ID/IBAN/phone formats, legal forms, OCR language.
@@ -48,7 +54,9 @@ a human confirms. There is no LLM or agent framework in the decision path.
 
 ## Engineering rules
 
-1. Separate probabilistic interpretation from deterministic execution.
+1. Separate probabilistic interpretation from deterministic execution. A model may point
+   at where a value is printed; it never produces the value, and the code checks the
+   pointer against the document before anything is copied.
 2. Keep whole-document context; line-by-line parsing causes confident errors.
 3. Confident errors are worse than missing values. Never silently send a wrong amount,
    supplier, tax ID or currency to CRM.

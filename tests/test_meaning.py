@@ -14,7 +14,7 @@ import meaning
 
 
 def fake_plan(**pointers) -> dict:
-    return {'fields': {name: pointer for name, pointer in pointers.items()}}
+    return {'fields': dict(pointers)}
 
 
 def doc_text() -> str:

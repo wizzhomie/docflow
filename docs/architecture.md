@@ -16,6 +16,7 @@ settings.py · docstore.py · intake.py · crm.py · impact.py · pgapi.py
        ├── e-mail intake → mailbox.py + data/inbox/
        ├── text acquisition → extractor.py
        ├── interpretation → extractor.py + profiles/invoice_ua.py
+       ├── optional meaning layer → meaning.py (model points, code copies)
        ├── deterministic checks → validation.py
        ├── pending state → data/pending/<doc_id>.json
        ├── human review → templates/index.html
@@ -82,6 +83,21 @@ present. Without the driver the demo starts and answers from files.
 ### `extractor.py`
 
 Text acquisition, OCR fallback, interpretation of document fields with the anchors and value formats of the active profile, and confidence adjustment after validation failures.
+
+### `meaning.py`
+
+The optional layer that lets a model speak without letting it decide. It is given the
+numbered lines of the document and returns one pointer per field: line number plus the
+exact substring as printed. The code verifies the substring is really on that line,
+copies it, parses the format and records where it came from (`provenance` on the field).
+A pointer that does not resolve is dropped, the rule-based value stays, and a model that
+is down, slow or unkeyed changes nothing. `DOCFLOW_MEANING` is `off` by default, `shadow`
+records what the model would say without answering with it, `on` applies the pointer.
+
+Measured on the 45-document synthetic corpus with `qwen3.8-27b`: number, date and tax id
+45/45, supplier and total 44/45, the two misses being OCR damage in a scan (the rule-based
+parser read 35/31/28/42/42 on the same set). The value is always the document's own text:
+the model chooses a line, never a number.
 
 ### `mailbox.py`
 
@@ -219,8 +235,13 @@ An agent orchestrator in the hot path would add cost, latency, non-reproducible 
 and a second source of confident errors, while the formal rules are exactly what code is
 better at. Async is used only where the system waits (folder watcher, IMAP poll via
 `asyncio.to_thread`); document processing is sequential, so one document cannot race
-itself into two deals. If a model is ever added, it proposes a value into the same
-review step — it never decides on its own.
+itself into two deals.
+
+The one place a model is welcome is the meaning layer, and even there it does not produce
+a value: it names the line and the substring, and the code copies it. That keeps the two
+failure modes apart — a model can point at the wrong place, which the review sees, but it
+cannot invent an amount, because the amount is copied from the document and the pointer is
+checked against the line. When the layer is off, the same pipeline runs on rules alone.
 
 **Profiles are data.** A document type and its market (labels, value formats, legal
 forms, OCR language) are a profile module; the parser and the CRM connectors are
@@ -250,3 +271,4 @@ test → fix → regression, not by patching one example. `docs/` records the cl
 | Architecture and decisions | `docs/architecture.md` |
 | One document end to end | `docs/walkthrough.md` |
 | Executable expectations | `tests/` |
+| Model-pointer layer and its measurements | `meaning.py`, `tools/meaning_plan_experiment.py` |

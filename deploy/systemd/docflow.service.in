@@ -8,6 +8,9 @@ Type=simple
 User=__USER__
 WorkingDirectory=__DOCFLOW_ROOT__
 EnvironmentFile=-__DOCFLOW_ROOT__/.env
+# The meaning layer's API key lives outside the repository: the unit reads the
+# root's private file, and the env var names the model, never the secret.
+EnvironmentFile=-__USER_HOME__/.config/docflow/models.env
 # The queue has its own unit (`docflow-worker`), so the web process does not
 # start a second in-process worker: one place claims a job, one log shows it.
 Environment=DOCFLOW_JOBS=off

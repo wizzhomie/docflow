@@ -1,6 +1,6 @@
 # DocFlow
 
-**Document intake for B2B teams: a deterministic pipeline from a file or a mailbox to a reviewed CRM deal.**
+**Document intake for B2B teams: a deterministic pipeline from a file or a mailbox to a reviewed CRM deal — with an optional layer where a model only points at where a value is printed.**
 
 DocFlow takes a PDF, a scan or an e-mail attachment, works out what kind of document
 it is, reads the whole document, shows the human what it is unsure about, lets them
@@ -10,8 +10,10 @@ accounting or approval — creating or updating a deal in the CRM.
 The core is deterministic on purpose: formal rules are code, the document is read
 through a **profile** (a data description of a document type and its market), and the
 only probabilistic step — deciding what a human still needs to check — is surfaced in
-the review queue instead of being hidden behind a model. No LLM orchestrator sits in
-the decision path; that is a design choice, explained below.
+the review queue instead of being hidden behind a model. The one place a model may
+speak is the **meaning layer**: it names the line a value is printed on, and the code
+copies that text. The model never produces the value, and the layer is optional — with
+it off, the same pipeline runs on rules alone.
 
 **Public demo.** The demonstration instance runs at <https://docflow.website> on sample
 documents only. Its API is
@@ -58,17 +60,18 @@ flowchart LR
         M[IMAP mailbox]
     end
 
-    subgraph core [Deterministic core · no LLM · no network]
+    subgraph core [Deterministic core · rules, not a model]
         T[Text extraction<br/>pdftotext · OCR fallback]
         P[Profile detection<br/>first lines → document type]
         X[Field interpretation<br/>anchors + per-field confidence]
+        L[Meaning layer<br/>optional · model names the line, code copies]
         V[Validation<br/>deterministic invariants]
     end
 
     U --> T
     F --> T
     M --> T
-    T --> P --> X --> V
+    T --> P --> X --> L --> V
 
     V -->|issues or low confidence| R[Human review<br/>queue · edits · duplicate check]
     V -->|clean fields| R
@@ -110,10 +113,13 @@ tenants through one pooled connection and checks that the second sees nothing.
 - **A confident error is worse than a gap.** A missing amount sends a document to a human;
   a wrong amount silently closes the wrong deal. The pipeline is built to prefer the first.
 - **No LLM orchestrator by design.** An agent graph in the hot path would add cost,
-  latency, non-reproducible outputs and a second source of confident errors, while the
-  documents that actually need interpretation are already covered by profiles and a human.
-  If a model is ever added, it is a fallback that proposes a value into the same review —
-  never a stage that decides on its own.
+  latency, non-reproducible outputs and a second source of confident errors.
+- **When a model is used, it points rather than decides.** The meaning layer asks a model
+  where a value is printed and gets back a line number plus the exact substring; the code
+  checks that the text is really on that line, copies it, parses the format and records the
+  provenance. A pointer that does not resolve is dropped and the rules keep their value, so
+  the model cannot invent an amount. `DOCFLOW_MEANING=off|shadow|on` makes the layer
+  something an operator turns on, not something the pipeline depends on.
 - **A new document type is data, not a branch.** Profiles carry anchors, totals wording,
   value formats and labels; the parser and the CRM connectors stay unchanged. Three types
   ship today: a Ukrainian invoice, an act of completed work and a delivery note.
@@ -207,6 +213,10 @@ Everything is optional; the application starts with no CRM and no mailbox.
 | `DOCFLOW_MAX_PDF_PAGES` | page limit for one PDF (default 200); a page count is a cost bound, not a validity rule |
 | `DOCFLOW_PG_POOL_MIN` / `DOCFLOW_PG_POOL_MAX` | connection pool size (default 1…8); one connection serves many requests |
 | `DOCFLOW_JOBS` | `off` disables the in-process background worker (the queue is then drained by `python3 -m worker`) |
+| `DOCFLOW_MEANING` | `off` (default), `shadow` (record what the model would point at, change nothing) or `on` (apply a pointer when its text is present) |
+| `DOCFLOW_MEANING_URL`, `DOCFLOW_MEANING_MODEL`, `DOCFLOW_MEANING_KEY` | OpenAI-compatible endpoint, model and key for the meaning layer; with no key the layer is skipped |
+| `DOCFLOW_MAX_EXTRACTIONS`, `DOCFLOW_EXTRACTION_WAIT` | concurrent extractions and how long a request waits for a slot before `503` |
+| `DOCFLOW_MAX_OCR_PAGES`, `DOCFLOW_MAX_OCR_SECONDS` | how much of a scan reaches OCR and for how long |
 | `DOCFLOW_DEFAULT_COMPANY` | the company a file-demo retry belongs to (default 1); a multi-company deployment passes the tenant with the job |
 
 Secrets live only in `.env` (git-ignored). `.env.example` documents the keys with empty values.
@@ -439,6 +449,13 @@ demo door, not a security boundary — real documents belong on a private instal
   label found exactly, `0.85` for an OCR variant, `0.6` for a fallback), not a calibrated
   probability of being right. The human review, not the number, is the safety net — and a
   validated contradiction still halves the weight of the total and the VAT;
+- the meaning layer is measured on a 45-document synthetic corpus, not on real client
+  documents: with `qwen3.8-27b` over Groq it read the number, date and tax id 45/45, the
+  supplier and total 44/45, and the two remaining misses were OCR damage in a scan. The
+  corpus is generated, so this is a robustness result, not a claim of real-world accuracy;
+- a model call sits in the upload path when the layer is on, and its latency is someone
+  else's: the free tier throttles, so the demo's pointers can take a second or two (and
+  minute-scale under a rate limit), while a model outage silently falls back to the rules;
 - the `jobs` table is the one working table without row-level security, deliberately: a
   worker serves every company, and a policy keyed on the current tenant would hide work
   from the only process able to do it. Every row carries its company, the API only reads
