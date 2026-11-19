@@ -2,8 +2,8 @@
 
 Every route group lives in `routes/`, every knob in `settings.py`, the file store
 in `docstore.py`. This module starts the background work (the folder watcher, the
-mailbox poller, the job worker), mounts the optional PostgreSQL layer, and keeps
-the names older callers import from `app` available.
+mailbox poller, the job worker), and mounts the optional PostgreSQL layer. Helpers
+live in the modules above; there is deliberately no re-export layer here.
 
 Start: `python3 -m uvicorn app:app` — the object below is the whole entry point.
 """
@@ -73,43 +73,3 @@ for router in (
 
 for router in pgapi.routers():
     app.include_router(router)
-
-
-# --------------------------------------------------------------- compatibility
-# Older callers (tests, the Uspacy connector) import helpers from `app`. They
-# live in the modules above; these aliases keep the old addresses working. A
-# knob that can be redirected at runtime is deliberately not copied here: tests
-# and deployments point at `settings`, so a redirected path is followed by
-# everything that reads it.
-
-from crm import (  # noqa: E402, F401
-    _deal_comment,
-    _dedupe_key,
-    _effective_fields,
-    _find_or_create_supplier_company,
-    _find_or_create_supplier_contact,
-    _local_duplicate,
-    _supplier_details,
-)
-from docstore import (  # noqa: E402, F401
-    _file_counts,
-    _issues_for,
-    _meta_path,
-    _now,
-    _parse_ts,
-    _pending_documents,
-    _read_confirmed,
-    _review_seconds,
-    _row_issues,
-)
-from impact import build_impact  # noqa: E402, F401
-from intake import (  # noqa: E402, F401
-    _document_problem,
-    _ingest_folder_once,
-    _mailbox_poll_once,
-    _pdf_page_count,
-    _process,
-)
-from routes.documents import ConfirmPayload, confirm  # noqa: E402, F401
-from routes.reports import impact_report as impact  # noqa: E402, F401
-from routes.reports import stats  # noqa: E402, F401

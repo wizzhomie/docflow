@@ -12,8 +12,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import app  # noqa: E402
 import uspacy  # noqa: E402
+from crm import (  # noqa: E402
+    _effective_fields,
+    _find_or_create_supplier_company,
+    _supplier_details,
+)
 
 
 class FakeResponse:
@@ -42,7 +46,7 @@ FIELDS = {
 
 
 def test_supplier_details_maps_requisites():
-    details = app._supplier_details(FIELDS)
+    details = _supplier_details(FIELDS)
     assert details['tax_id'] == '33445566'
     assert details['phone'] == '380441112233'
     assert details['email'] == 'billing@terra-bud.ua'
@@ -53,7 +57,7 @@ def test_supplier_details_maps_requisites():
 
 
 def test_supplier_details_skips_empty_values():
-    details = app._supplier_details({'supplier': 'ТОВ «Без реквізитів»'})
+    details = _supplier_details({'supplier': 'ТОВ «Без реквізитів»'})
     assert details['comment_lines'] == []
     assert details['phone'] is None and details['iban'] is None
 
@@ -68,7 +72,7 @@ def test_enrich_company_fills_only_empty_fields():
 
     uspacy._patch = fake_patch
     company = {'id': 5, 'title': 'ТОВ «Терра-Буд»', 'phone': '', 'email': '', 'comments': 'ЄДРПОУ/ІПН: 33445566'}
-    uspacy.enrich_company(company, app._supplier_details(FIELDS))
+    uspacy.enrich_company(company, _supplier_details(FIELDS))
     assert patched['payload']['phone'] == [{'value': '380441112233'}]
     assert patched['payload']['email'] == [{'value': 'billing@terra-bud.ua'}]
     assert patched['payload']['address'] == 'м. Київ, вул. Хрещатик, 12'
@@ -93,7 +97,7 @@ def test_enrich_company_does_not_overwrite_human_values():
         'address': 'м. Київ, вул. Інша, 1',
         'comments': 'ЄДРПОУ/ІПН: 33445566',
     }
-    uspacy.enrich_company(company, app._supplier_details(FIELDS))
+    uspacy.enrich_company(company, _supplier_details(FIELDS))
     assert 'phone' not in patched['payload']
     assert 'email' not in patched['payload']
     assert 'address' not in patched['payload']
@@ -112,7 +116,7 @@ def test_enrich_company_is_noop_when_nothing_new():
         'address': 'м. Київ, вул. Хрещатик, 12',
         'comments': 'ЄДРПОУ/ІПН: 33445566\nIBAN: UA123456789012345678901234567\nБанк: АТ «Ощадбанк»',
     }
-    assert uspacy.enrich_company(company, app._supplier_details(FIELDS)) is company
+    assert uspacy.enrich_company(company, _supplier_details(FIELDS)) is company
 
 
 def test_existing_contact_is_reused():
@@ -160,7 +164,7 @@ def test_company_lookup_error_is_not_swallowed():
 
     uspacy.find_or_create_company = boom
     try:
-        app._find_or_create_supplier_company({'supplier': 'ТОВ «Терра-Буд»'})
+        _find_or_create_supplier_company({'supplier': 'ТОВ «Терра-Буд»'})
     except RuntimeError as exc:
         assert 'CRM is down' in str(exc)
     else:
@@ -177,13 +181,13 @@ def test_missing_form_keys_fall_back_to_parsed_values():
         'contact_person': 'Олена Ткаченко',
     }
     submitted = {'number': '2026-501', 'supplier': 'ТОВ «Терра-Буд»'}
-    merged = app._effective_fields(parsed, submitted)
+    merged = _effective_fields(parsed, submitted)
     assert merged['phone'] == '380441112233'
     assert merged['contact_person'] == 'Олена Ткаченко'
 
 
 def test_edited_value_wins_over_parsed_value():
-    merged = app._effective_fields({'total': 100.0, 'phone': '380441112233'}, {'total': 90.0})
+    merged = _effective_fields({'total': 100.0, 'phone': '380441112233'}, {'total': 90.0})
     assert merged['total'] == 90.0
 
 

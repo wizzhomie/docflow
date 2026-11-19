@@ -32,6 +32,8 @@ import pg_queue  # noqa: E402
 import routes.documents as documents  # noqa: E402
 import settings  # noqa: E402
 import webutil  # noqa: E402
+from impact import build_impact  # noqa: E402
+from routes.reports import impact_report, stats  # noqa: E402
 
 # The checks write documents; they must not touch the running demo's data.
 ROOT = Path(tempfile.mkdtemp(prefix='docflow-security-'))
@@ -347,7 +349,7 @@ def _row(edited: list[str], doc_type: str | None = 'invoice_ua') -> dict:
 
 
 def test_accuracy_divides_by_the_fields_the_profile_asks_for():
-    impact = app.build_impact([_row(['supplier'])], 3.0)
+    impact = build_impact([_row(['supplier'])], 3.0)
     assert impact['fields_reviewed'] == 7
     assert impact['field_accuracy'] == round((1 - 1 / 7) * 100, 1)
 
@@ -357,8 +359,8 @@ def test_the_headline_and_the_report_report_agree():
     original = docstore._read_confirmed
     docstore._read_confirmed = lambda: rows
     try:
-        headline = app.stats(_request())
-        report = app.impact(_request())
+        headline = stats(_request())
+        report = impact_report(_request())
     finally:
         docstore._read_confirmed = original
     assert headline['documents'] == report['documents']
@@ -398,14 +400,14 @@ def test_a_second_confirmation_at_the_same_moment_is_not_a_second_deal():
     }
     docstore._meta_path(doc_id).write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
 
-    payload = app.ConfirmPayload(id=doc_id, fields=fields)
+    payload = documents.ConfirmPayload(id=doc_id, fields=fields)
     request = _request()
     answers: list[dict] = []
     barrier = threading.Barrier(4)
 
     def run() -> None:
         barrier.wait()
-        answers.append(app.confirm(payload, request))
+        answers.append(documents.confirm(payload, request))
 
     threads = [threading.Thread(target=run) for _ in range(4)]
     for thread in threads:
@@ -437,7 +439,7 @@ def test_the_confirm_holds_the_lock_across_the_check_and_the_write():
 
     documents._confirm_in_files = probe
     try:
-        app.confirm(app.ConfirmPayload(id='abcdef0123', fields={}), _request())
+        documents.confirm(documents.ConfirmPayload(id='abcdef0123', fields={}), _request())
     finally:
         documents._confirm_in_files = original
     assert seen.get('locked') is True

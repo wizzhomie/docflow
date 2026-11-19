@@ -85,12 +85,8 @@ jobs:
           python3 tests/run_eval.py
           python3 tests/run_eval_split.py
 
-      - name: Deterministic test suites
-        run: |
-          for suite in tests/test_*.py; do
-            echo "== $suite"
-            python3 "$suite"
-          done
+      - name: Tests, with the coverage gate
+        run: pytest -q --cov --cov-fail-under=71
 
   docker-build:
     runs-on: ubuntu-latest

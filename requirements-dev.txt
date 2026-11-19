@@ -3,3 +3,7 @@
 
 # Lint: the same version CI uses, so "it passes locally" means something.
 ruff==0.17.5
+
+# One runner for the whole suite, with the coverage gate CI enforces.
+pytest==9.2.0
+pytest-cov==7.1.0

@@ -98,11 +98,11 @@ Regression baseline:
 ```bash
 python3 tests/run_eval.py            # 13 fixtures, 104/104 checks, 0 confident errors
 python3 tests/run_eval_split.py      # real vs synthetic split
-for suite in tests/test_*.py; do python3 "$suite" || exit 1; done
+pytest -q --cov --cov-fail-under=71  # the whole suite, one process, coverage gate
 ```
 
-CI runs the deterministic suite plus a Docker build on manual dispatch and on pull
-requests (`.github/workflows/ci.yml`).
+CI runs the same suites with the coverage gate, the lint and a Docker build on every push
+to `main` and on pull requests (`.github/workflows/ci.yml`).
 
 ## Working notes
 
