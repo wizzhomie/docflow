@@ -55,6 +55,10 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# `python -m pytest` puts the working directory on sys.path, the `pytest` script does
+# not; the suites import modules from the repository root (`db`, `settings`), and CI
+# calls the script. Name the path instead of depending on how pytest was started.
+pythonpath = ["."]
 # One process, one report: the suites are plain functions named `test_*`, so
 # pytest collects everything the per-file loop used to run.
 addopts = "-ra"
