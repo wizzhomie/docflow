@@ -1,0 +1,17 @@
+[Unit]
+Description=DocFlow background worker (durable queue)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DOCFLOW_ROOT__
+EnvironmentFile=-__DOCFLOW_ROOT__/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=__DOCFLOW_ROOT__/.venv/bin/python -m worker
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

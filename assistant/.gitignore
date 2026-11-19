@@ -1,0 +1,13 @@
+data/
+.env
+.venv/
+.run/
+.tools/
+.models/
+__pycache__/
+.coverage
+htmlcov/
+*.pyc
+*.gguf
+# Internal working memory: local only, like DocFlow's public tree
+memory/

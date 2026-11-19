@@ -1,0 +1,13 @@
+# The demo's own logs. systemd writes service output to the journal, which
+# rotates itself; these two files are written by the application (JSONL request
+# log) and the healthcheck. Both belong to the run user, hence `su`.
+__DOCFLOW_ROOT__/data/logs/*.jsonl __DOCFLOW_ROOT__/.run/health.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    su __USER__ __USER__
+}

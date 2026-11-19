@@ -41,6 +41,11 @@ a human confirms. There is no LLM or agent framework in the decision path.
 - `tests/run_eval.py` — deterministic regression baseline.
 - `tests/document_cases.json` — labelled fixtures for every document type.
 - `docs/roadmap.json` + `/api/roadmap` — the product path shown on the site.
+- `assistant/` — the chat assistant: deterministic FAQ and intents, read-only tools over the
+  DocFlow API, a small local model on CPU and the widget. Its own service (`:8769`, model on
+  `:8080`), same repository.
+- `deploy/` — systemd units for both services, `release.sh`, local and off-site backups,
+  healthcheck, logrotate, fail2ban.
 
 ## Engineering rules
 
@@ -82,6 +87,13 @@ a human confirms. There is no LLM or agent framework in the decision path.
 - OCR runs from a portable Tesseract in `.tools/ocr` (gitignored); the language set is the
   union of the registered profiles and `DOCFLOW_OCR_LANGS` overrides it.
 
+## The assistant
+
+The chat widget is part of the product and lives in `assistant/`. It never confirms a
+document, sends mail or moves money — the human gate stays in DocFlow, and a tool that
+would cross it must not be added. Deterministic layers answer first; the model only plans
+tool calls, and every answer must be grounded in a tool result.
+
 ## Commands
 
 ```bash
@@ -98,11 +110,14 @@ Regression baseline:
 ```bash
 python3 tests/run_eval.py            # 13 fixtures, 104/104 checks, 0 confident errors
 python3 tests/run_eval_split.py      # real vs synthetic split
-pytest -q --cov --cov-fail-under=68  # the whole suite, one process, coverage gate
+pytest -q --cov --cov-fail-under=68  # DocFlow: one process, coverage gate
+(cd assistant && ./scripts/ci.sh)    # assistant: ruff, tests, coverage gate (90%)
 ```
 
-CI runs the same suites with the coverage gate, the lint and a Docker build on every push
-to `main` and on pull requests (`.github/workflows/ci.yml`).
+CI runs both suites with their coverage gates, the lint and a Docker build on every push
+to `main` and on pull requests (`.github/workflows/ci.yml`, jobs `tests` and `assistant`).
+A release is `sudo deploy/release.sh`: it gates both suites, restarts DocFlow and smokes
+both services; the assistant's units are installed by `sudo deploy/systemd/install.sh`.
 
 ## Working notes
 

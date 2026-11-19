@@ -1,0 +1,17 @@
+[Unit]
+Description=llama.cpp model server for the DocFlow assistant
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__ASSISTANT_ROOT__
+ExecStart=/bin/bash scripts/start_model.sh
+Restart=always
+RestartSec=3
+StandardOutput=append:__ASSISTANT_ROOT__/.run/logs/model.log
+StandardError=append:__ASSISTANT_ROOT__/.run/logs/model.log
+
+[Install]
+WantedBy=multi-user.target

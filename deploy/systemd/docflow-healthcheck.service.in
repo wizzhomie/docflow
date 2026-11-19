@@ -1,0 +1,12 @@
+[Unit]
+Description=DocFlow healthcheck (local, public, services, database)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__DEPLOY_ROOT__
+EnvironmentFile=-__DOCFLOW_ROOT__/.env
+Environment=DOCFLOW_ROOT=__DOCFLOW_ROOT__
+ExecStart=__DEPLOY_ROOT__/healthcheck/check.sh

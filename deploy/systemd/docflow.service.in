@@ -1,0 +1,19 @@
+[Unit]
+Description=DocFlow demo (document intake prototype, demo mode)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DOCFLOW_ROOT__
+EnvironmentFile=-__DOCFLOW_ROOT__/.env
+# The queue has its own unit (`docflow-worker`), so the web process does not
+# start a second in-process worker: one place claims a job, one log shows it.
+Environment=DOCFLOW_JOBS=off
+ExecStart=__DOCFLOW_ROOT__/.venv/bin/python -m uvicorn app:app --host 0.0.0.0 --port 8765
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+[Unit]
+Description=DeepSeek Harness web UI (dsh web)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DshWorkdir__
+Environment=DSH_HOME=__USER_HOME__/.dsh
+ExecStart=/usr/bin/dsh web --host 127.0.0.1 --port 10000 --no-open --public-url https://__DshHost__:10000 --trusted-host __DshHost__:10000
+Restart=always
+RestartSec=3
+StandardOutput=append:__USER_HOME__/.dsh/logs/web.log
+StandardError=append:__USER_HOME__/.dsh/logs/web.log
+
+[Install]
+WantedBy=multi-user.target

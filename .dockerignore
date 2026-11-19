@@ -39,3 +39,12 @@ __pycache__/
 tests/
 .devcontainer/
 node_modules/
+
+# The assistant's runtime and model files (the image only needs its code)
+assistant/.venv
+assistant/.models
+assistant/.tools
+assistant/data
+assistant/.run
+assistant/memory
+*.gguf

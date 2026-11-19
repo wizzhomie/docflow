@@ -1,0 +1,14 @@
+[Unit]
+Description=DocFlow backup (database, documents, environment)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__DEPLOY_ROOT__
+EnvironmentFile=-__DOCFLOW_ROOT__/.env
+Environment=DOCFLOW_ROOT=__DOCFLOW_ROOT__
+Environment=DOCFLOW_BACKUP_DIR=__USER_HOME__/backups/docflow
+ExecStart=__DEPLOY_ROOT__/backup/backup.sh
+Nice=10

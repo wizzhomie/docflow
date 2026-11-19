@@ -34,3 +34,10 @@ data/logs/
 .coverage.*
 htmlcov/
 .pytest_cache/
+
+# The assistant's runtime state, caches and model files (its own tree has the
+# same rules; these cover a checkout from the repository root).
+assistant/data/
+.models/
+*.gguf
+.ruff_cache/

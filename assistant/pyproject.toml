@@ -1,0 +1,40 @@
+# Tooling configuration only: the app runs from the source tree, there is no build backend.
+# One file is enough for ruff, pytest and coverage, so a fresh checkout needs no setup.
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv", ".tools", ".models", ".run", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E731",  # short lambdas used once, inline, are clearer than a nested def
+    "E501",  # prompt and FAQ prose is kept on one readable line; code is formatted by hand
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config"
+markers = [
+    "live: needs the real DocFlow and llama-server; skipped when they are down",
+]
+filterwarnings = [
+    # FastAPI's TestClient still imports httpx itself; the warning is not ours.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["docflow_operator"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

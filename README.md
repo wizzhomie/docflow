@@ -437,6 +437,20 @@ This is a prototype for a client demonstration, not a production platform:
   with the number of tenants. `tests/test_metrics.py` moves a document through new,
   confirmed, deleted and a removed company and reads the counters after every step.
 
+## The assistant, in the same repository
+
+The chat widget in the corner of the demo pages is part of this product, and its code is
+in [`assistant/`](assistant/README.md). It runs as its own service (`:8769`) with a small
+local model behind it (`llama.cpp` on `:8080`), because a model server must be able to
+restart without taking document intake with it — not because it is a separate product.
+
+It answers from three layers: a curated FAQ, intent rules, and only then a 1.5B model that
+chooses which read-only tool to call. The tools ask the DocFlow API about the live queue;
+the model never writes, confirms, sends mail or moves money — the human gate stays in
+DocFlow. Tests and the widget contract live next to it (`cd assistant && ./scripts/ci.sh`).
+
+![The assistant in DocFlow](assistant/docs/screenshots/docflow-with-assistant.png)
+
 ## Repository layout and documentation
 
 ```text
@@ -455,6 +469,8 @@ routing.py         deterministic destination policy
 validation.py      deterministic field invariants
 uspacy*.py         Uspacy authentication, client-side matching, deal creation
 templates/         showcase page (/) and review workspace (/app)
+assistant/         the assistant service, its model contract, tools, tests and widget
+deploy/            systemd units, release script, backups, healthcheck, logrotate, fail2ban
 tests/             deterministic suites and labelled fixtures
 docs/              architecture, process map, design system, roadmap
 sql/               PostgreSQL schema of the practice database
@@ -465,3 +481,4 @@ sql/               PostgreSQL schema of the practice database
   [`docs/design-system.md`](docs/design-system.md) · case-study structure:
   [`docs/case-study.md`](docs/case-study.md).
 - Product path: [`docs/roadmap.json`](docs/roadmap.json) (rendered as “Our path” on the site).
+- The assistant's own notes: [`assistant/README.md`](assistant/README.md).

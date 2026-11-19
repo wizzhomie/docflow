@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocFlow assistant</title>
+<style>
+  :root {
+    --bg: #07080d;
+    --panel: #0e1018;
+    --panel-2: #12141f;
+    --line: rgba(255,255,255,.09);
+    --text: #eceef5;
+    --muted: #9aa0b4;
+    --accent: #7c5cff;
+    --accent-2: #22d3ee;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background:
+      radial-gradient(700px circle at 8% -10%, rgba(124,92,255,.18), transparent 55%),
+      radial-gradient(600px circle at 100% 0%, rgba(34,211,238,.1), transparent 50%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 18px;
+    padding: 16px 26px; border-bottom: 1px solid var(--line);
+    background: rgba(7,8,13,.7); backdrop-filter: blur(12px);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; letter-spacing: -.02em; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 8px; position: relative;
+    background: conic-gradient(from 180deg, var(--accent), var(--accent-2), #ff5c9d, var(--accent));
+    box-shadow: 0 0 20px rgba(124,92,255,.5);
+  }
+  .logo-mark::after {
+    content: ""; position: absolute; inset: 6px; border-radius: 50%;
+    background: var(--bg); border: 2px solid rgba(255,255,255,.7);
+  }
+  .nav-note { font-size: .76rem; color: var(--muted); margin-left: 6px; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 54px 24px 140px; }
+  .eyebrow {
+    display: inline-block; font-family: var(--mono); font-size: .64rem; letter-spacing: .18em;
+    text-transform: uppercase; color: #8f95ab; padding: 6px 13px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03);
+  }
+  h1 {
+    margin: 18px 0 0; font-size: clamp(1.7rem, 3.4vw, 2.4rem); line-height: 1.08;
+    letter-spacing: -.04em; font-weight: 700;
+  }
+  p.lead { margin-top: 16px; color: #b4b9cb; font-size: .98rem; line-height: 1.65; max-width: 640px; }
+  .card {
+    margin-top: 26px; padding: 18px 20px; border-radius: 16px;
+    border: 1px solid rgba(255,255,255,.1);
+    background: linear-gradient(180deg, rgba(18,20,32,.85), rgba(9,11,18,.9));
+    box-shadow: 0 40px 90px -60px #000, inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .card h2 { font-size: .95rem; margin-bottom: 8px; }
+  .card p { color: #b4b9cb; font-size: .9rem; line-height: 1.6; }
+  code {
+    font: 12.5px var(--mono); color: #c9c0ff;
+    background: rgba(124,92,255,.14); border: 1px solid rgba(124,92,255,.28);
+    padding: 2px 6px; border-radius: 6px;
+  }
+  .hint { margin-top: 14px; font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body data-assistant-open="true">
+<header class="topbar">
+  <span class="logo"><span class="logo-mark"></span> DocFlow</span>
+  <span class="nav-note">assistant demo host</span>
+</header>
+<div class="wrap">
+  <span class="eyebrow">Assistant demo</span>
+  <h1>The assistant, outside the product</h1>
+  <p class="lead">
+    This page hosts the same widget that DocFlow loads in the corner of its pages. Ask it how
+    the platform works or what is in the review queue. It reads DocFlow through the API,
+    prepares drafts and proposals, and never confirms, pays or sends anything.
+  </p>
+  <div class="card">
+    <h2>How it is embedded</h2>
+    <p>
+      DocFlow reads <code>assistant_url</code> from its configuration and appends one script
+      tag. Empty value means no widget, which is the public default. Add
+      <code>?ask=…</code> to this URL to open the chat with a pre-filled question.
+    </p>
+  </div>
+  <p class="hint">The chat panel is open in the corner. Close it and the round button stays.</p>
+</div>
+<script src="/widget.js" defer></script>
+<script>
+window.addEventListener('load', function () {
+  var question = new URLSearchParams(window.location.search).get('ask');
+  if (!question || !window.DocFlowAssistant) return;
+  setTimeout(function () { window.DocFlowAssistant.ask(question); }, 400);
+});
+</script>
+</body>
+</html>

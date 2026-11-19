@@ -1,0 +1,9 @@
+[Unit]
+Description=DocFlow off-site copy, daily after the local backup
+
+[Timer]
+OnCalendar=*-*-* 04:10
+Persistent=true
+
+[Install]
+WantedBy=timers.target

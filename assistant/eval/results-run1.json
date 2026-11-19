@@ -1,0 +1,628 @@
+{
+  "rows": [
+    {
+      "id": "queue-overview",
+      "task": "Show me the documents waiting for review.",
+      "agent": {
+        "steps": [
+          {
+            "tool": "list_queue",
+            "arguments": {
+              "limit": 10
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "There are 4 documents waiting for review: 1. Ukrainian invoice (Рахунок на оплату) - TОВ «Терра-Буд» with total 128,000 UAH. 2. Ukrainian invoice (Рахунок на оплату) - TОВ «Агро-Південь» with total 99,300 UAH. 3. Ukrainian invoice (Рахунок на оплату) - ФОП Коваль Олег Іванович with total 25,400 UAH. 4. Ukrainian invoice (Рахунок на оплату) - TОВ «Буд-Майстер» with total 5,000 UAH."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "There are 4 documents waiting for review: 1. Ukrainian invoice (Рахунок на оплату) - TОВ «Терра-Буд» with total 128,000 UAH. 2. Ukrainian invoice (Рахунок на оплату) - TОВ «Агро-Південь» with total 99,300 UAH. 3. Ukrainian invoice (Рахунок на оплату) - ФОП Коваль Олег Іванович with total 25,400 UAH. 4. Ukrainian invoice (Рахунок на оплату) - TОВ «Буд-Майстер» with total 5,000 UAH.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 56102,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "list_queue",
+            "arguments": {
+              "limit": 5
+            },
+            "ok": true
+          }
+        ],
+        "answer": "4 document(s) waiting for review.\n- Ukrainian invoice (Рахунок на оплату) №2026-501 от ТОВ «Терра-Буд»: 128,000.00 UAH → Approval\n- Ukrainian invoice (Рахунок на оплату) №2026-503 от ТОВ «Агро-Південь»: 99,300.00 UAH → Payments\n- Ukrainian invoice (Рахунок на оплату) №2026-502 от ФОП Коваль Олег Іванович: 25,400.00 UAH → Payments\n- document №2026-601 от ТОВ «Буд-Майстер»: 5,000.00 UAH → Payments",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 6,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "queue-count",
+      "task": "How many documents are waiting for review and what is the total amount?",
+      "agent": {
+        "steps": [
+          {
+            "tool": "summarise",
+            "arguments": {
+              "period": "all"
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "4 documents are waiting: 1 for approval, 3 for payments. 42 documents have been confirmed."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "4 documents are waiting: 1 for approval, 3 for payments. 42 documents have been confirmed.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 17884,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "list_queue",
+            "arguments": {
+              "limit": 5
+            },
+            "ok": true
+          }
+        ],
+        "answer": "4 document(s) waiting for review.\n- Ukrainian invoice (Рахунок на оплату) №2026-501 от ТОВ «Терра-Буд»: 128,000.00 UAH → Approval\n- Ukrainian invoice (Рахунок на оплату) №2026-503 от ТОВ «Агро-Південь»: 99,300.00 UAH → Payments\n- Ukrainian invoice (Рахунок на оплату) №2026-502 от ФОП Коваль Олег Іванович: 25,400.00 UAH → Payments\n- document №2026-601 от ТОВ «Буд-Майстер»: 5,000.00 UAH → Payments",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 6,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "queue-approval",
+      "task": "Which documents in the queue need approval?",
+      "agent": {
+        "steps": [
+          {
+            "tool": "summarise",
+            "arguments": {
+              "period": "today"
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "There are no documents in the queue that need approval."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "There are no documents in the queue that need approval.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 13209,
+        "tool_ok": false,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": false
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "list_queue",
+            "arguments": {
+              "limit": 5
+            },
+            "ok": true
+          }
+        ],
+        "answer": "4 document(s) waiting for review.\n- Ukrainian invoice (Рахунок на оплату) №2026-501 от ТОВ «Терра-Буд»: 128,000.00 UAH → Approval\n- Ukrainian invoice (Рахунок на оплату) №2026-503 от ТОВ «Агро-Південь»: 99,300.00 UAH → Payments\n- Ukrainian invoice (Рахунок на оплату) №2026-502 от ФОП Коваль Олег Іванович: 25,400.00 UAH → Payments\n- document №2026-601 от ТОВ «Буд-Майстер»: 5,000.00 UAH → Payments",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 6,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "document-details",
+      "task": "Give me the details of document 3291971f49.",
+      "agent": {
+        "steps": [
+          {
+            "tool": "get_document",
+            "arguments": {
+              "doc_id": "3291971f49"
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "Document 3291971f49 is an Ukrainian invoice (Рахунок на оплату) from TОВ «Терра-Буд». The total amount is 128,000.00 UAH. The route is 'Approval' and the source is 'sample'."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "Document 3291971f49 is an Ukrainian invoice (Рахунок на оплату) from TОВ «Терра-Буд». The total amount is 128,000.00 UAH. The route is 'Approval' and the source is 'sample'.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 35402,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "get_document",
+            "arguments": {
+              "doc_id": "3291971f49"
+            },
+            "ok": true
+          }
+        ],
+        "answer": "Ukrainian invoice (Рахунок на оплату) #2026-501 from ТОВ «Терра-Буд», 128,000.00 UAH, route Approval.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 7,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "duplicate-check",
+      "task": "Check whether document 3291971f49 is a duplicate.",
+      "agent": {
+        "steps": [
+          {
+            "tool": "check_duplicate",
+            "arguments": {
+              "doc_id": "3291971f49"
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "Document 3291971f49 is a duplicate. It matches a previous document with the same supplier and number."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "Document 3291971f49 is a duplicate. It matches a previous document with the same supplier and number.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 24476,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "check_duplicate",
+            "arguments": {
+              "doc_id": "3291971f49"
+            },
+            "ok": true
+          }
+        ],
+        "answer": "Duplicate found: 65236a3ffa.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 18,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "payment-letter",
+      "task": "Draft a payment request letter for document 3291971f49.",
+      "agent": {
+        "steps": [
+          {
+            "tool": "draft_letter",
+            "arguments": {
+              "doc_id": "3291971f49",
+              "kind": "payment_request"
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "A payment request letter for document 3291971f49 has been drafted and saved locally."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "A payment request letter for document 3291971f49 has been drafted and saved locally.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 23171,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "draft_letter",
+            "arguments": {
+              "doc_id": "3291971f49",
+              "kind": "payment_request"
+            },
+            "ok": true
+          }
+        ],
+        "answer": "Draft letter saved: /home/user/projects/pet-projects/docflow-operator/data/drafts/3291971f49-payment_request.md. Sending stays with a human.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 9,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "approval-letter",
+      "task": "Prepare an approval request letter for the newest document in the queue.",
+      "agent": {
+        "steps": [
+          {
+            "tool": "draft_letter",
+            "arguments": {
+              "doc_id": "latest",
+              "kind": "approval_request"
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "An approval request letter has been drafted for the newest document. The draft is saved locally and not yet sent."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "An approval request letter has been drafted for the newest document. The draft is saved locally and not yet sent.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 19807,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "draft_letter",
+            "arguments": {
+              "doc_id": "latest",
+              "kind": "approval_request"
+            },
+            "ok": true
+          },
+          {
+            "tool": "propose_confirm",
+            "arguments": {
+              "doc_id": "latest"
+            },
+            "ok": true
+          }
+        ],
+        "answer": "Draft letter saved: /home/user/projects/pet-projects/docflow-operator/data/drafts/3291971f49-approval_request.md. Sending stays with a human.\nConfirm Ukrainian invoice (Рахунок на оплату) 2026-501 from ТОВ «Терра-Буд» for 128,000.00 UAH -> Approval. Only a human can confirm it in DocFlow.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 13,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "supplier-letter",
+      "task": "Write a reply letter to the supplier for document f83f538c34.",
+      "agent": {
+        "steps": [
+          {
+            "tool": "draft_letter",
+            "arguments": {
+              "doc_id": "f83f538c34",
+              "kind": "supplier_reply"
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "A reply letter has been drafted for document f83f538c34. The letter is saved locally and not sent yet."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "A reply letter has been drafted for document f83f538c34. The letter is saved locally and not sent yet.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 25418,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "draft_letter",
+            "arguments": {
+              "doc_id": "f83f538c34",
+              "kind": "supplier_reply"
+            },
+            "ok": true
+          }
+        ],
+        "answer": "Draft letter saved: /home/user/projects/pet-projects/docflow-operator/data/drafts/f83f538c34-supplier_reply.md. Sending stays with a human.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 6,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "confirm-proposal",
+      "task": "Propose confirming the newest document in the queue.",
+      "agent": {
+        "steps": [
+          {
+            "tool": "propose_confirm",
+            "arguments": {
+              "doc_id": "latest"
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "The newest document has been proposed for confirmation. A human must now confirm it in DocFlow."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "The newest document has been proposed for confirmation. A human must now confirm it in DocFlow.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 17297,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "propose_confirm",
+            "arguments": {
+              "doc_id": "latest"
+            },
+            "ok": true
+          }
+        ],
+        "answer": "Confirm Ukrainian invoice (Рахунок на оплату) 2026-501 from ТОВ «Терра-Буд» for 128,000.00 UAH -> Approval. Only a human can confirm it in DocFlow.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 5,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "queue-duplicates",
+      "task": "Check if the newest document in the queue is a duplicate.",
+      "agent": {
+        "steps": [
+          {
+            "tool": "check_duplicate",
+            "arguments": {
+              "doc_id": "latest"
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "The newest document is a duplicate. It matches the document with ID 65236a3ffa."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "The newest document is a duplicate. It matches the document with ID 65236a3ffa.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 20316,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "check_duplicate",
+            "arguments": {
+              "doc_id": "latest"
+            },
+            "ok": true
+          }
+        ],
+        "answer": "Duplicate found: 65236a3ffa.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 16,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "queue-routing",
+      "task": "Show the queue and tell me where the documents are routed.",
+      "agent": {
+        "steps": [
+          {
+            "tool": "list_queue",
+            "arguments": {
+              "limit": 10
+            },
+            "ok": true
+          },
+          {
+            "tool": "list_queue",
+            "arguments": {
+              "limit": 10
+            },
+            "ok": false
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "There are 4 documents waiting for review: 3291971f49 - Ukrainian invoice (Рахунок на оплату) - 2026-501, f83f538c34 - Ukrainian invoice (Рахунок на оплату) - 2026-503, e99b10153c - Ukrainian invoice (Рахунок на оплату) - 2026-502, ad4e1aa6b1 - Ukrainian invoice (Рахунок на оплату) - 2026-601. They are routed as follows: 3291971f49 - Approval, f83f538c34 - Payments, e99b10153c - Payments, ad4e1aa6b1 - Payments."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "There are 4 documents waiting for review: 3291971f49 - Ukrainian invoice (Рахунок на оплату) - 2026-501, f83f538c34 - Ukrainian invoice (Рахунок на оплату) - 2026-503, e99b10153c - Ukrainian invoice (Рахунок на оплату) - 2026-502, ad4e1aa6b1 - Ukrainian invoice (Рахунок на оплату) - 2026-601. They are routed as follows: 3291971f49 - Approval, f83f538c34 - Payments, e99b10153c - Payments, ad4e1aa6b1 - Payments.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 68670,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": false,
+        "success": false
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "list_queue",
+            "arguments": {
+              "limit": 5
+            },
+            "ok": true
+          }
+        ],
+        "answer": "4 document(s) waiting for review.\n- Ukrainian invoice (Рахунок на оплату) №2026-501 от ТОВ «Терра-Буд»: 128,000.00 UAH → Approval\n- Ukrainian invoice (Рахунок на оплату) №2026-503 от ТОВ «Агро-Південь»: 99,300.00 UAH → Payments\n- Ukrainian invoice (Рахунок на оплату) №2026-502 от ФОП Коваль Олег Іванович: 25,400.00 UAH → Payments\n- document №2026-601 от ТОВ «Буд-Майстер»: 5,000.00 UAH → Payments",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 5,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    },
+    {
+      "id": "week-summary",
+      "task": "Summarise this week's document intake.",
+      "agent": {
+        "steps": [
+          {
+            "tool": "summarise",
+            "arguments": {
+              "period": "week"
+            },
+            "ok": true
+          },
+          {
+            "tool": "finish",
+            "arguments": {
+              "answer": "This week, 4 documents were waiting for approval and 3 for payments. 25 documents were confirmed. Total intake: $270,220.00."
+            },
+            "ok": true
+          }
+        ],
+        "answer": "This week, 4 documents were waiting for approval and 3 for payments. 25 documents were confirmed. Total intake: $270,220.00.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 19807,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      },
+      "baseline": {
+        "steps": [
+          {
+            "tool": "summarise",
+            "arguments": {
+              "period": "week"
+            },
+            "ok": true
+          }
+        ],
+        "answer": "4 waiting for review, total 257,700.00.\nTo pay: 3, to approve: 1, to book: 0.",
+        "fallback": false,
+        "failure": null,
+        "elapsed_ms": 19,
+        "tool_ok": true,
+        "answer_ok": true,
+        "valid_calls": true,
+        "success": true
+      }
+    }
+  ],
+  "summary": {
+    "agent": {
+      "success": 10,
+      "valid_calls": 11,
+      "total": 12,
+      "avg_ms": 28463,
+      "fallbacks": 0
+    },
+    "baseline": {
+      "success": 12,
+      "valid_calls": 12,
+      "total": 12,
+      "avg_ms": 10,
+      "fallbacks": 0
+    }
+  }
+}

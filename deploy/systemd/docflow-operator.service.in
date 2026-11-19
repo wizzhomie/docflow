@@ -1,0 +1,20 @@
+[Unit]
+Description=DocFlow assistant API (chat, widget, grounding)
+After=network-online.target docflow.service docflow-operator-model.service
+Wants=docflow.service docflow-operator-model.service
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__ASSISTANT_ROOT__
+Environment=DOCFLOW_URL=http://127.0.0.1:8765
+Environment=OPERATOR_MODEL_URL=http://127.0.0.1:8080
+Environment=OPERATOR_PORT=8769
+ExecStart=__ASSISTANT_ROOT__/.venv/bin/python -m uvicorn docflow_operator.server:app --host 0.0.0.0 --port 8769
+Restart=always
+RestartSec=3
+StandardOutput=append:__ASSISTANT_ROOT__/.run/logs/operator.log
+StandardError=append:__ASSISTANT_ROOT__/.run/logs/operator.log
+
+[Install]
+WantedBy=multi-user.target

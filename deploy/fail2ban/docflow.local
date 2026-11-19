@@ -1,0 +1,9 @@
+# The demo machine is reachable over SSH from the internet (key-only), so the
+# brute-force noise is constant. Five failures in ten minutes earn an hour's ban.
+# The whole Tailscale CGNAT range is ignored: the owner reaches this box from the
+# tailnet, and a bad key in the laptop must not lock the owner out of the server.
+[DEFAULT]
+ignoreip = 127.0.0.1/8 ::1 100.64.0.0/10
+bantime = 1h
+findtime = 10m
+maxretry = 5

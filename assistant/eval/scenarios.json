@@ -1,0 +1,69 @@
+{
+  "documents": {
+    "pending_invoice": "3291971f49",
+    "pending_invoice_2": "f83f538c34",
+    "confirmed": "c2a0e93b14"
+  },
+  "scenarios": [
+    {
+      "id": "queue-overview",
+      "task": "Show me the documents waiting for review.",
+      "expect": {"tools": ["list_queue"], "answer_any": ["waiting", "document", "queue"]}
+    },
+    {
+      "id": "queue-count",
+      "task": "How many documents are waiting for review and what is the total amount?",
+      "expect": {"tools": ["summarise", "list_queue"], "tools_any": true, "answer_any": ["waiting", "documents", "review"]}
+    },
+    {
+      "id": "queue-approval",
+      "task": "Which documents in the queue need approval?",
+      "expect": {"tools": ["list_queue"], "answer_any": ["approval", "approve"]}
+    },
+    {
+      "id": "document-details",
+      "task": "Give me the details of document 3291971f49.",
+      "expect": {"tools": ["get_document"], "answer_any": ["2026-501", "Терра-Буд", "128"]}
+    },
+    {
+      "id": "duplicate-check",
+      "task": "Check whether document 3291971f49 is a duplicate.",
+      "expect": {"tools": ["check_duplicate"], "answer_any": ["duplicate", "duplik", "дубл", "no duplicate", "not a duplicate"]}
+    },
+    {
+      "id": "payment-letter",
+      "task": "Draft a payment request letter for document 3291971f49.",
+      "expect": {"tools": ["draft_letter"], "answer_any": ["letter", "draft", "2026-501"]}
+    },
+    {
+      "id": "approval-letter",
+      "task": "Prepare an approval request letter for the newest document in the queue.",
+      "expect": {"tools": ["draft_letter"], "answer_any": ["letter", "draft"]}
+    },
+    {
+      "id": "supplier-letter",
+      "task": "Write a reply letter to the supplier for document f83f538c34.",
+      "expect": {"tools": ["draft_letter"], "answer_any": ["letter", "draft"]}
+    },
+    {
+      "id": "confirm-proposal",
+      "task": "Propose confirming the newest document in the queue.",
+      "expect": {"tools": ["propose_confirm"], "answer_any": ["confirm", "proposal", "human"]}
+    },
+    {
+      "id": "queue-duplicates",
+      "task": "Check if the newest document in the queue is a duplicate.",
+      "expect": {"tools": ["check_duplicate"], "answer_any": ["duplicate", "duplik", "дубл"]}
+    },
+    {
+      "id": "queue-routing",
+      "task": "Show the queue and tell me where the documents are routed.",
+      "expect": {"tools": ["list_queue"], "answer_any": ["payments", "approval", "accounting", "route"]}
+    },
+    {
+      "id": "week-summary",
+      "task": "Summarise this week's document intake.",
+      "expect": {"tools": ["summarise"], "answer_any": ["confirmed", "waiting", "week"]}
+    }
+  ]
+}
