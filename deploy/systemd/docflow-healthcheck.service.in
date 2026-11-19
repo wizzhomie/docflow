@@ -10,3 +10,15 @@ WorkingDirectory=__DEPLOY_ROOT__
 EnvironmentFile=-__DOCFLOW_ROOT__/.env
 Environment=DOCFLOW_ROOT=__DOCFLOW_ROOT__
 ExecStart=__DEPLOY_ROOT__/healthcheck/check.sh
+
+# Least privilege without a read-only home: these units touch PostgreSQL sockets and
+# the backup tree, so only the system directories are made read-only.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK

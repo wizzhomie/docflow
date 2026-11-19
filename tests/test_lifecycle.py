@@ -240,6 +240,24 @@ def test_the_same_invoice_uploaded_twice_is_one_document():
         _drop(person['company_id'])
 
 
+def test_signed_out_requests_read_the_file_demo_and_never_a_row():
+    """The database is reachable only through a session; anonymous traffic stays on files."""
+    if not POSTGRES_AVAILABLE:
+        return
+    person = _person()
+    client = TestClient(app.app, cookies={'docflow_session': person['token']})
+    anonymous = TestClient(app.app)
+    try:
+        document_id = _upload(client)['id']
+        assert any(item['id'] == document_id for item in client.get('/api/inbox').json())
+        assert document_id not in [item['id'] for item in anonymous.get('/api/inbox').json()]
+        assert document_id not in [item['id'] for item in anonymous.get('/api/documents').json()]
+        assert anonymous.get(f'/api/documents/{document_id}').status_code == 404
+    finally:
+        _cleanup_files(person['company_id'])
+        _drop(person['company_id'])
+
+
 def test_another_company_neither_sees_nor_opens_the_document():
     if not POSTGRES_AVAILABLE:
         return

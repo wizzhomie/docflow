@@ -13,5 +13,21 @@ RestartSec=3
 StandardOutput=append:__ASSISTANT_ROOT__/.run/logs/model.log
 StandardError=append:__ASSISTANT_ROOT__/.run/logs/model.log
 
+# Least privilege: read-only system, private /tmp, no new privileges, writes only its
+# own data. The units run as an ordinary user, so there are no capabilities to keep.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+Environment=PYTHONDONTWRITEBYTECODE=1
+ReadWritePaths=__ASSISTANT_ROOT__/.run
+
 [Install]
 WantedBy=multi-user.target

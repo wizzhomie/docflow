@@ -12,3 +12,15 @@ Environment=DOCFLOW_ROOT=__DOCFLOW_ROOT__
 Environment=DOCFLOW_BACKUP_DIR=__USER_HOME__/backups/docflow
 ExecStart=__DEPLOY_ROOT__/backup/backup.sh
 Nice=10
+
+# Least privilege without a read-only home: these units touch PostgreSQL sockets and
+# the backup tree, so only the system directories are made read-only.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
