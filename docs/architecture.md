@@ -54,6 +54,11 @@ The standalone file store: pending snapshots and the confirmed history, review
 time derived from the stored timestamps for legacy records, and the counts the
 metrics endpoint reports. A signed-in person never reads it — their documents are
 rows — but every report has a file-store path so the demo runs without a database.
+One shared directory has no tenancy, so the demo draws the line at `demo.py`: a
+browser gets an opaque cookie, its uploads carry that session, and the lists,
+counters and export show the labelled synthetic showcase plus that browser's own
+documents. The operator's queue, folder and mailbox are not part of the shop
+window and are not readable without a sign-in.
 
 ### `intake.py`
 

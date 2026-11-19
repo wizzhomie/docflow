@@ -442,6 +442,11 @@ demo door, not a security boundary — real documents belong on a private instal
 - signed out, `/app` is the standalone demonstration with its state in files: no database,
   no tenancy, one workspace. It exists so the thing runs on a machine with nothing installed,
   and it returns the same shapes as the database path, but it is not the product;
+- the demonstration is a shop window, not a shared desk: a visitor sees the labelled
+  synthetic showcase and the documents uploaded from their own browser (an opaque cookie
+  is the session), while the operator's queue, incoming folder, mailbox state, confirmed
+  history and counters stay behind sign-in. Signed in, the database decides — row-level
+  security, one company per person, tested in `tests/test_tenancy.py`;
 - Bitrix24 works against a local fake of the REST protocol; a live portal check is pending;
 - Uspacy attachment upload and a payment task are not available in the test tenant API;
 - routing rules by supplier and several recipients per document are not implemented yet;
