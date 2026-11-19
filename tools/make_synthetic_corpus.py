@@ -338,14 +338,19 @@ def build(count: int, out: Path, seed: int = SEED) -> list[dict]:
         )
         html = render(doc, rng)
         name = f'{kind}-{index:02d}'
-        pdf = out / f'{name}.pdf'
-        HTML(string=html).write_pdf(str(pdf))
+        text_pdf = out / f'{name}.pdf'
+        HTML(string=html).write_pdf(str(text_pdf))
+        pdf, twin = text_pdf, None
         if doc.scan:
-            pdf = to_scan(pdf, rng)
+            # The text twin stays on disk on purpose: a scan is the same document
+            # through a worse channel, and keeping the clean copy lets a check ask
+            # whether the two parses agree instead of only whether one is non-empty.
+            pdf = to_scan(text_pdf, rng)
+            twin = text_pdf.name
         doc.filename = pdf.name
         entry = {
             'file': pdf.name, 'seed': seed, 'template': doc.template,
-            'language': doc.language, 'scan': doc.scan,
+            'language': doc.language, 'scan': doc.scan, 'twin': twin,
             'printed': {'title': doc.title_text, 'date': doc.date_text,
                         'number': doc.number_text},
             'expected': doc.expected(),

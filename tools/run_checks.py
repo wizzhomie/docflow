@@ -35,13 +35,27 @@ DEFAULT_CORPUS = BASE / 'data' / 'synthetic-corpus'
 
 def run(corpus: Path) -> dict:
     manifest = json.loads((corpus / 'manifest.json').read_text(encoding='utf-8'))
-    results = {entry.id: {'passed': 0, 'failed': []} for entry in checks.CHECKS}
+    parsed = {
+        item['file']: intake._process(item['file'], item['file'], corpus / item['file'],
+                                      persist=False)
+        for item in manifest
+    }
+    # A scan's text twin is not a manifest entry of its own, so parse it here when
+    # a check asks for it.
     for item in manifest:
-        path = corpus / item['file']
-        document = intake._process(item['file'], item['file'], path, persist=False)
+        twin = item.get('twin')
+        if twin and twin not in parsed:
+            parsed[twin] = intake._process(twin, twin, corpus / twin, persist=False)
+    results = {entry.id: {'passed': 0, 'failed': [], 'not_applicable': 0}
+               for entry in checks.CHECKS}
+    for item in manifest:
+        item['_twin'] = parsed.get(item.get('twin')) if item.get('twin') else None
+        document = parsed[item['file']]
         for entry in checks.CHECKS:
             held = entry.check(item, document)
-            if held:
+            if held is None:
+                results[entry.id]['not_applicable'] += 1
+            elif held:
                 results[entry.id]['passed'] += 1
             else:
                 results[entry.id]['failed'].append(item['file'])
@@ -60,14 +74,16 @@ def markdown(report: dict, pass_number: str, corpus: Path) -> str:
         'ревизору: настоящий дефект, неверно написанная проверка или проверка уже',
         'правила. Поэтому ниже у каждой проверки есть инвариант и список файлов.',
         '',
-        '| ID | Проверка | Серьёзность | Прошло | Упало |',
-        '| --- | --- | --- | --- | --- |',
+        '| ID | Проверка | Серьёзность | Прошло | Упало | Не применимо |',
+        '| --- | --- | --- | --- | --- | --- |',
     ]
     for entry in checks.CHECKS:
         bucket = report['results'][entry.id]
+        applicable = total - bucket['not_applicable']
         lines.append(
             f"| {entry.id} | {entry.title} | {entry.severity} | "
-            f"{bucket['passed']}/{total} | {len(bucket['failed'])} |"
+            f"{bucket['passed']}/{applicable} | {len(bucket['failed'])} | "
+            f"{bucket['not_applicable']} |"
         )
     lines += ['', '## Детали падений', '']
     for entry in checks.CHECKS:
