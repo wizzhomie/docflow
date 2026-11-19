@@ -69,6 +69,15 @@ MAX_OCR_SECONDS = float(os.environ.get('DOCFLOW_MAX_OCR_SECONDS', '180'))
 EXTRACTIONS = int(os.environ.get('DOCFLOW_MAX_EXTRACTIONS', '2'))
 EXTRACTION_WAIT_SECONDS = float(os.environ.get('DOCFLOW_EXTRACTION_WAIT', '10'))
 
+# The meaning layer: a model points at the line a value is printed on, the code
+# copies it. `off` is the deterministic pipeline, `shadow` records what the model
+# would have said without changing an answer, `on` uses a pointer only when the
+# text it names is really present. A model that is down or slow changes nothing:
+# the pointer is optional and the parser keeps its value.
+MEANING = os.environ.get('DOCFLOW_MEANING', 'off').strip().lower()
+if MEANING not in {'off', 'shadow', 'on'}:
+    MEANING = 'off'
+
 FIELD_LABELS = {
     'number': 'Invoice number',
     'date': 'Date',

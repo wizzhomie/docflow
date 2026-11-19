@@ -118,6 +118,25 @@ def _process(
     parsed = parse_invoice(
         text, items=items, tax_id=preview_tax_id, supplier_name=preview_supplier
     )
+    if settings.MEANING != 'off':
+        # The model only says where the value is printed; a pointer whose text is
+        # not on that line is dropped and the parser's value stays.
+        try:
+            import meaning
+
+            resolved = meaning.apply(parsed, text, shadow=settings.MEANING == 'shadow')
+            meta_meaning = {
+                'mode': settings.MEANING,
+                'fields': {
+                    name: {'line': item.line, 'text': item.text}
+                    for name, item in resolved.items()
+                },
+            }
+        except Exception as error:  # noqa: BLE001 - the model must never break intake
+            logger.warning('meaning layer skipped: %s', error)
+            meta_meaning = None
+    else:
+        meta_meaning = None
     meta = {
         'id': doc_id,
         'filename': filename,
@@ -128,6 +147,8 @@ def _process(
         'suffix': path.suffix.lower(),
         'source': source,
     }
+    if meta_meaning is not None:
+        meta['meaning'] = meta_meaning
     if extra:
         meta.update(extra)
     if persist:
