@@ -175,6 +175,8 @@ def main() -> int:
     parser.add_argument('--model', default='')
     parser.add_argument('--limit', type=int, default=0)
     parser.add_argument('--delay', type=float, default=1.0)
+    parser.add_argument('--skip', type=int, default=0)
+    parser.add_argument('--report', type=Path, default=None)
     args = parser.parse_args()
     url = GROQ_URL if args.provider == 'groq' else LOCAL_URL
     model = args.model or ('qwen/qwen3.8-27b' if args.provider == 'groq' else
@@ -182,6 +184,8 @@ def main() -> int:
     key = _api_key() if args.provider == 'groq' else ''
 
     manifest = json.loads((args.corpus / 'manifest.json').read_text(encoding='utf-8'))
+    if args.skip:
+        manifest = manifest[args.skip:]
     if args.limit:
         manifest = manifest[:args.limit]
 
@@ -213,6 +217,7 @@ def main() -> int:
                 checks[name] = ok
             rows.append({'file': entry['file'], 'checks': checks, 'values': values,
                          'unresolved': [n for n in FIELDS if n not in values]})
+            print(f"[{len(rows)}/{len(manifest)}] {entry['file']}", flush=True)
 
     summary = {}
     for name in FIELDS:
@@ -226,7 +231,7 @@ def main() -> int:
         print(f"  {name:9} resolved {bucket['resolved']:2}  correct {bucket['correct']:2}  "
               f"wrong {bucket['wrong']:2}  unresolved {bucket['unresolved']:2}")
 
-    report = BASE / 'memory' / f'meaning-plan-{args.provider}.md'
+    report = args.report or BASE / 'memory' / f'meaning-plan-{args.provider}.md'
     lines = [
         '# Модель указывает, код переносит: прогон',
         '',
@@ -252,7 +257,12 @@ def main() -> int:
                              f"не совпал с напечатанным")
         if row['unresolved']:
             lines.append(f"- `{row['file']}`: не разрешилось {', '.join(row['unresolved'])}")
+    report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text('\n'.join(lines), encoding='utf-8')
+    payload = {'corpus': str(args.corpus), 'model': model, 'documents': len(rows),
+               'median_latency': round(statistics.median(latencies), 1), 'rows': rows}
+    report.with_suffix('.json').write_text(
+        json.dumps(payload, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
     print(f'report: {report}')
     return 0
 
