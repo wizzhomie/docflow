@@ -36,7 +36,7 @@ belong to the process, not to a route.
 
 One module per audience: `pages.py` (showcase and review workspace),
 `documents.py` (upload, queue, confirmation, original file), `intake.py` (watched
-folder and mailbox), `reports.py` (headline numbers, impact, CSV, roadmap, config)
+folder and mailbox), `reports.py` (headline numbers, impact, CSV, config)
 and `ops.py` (health, wiring, metrics). A route decides who is asking — a signed-in
 person or the file-based demo — and delegates; the work itself is in the services
 below.
@@ -161,13 +161,6 @@ record, shown on the result card and in the history, and written into the CRM
 comment, so the route can be audited later. Routing is policy: it lives outside
 the profiles and outside the connectors.
 
-## Product path
-
-`docs/roadmap.json` is data, not code: every stage has a status (`done`,
-`current`, `next`), a one-line summary and the decision behind it. `/api/roadmap`
-adds the progress counter and the UI renders it as the "Our path" block, so the
-plan can change without touching the application.
-
 ## Runtime
 
 1. Upload a document, choose a sample, drop it into `data/inbox/`, or let an e-mail attachment arrive through the mailbox watcher.
@@ -220,6 +213,5 @@ test → fix → regression, not by patching one example. `docs/` records the cl
 | Product overview | `README.md` |
 | Process as-is / to-be | `docs/process-map.md` |
 | Case-study structure | `docs/case-study.md` |
-| Product path | `docs/roadmap.json` |
 | Architecture and decisions | `docs/architecture.md` |
 | Executable expectations | `tests/` |

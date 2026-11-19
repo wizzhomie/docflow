@@ -223,8 +223,7 @@ ruff check .                         # the lint CI runs (pip install -r requirem
 ```
 
 `tests/test_*.py` covers duplicate suppression, impact maths, CRM matching and company
-mapping, the review queue, document-type detection, routing rules, roadmap data, the
-connector layer (Bitrix24 over a local fake HTTP server), mailbox intake (MIME parsing,
+mapping, the review queue, document-type detection, routing rules, the connector layer (Bitrix24 over a local fake HTTP server), mailbox intake (MIME parsing,
 retries, dedupe, login errors — over a local fake IMAP server), tenancy, sign-in, upload
 limits, the request log, the pool (two tenants on one connection), the queue (six workers
 claiming at once), the migration runner, the signed-in lifecycle (upload → row → confirm →
@@ -480,7 +479,7 @@ templates/         showcase page (/) and review workspace (/app)
 assistant/         the assistant service, its model contract, tools, tests and widget
 deploy/            systemd units, release script, backups, healthcheck, logrotate, fail2ban
 tests/             deterministic suites and labelled fixtures
-docs/              architecture, process map, design system, roadmap
+docs/              architecture, process map, design system
 sql/               PostgreSQL schema of the practice database
 ```
 
@@ -488,5 +487,4 @@ sql/               PostgreSQL schema of the practice database
   [`docs/process-map.md`](docs/process-map.md) · design system:
   [`docs/design-system.md`](docs/design-system.md) · case-study structure:
   [`docs/case-study.md`](docs/case-study.md).
-- Product path: [`docs/roadmap.json`](docs/roadmap.json) (rendered as “Our path” on the site).
 - The assistant's own notes: [`assistant/README.md`](assistant/README.md).

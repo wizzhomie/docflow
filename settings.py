@@ -15,7 +15,6 @@ PENDING = BASE / 'data' / 'pending'
 INBOX = BASE / 'data' / 'inbox'
 INBOX_DONE = INBOX / 'processed'
 CONFIRMED = BASE / 'data' / 'confirmed.jsonl'
-ROADMAP = BASE / 'docs' / 'roadmap.json'
 
 ALLOWED = {
     '.pdf',

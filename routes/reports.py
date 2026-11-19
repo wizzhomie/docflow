@@ -1,7 +1,6 @@
-"""What the confirmed documents add up to: headline numbers, impact, CSV, roadmap."""
+"""What the confirmed documents add up to: headline numbers, impact, CSV, config."""
 import csv
 import io
-import json
 import os
 from datetime import datetime
 
@@ -101,27 +100,6 @@ def export_csv(request: Request):
         media_type='text/csv; charset=utf-8',
         headers={'Content-Disposition': f'attachment; filename="{name}"'},
     )
-
-
-@router.get('/api/roadmap')
-def roadmap():
-    """The product path shown on the site: what is done, where we are, what is next."""
-    if not settings.ROADMAP.exists():
-        return {
-            'title': 'Our path',
-            'subtitle': '',
-            'stages': [],
-            'progress': {'done': 0, 'total': 0, 'percent': 0},
-        }
-    data = json.loads(settings.ROADMAP.read_text(encoding='utf-8'))
-    stages = data.get('stages') or []
-    done = sum(1 for stage in stages if stage.get('status') == 'done')
-    data['progress'] = {
-        'done': done,
-        'total': len(stages),
-        'percent': round(100 * done / len(stages)) if stages else 0,
-    }
-    return data
 
 
 @router.get('/api/config')

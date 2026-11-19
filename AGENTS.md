@@ -40,7 +40,6 @@ a human confirms. There is no LLM or agent framework in the decision path.
 - `templates/index.html` — review workspace at `/app`.
 - `tests/run_eval.py` — deterministic regression baseline.
 - `tests/document_cases.json` — labelled fixtures for every document type.
-- `docs/roadmap.json` + `/api/roadmap` — the product path shown on the site.
 - `assistant/` — the chat assistant: deterministic FAQ and intents, read-only tools over the
   DocFlow API, a small local model on CPU and the widget. Its own service (`:8769`, model on
   `:8080`), same repository.

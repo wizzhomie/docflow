@@ -25,7 +25,6 @@ SETTINGS_KNOBS = (
     'INBOX',
     'INBOX_DONE',
     'CONFIRMED',
-    'ROADMAP',
     'DEMO_MODE',
     'MAX_UPLOAD_BYTES',
     'MAX_PDF_PAGES',
