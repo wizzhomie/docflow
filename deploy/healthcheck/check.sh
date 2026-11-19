@@ -11,6 +11,11 @@
 # When DOCFLOW_PING_URL is set, every run also pings an external dead-man switch
 # (healthy run: the base URL, failed run: /fail). That is what reports a machine
 # that is down: its own timer cannot.
+#
+# A single probe is not a verdict: a deploy restarts the service and the check can
+# land in that one-second gap, which paged an owner for a healthy site. The probe
+# runs again a few seconds later, and only a failure that survives every attempt
+# is reported.
 set -uo pipefail
 
 ROOT="${DOCFLOW_ROOT:-/home/ubuntu/docflow}"
@@ -43,15 +48,34 @@ check_public() {
     fi
 }
 
-check_url docflow-local http://127.0.0.1:8765/api/health 200
-check_public docflow-public docflow.website 200
-check_public operator-public chat.docflow.website 200
+LOCAL="${DOCFLOW_LOCAL_URL:-http://127.0.0.1:8765}/api/health"
+RETRIES="${DOCFLOW_HEALTH_RETRIES:-3}"
+DELAY="${DOCFLOW_HEALTH_DELAY:-5}"
 
-for unit in docflow docflow-worker docflow-operator docflow-operator-model; do
-    systemctl is-active --quiet "$unit" || problems+=("service $unit is not active")
+probe() {
+    problems=()
+    check_url docflow-local "$LOCAL" 200
+    check_public docflow-public docflow.website 200
+    check_public operator-public chat.docflow.website 200
+
+    for unit in docflow docflow-worker docflow-operator docflow-operator-model; do
+        systemctl is-active --quiet "$unit" || problems+=("service $unit is not active")
+    done
+
+    pg_isready -q || problems+=("PostgreSQL does not accept connections")
+}
+
+attempt=1
+probe
+while [ "${#problems[@]}" -gt 0 ] && [ "$attempt" -lt "$RETRIES" ]; do
+    sleep "$DELAY"
+    attempt=$((attempt + 1))
+    probe
 done
-
-pg_isready -q || problems+=("PostgreSQL does not accept connections")
+if [ "${#problems[@]}" -eq 0 ] && [ "$attempt" -gt 1 ]; then
+    printf '%s healthcheck recovered on attempt %s of %s\n' "$(date -Is)" "$attempt" "$RETRIES" \
+        >> "$LOG"
+fi
 
 ping_switch() {
     command -v python3 >/dev/null 2>&1 || return 0
