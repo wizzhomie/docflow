@@ -54,6 +54,32 @@ def tenants() -> list[dict[str, Any]]:
     ]
 
 
+def deal_states() -> dict[str, int]:
+    """Confirmed deals by where they are on the way to the CRM.
+
+    `error` is the number that needs a person: attempts are spent and the deal is
+    not in the CRM. It is a gauge, not a log line, because "how many are stuck"
+    is the question an operator actually asks.
+    """
+    totals: dict[str, int] = {}
+    try:
+        with db.connection() as connection, connection.cursor() as cursor:
+            cursor.execute('SELECT id FROM companies ORDER BY id')
+            companies = [row[0] for row in cursor.fetchall()]
+        # `deals` is tenant data behind a forced policy, so the count is taken one
+        # company at a time. The demo has a handful of companies; a deployment
+        # with thousands would move these counters into a stats table, like
+        # `company_stats` already does for documents.
+        for company_id in companies:
+            with db.tenant(company_id) as connection, connection.cursor() as cursor:
+                cursor.execute('SELECT tech_status, count(*) FROM deals GROUP BY tech_status')
+                for status, count in cursor.fetchall():
+                    totals[str(status)] = totals.get(str(status), 0) + int(count)
+    except Exception:  # noqa: BLE001 - metrics must not fail the request
+        return totals
+    return totals
+
+
 def snapshot(file_counts: dict[str, int] | None = None) -> dict[str, Any]:
     """The whole picture, as one dictionary."""
     counters = observability.counters()
@@ -61,6 +87,7 @@ def snapshot(file_counts: dict[str, int] | None = None) -> dict[str, Any]:
         'process': counters,
         'pool': db.status(),
         'queue': jobqueue.stats(),
+        'deals': deal_states(),
         'tenants': tenants(),
         'files': file_counts or {},
     }
@@ -77,6 +104,8 @@ def prometheus(data: dict[str, Any]) -> str:
     add('docflow_queue_jobs', queue.get('queued', 0), 'gauge', '{status="queued"}')
     add('docflow_queue_jobs', queue.get('running', 0), 'gauge', '{status="running"}')
     add('docflow_queue_jobs', queue.get('failed', 0), 'gauge', '{status="failed"}')
+    for status, count in (data.get('deals') or {}).items():
+        add('docflow_deals', count, 'gauge', f'{{status="{status}"}}')
     add('docflow_queue_oldest_seconds', queue.get('oldest_seconds', 0))
 
     pool = data.get('pool') or {}

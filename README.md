@@ -390,6 +390,13 @@ terminal; on the server the opposite is configured: `docflow.service` sets
 the queue, so one place claims a job and one log shows what it did.
 Two workers cannot take the same job: the claim is one `UPDATE ... WHERE id = (SELECT ...
 FOR UPDATE SKIP LOCKED)`, and `tests/test_jobs.py` starts six workers at once to prove it.
+
+A confirmation does not call the CRM while the person waits. It writes the document, the
+deal and a `crm.deal.push` job in one transaction — an outbox — and the worker owns the
+call; the deal row carries `tech_status` (`pending`, `sending`, `created`, `timeout`,
+`error`), the attempt count and the last error, and `/api/metrics` counts them by status.
+A retry after a timeout asks the CRM whether the deal already exists before creating a
+second one, and a job whose worker died is returned to the queue after fifteen minutes.
 A failed job goes back with exponential backoff (15 s doubling, capped at an hour, five
 attempts by default) and a job that used up its attempts stops instead of looping; both
 the attempt count and the last error stay on the row.

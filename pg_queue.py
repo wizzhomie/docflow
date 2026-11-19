@@ -26,6 +26,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from psycopg2.extras import Json, RealDictCursor
 
 import auth
+import crm_outbox
 import db
 import profiles
 import routing
@@ -658,6 +659,10 @@ def confirm_document(person: dict[str, Any], doc_id: str, submitted: dict[str, A
                         "source": "workspace",
                     }),
                 ),
+            )
+            # Same transaction: a confirmed deal always has the work that sends it.
+            crm_outbox.enqueue(
+                cursor, person["company_id"], current, deal_id, effective, destination
             )
     except psycopg2.Error as error:
         raise HTTPException(status_code=503, detail="PostgreSQL is unavailable") from error

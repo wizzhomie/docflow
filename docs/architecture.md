@@ -161,6 +161,20 @@ record, shown on the result card and in the history, and written into the CRM
 comment, so the route can be audited later. Routing is policy: it lives outside
 the profiles and outside the connectors.
 
+## The outbox to the CRM
+
+A confirmation and the CRM call are one business fact, but not one request: the CRM can
+time out, and a person should not wait for it. `pg_queue.confirm_document` therefore writes
+the row, the deal and a `crm.deal.push` job in the same transaction; `crm_outbox.push` runs
+in the worker and owns everything after the commit.
+
+The deal row is the state machine: `pending` (queued), `sending` (a worker is talking to
+the CRM), `created`, `timeout` (retrying after no answer), `error` (attempts spent, needs a
+person). A worker that dies mid-call leaves `sending` behind, so a retry asks the connector
+`existing_deal` first — a lost answer must not become a second deal. The job itself is
+retried by the queue with backoff, and `jobqueue.reap_stale` returns jobs whose worker died
+to the queue while keeping the attempt count.
+
 ## Runtime
 
 1. Upload a document, choose a sample, drop it into `data/inbox/`, or let an e-mail attachment arrive through the mailbox watcher.

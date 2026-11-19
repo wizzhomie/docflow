@@ -207,6 +207,20 @@ def test_the_worker_keeps_a_failure_for_the_queue_to_retry():
         _drop(company)
 
 
+def test_the_running_worker_sees_the_handlers_tasks_registers():
+    """`python -m worker` runs this module as __main__, so the registry must be shared.
+
+    The first version kept HANDLERS in worker.py; tasks imported it by name and got
+    a second copy, so the live worker answered every job with "no handler" while
+    the tests passed, because they imported the same module the decorator wrote to.
+    """
+    import tasks  # noqa: F401 - importing registers the handlers
+    import workerkit
+
+    assert worker.HANDLERS is workerkit.HANDLERS
+    assert 'crm.deal.push' in workerkit.HANDLERS
+
+
 def test_an_unknown_kind_is_a_failed_job_not_a_crash():
     if not POSTGRES_AVAILABLE:
         return

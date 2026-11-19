@@ -17,29 +17,16 @@ import logging
 import os
 import socket
 import threading
+import time
 import uuid
-from collections.abc import Callable
-from typing import Any
 
 import jobqueue
+from workerkit import HANDLERS, Handler, handler  # noqa: F401 - re-exported
 
 logger = logging.getLogger('docflow.worker')
 
-Handler = Callable[[dict[str, Any]], None]
-
-# What the worker knows how to do. A handler raises when the job failed; the
-# queue decides whether that is a retry or the end of the road.
-HANDLERS: dict[str, Handler] = {}
-
-
-def handler(kind: str) -> Callable[[Handler], Handler]:
-    """Register the function that runs one kind of job."""
-
-    def register(function: Handler) -> Handler:
-        HANDLERS[kind] = function
-        return function
-
-    return register
+# How often a worker looks for jobs whose worker died mid-run.
+REAP_INTERVAL_SECONDS = 60.0
 
 
 def worker_id() -> str:
@@ -87,8 +74,21 @@ def run_forever(
     second.
     """
     identifier = identifier or worker_id()
-    logger.info('worker %s started', identifier, extra={'user': identifier})
+    logger.info('worker %s started with %s handler(s): %s', identifier, len(HANDLERS),
+                ', '.join(sorted(HANDLERS)), extra={'user': identifier})
+    last_reap = 0.0
     while not stop.is_set():
+        # A worker that died mid-job leaves a `running` row behind; without this
+        # the work would wait for a person to notice it.
+        now = time.monotonic()
+        if now - last_reap > REAP_INTERVAL_SECONDS:
+            last_reap = now
+            try:
+                reaped = jobqueue.reap_stale()
+                if reaped:
+                    logger.warning('worker %s returned %s stale job(s)', identifier, reaped)
+            except Exception as error:  # noqa: BLE001 - the loop survives a database blip
+                logger.warning('worker %s could not reap stale jobs: %s', identifier, error)
         try:
             busy = run_once(identifier, exclude_prefix=exclude_prefix)
         except Exception as exc:  # noqa: BLE001 - a worker must outlive its database

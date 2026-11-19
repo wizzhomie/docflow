@@ -57,6 +57,32 @@ UPDATE jobs
 TEST_KIND_PREFIX = 'test.'
 
 
+def enqueue_in(
+    cursor,
+    company_id: int,
+    kind: str,
+    payload: dict[str, Any] | None = None,
+    delay_seconds: float = 0.0,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+) -> int:
+    """Put work in the queue on the caller's transaction.
+
+    A confirmation writes the document, the deal and the work that sends the deal in
+    one commit: either all of it exists or none of it does, so a crash can never
+    leave a confirmed deal that nobody will ever send.
+    """
+    cursor.execute(
+        """
+        INSERT INTO jobs (company_id, kind, payload, run_after, max_attempts)
+        VALUES (%s, %s, %s, now() + make_interval(secs => %s), %s)
+        RETURNING id
+        """,
+        (company_id, kind, Json(payload or {}), float(delay_seconds), max_attempts),
+    )
+    row = cursor.fetchone()
+    return row['id'] if isinstance(row, dict) else row[0]
+
+
 def enqueue(
     company_id: int,
     kind: str,
@@ -66,15 +92,30 @@ def enqueue(
 ) -> int:
     """Put work in the queue and return its id. `delay_seconds` postpones the first try."""
     with db.connection() as connection, connection.cursor() as cursor:
+        return enqueue_in(cursor, company_id, kind, payload, delay_seconds, max_attempts)
+
+
+def reap_stale(older_than_seconds: float = 900.0) -> int:
+    """Return jobs whose worker died back to the queue.
+
+    The attempt is kept: a job that killed its worker once must not be retried
+    forever, so the count that leads to a dead job is preserved.
+    """
+    with db.connection() as connection, connection.cursor() as cursor:
         cursor.execute(
             """
-            INSERT INTO jobs (company_id, kind, payload, run_after, max_attempts)
-            VALUES (%s, %s, %s, now() + make_interval(secs => %s), %s)
-            RETURNING id
+            UPDATE jobs
+               SET status = 'queued',
+                   locked_by = NULL,
+                   locked_at = NULL,
+                   run_after = now(),
+                   updated_at = now()
+             WHERE status = 'running'
+               AND locked_at < now() - make_interval(secs => %s)
             """,
-            (company_id, kind, Json(payload or {}), float(delay_seconds), max_attempts),
+            (float(older_than_seconds),),
         )
-        return cursor.fetchone()[0]
+        return cursor.rowcount
 
 
 def claim(worker_id: str, exclude_prefix: str | None = None) -> dict[str, Any] | None:

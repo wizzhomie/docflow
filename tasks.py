@@ -11,8 +11,9 @@ from __future__ import annotations
 import os
 from typing import Any
 
+import crm_outbox
 import uspacy
-from worker import handler
+from workerkit import handler
 
 
 def retry_company() -> int:
@@ -23,6 +24,12 @@ def retry_company() -> int:
     the database passes the tenant with the job; the row already carries it.
     """
     return int(os.environ.get('DOCFLOW_DEFAULT_COMPANY', '1'))
+
+
+@handler(crm_outbox.KIND)
+def push_crm_deal(job: dict[str, Any]) -> None:
+    """Send a deal that a confirmation queued in its own transaction."""
+    crm_outbox.push(job)
 
 
 @handler('crm.deal')
