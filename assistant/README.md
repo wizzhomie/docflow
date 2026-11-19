@@ -215,7 +215,7 @@ DocFlow; without it the widget is off. Model URL, step limit and time budget use
 The public surface is locked down by default, because the demo runs behind a public URL:
 
 - `OPERATOR_CORS_ORIGINS` is a short explicit list, not `*`. On the demo server the widget is
-  served from the bare host and embedded by the DocFlow demo on `:8443`, so the installer
+  served on `:8443` and embedded by the DocFlow demo on the bare host, so the installer
   puts exactly that page in the list. Empty means same origin only.
 - `OPERATOR_CHAT_RATE_LIMIT` (6) and `OPERATOR_CHAT_RATE_WINDOW` (60 s) cap questions per
   client address; a client over the limit gets `429` with `Retry-After`.
@@ -236,8 +236,8 @@ The demo also runs on a plain Ubuntu server (currently an Oracle Always Free ARM
 # once, after both repositories are on the server and the model is in .models/
 sudo ../deploy/systemd/install.sh          # installs and enables the stack
 systemctl status docflow-operator        # model + API + demo DocFlow
-tailscale funnel --bg --https=443 http://127.0.0.1:8769   # assistant, public HTTPS
-tailscale funnel --bg --https=8443 http://127.0.0.1:8765  # demo DocFlow with the widget
+tailscale funnel --bg --https=443 http://127.0.0.1:8765   # DocFlow demo, public HTTPS
+tailscale funnel --bg --https=8443 http://127.0.0.1:8769  # assistant with the widget, cross-origin
 tailscale funnel --bg --https=10000 http://127.0.0.1:10000  # DSH web UI (optional)
 ```
 

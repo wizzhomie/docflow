@@ -28,8 +28,8 @@ check_url() {
 }
 
 check_url docflow-local http://127.0.0.1:8765/api/health 200
-check_url docflow-public https://docflow-demo.tail5bc03a.ts.net:8443/api/health 200
-check_url operator-public https://docflow-demo.tail5bc03a.ts.net/api/health 200
+check_url docflow-public https://docflow-demo.tail5bc03a.ts.net/api/health 200
+check_url operator-public https://docflow-demo.tail5bc03a.ts.net:8443/api/health 200
 
 for unit in docflow docflow-worker docflow-operator docflow-operator-model; do
     systemctl is-active --quiet "$unit" || problems+=("service $unit is not active")

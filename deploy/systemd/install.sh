@@ -39,10 +39,10 @@ public_host() {
   printf '%s' "${name:-$(hostname)}"
 }
 DSH_HOST="$(public_host)"
-# The widget is served from the bare host (:443) and embedded by the DocFlow demo on
-# :8443, which is therefore the one allowed origin: a short, explicit list instead of *.
-CORS_ORIGINS="${OPERATOR_CORS_ORIGINS:-https://$DSH_HOST:8443}"
-DEMO_URL="${OPERATOR_DEMO_URL:-https://$DSH_HOST:8443/}"
+# The DocFlow demo is the public root (:443) and embeds the widget served here on
+# :8443, so the bare host is the one allowed origin: a short list instead of *.
+CORS_ORIGINS="${OPERATOR_CORS_ORIGINS:-https://$DSH_HOST}"
+DEMO_URL="${OPERATOR_DEMO_URL:-https://$DSH_HOST/}"
 
 SERVICES=(docflow docflow-worker docflow-operator-model docflow-operator)
 RESTART=(docflow docflow-worker docflow-operator-model docflow-operator)
