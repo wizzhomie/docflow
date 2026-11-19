@@ -6,7 +6,6 @@ import time
 from pathlib import Path
 
 import settings
-
 from profiles import DEFAULT_PROFILE, detect_profile, ocr_langs, source_labels
 from profiles.suppliers import get_supplier_profile
 from validation import validate
