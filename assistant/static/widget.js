@@ -14,6 +14,11 @@
 
   var script = document.currentScript;
   var API = script ? new URL(script.src).origin : window.location.origin;
+  // The product demo, when this widget is served from its own host (chat.*).
+  var demoUrl = '';
+  fetch(API + '/api/config').then(function (r) { return r.json(); }).then(function (config) {
+    demoUrl = (config && config.demo_url) || '';
+  }).catch(function () {});
 
   var EXAMPLES = [
     'What is waiting for review today?',
@@ -59,6 +64,14 @@
     'border-bottom-left-radius:4px;}',
     '.dfo-msg.err{align-self:flex-start;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.35);color:#fecaca;}',
     '.dfo-trace{align-self:flex-start;max-width:92%;font-size:12px;color:#9aa0b4;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}',
+    '.dfo-proposal{align-self:flex-start;max-width:92%;border:1px solid rgba(124,92,255,.45);background:rgba(124,92,255,.1);',
+    'border-radius:12px;padding:11px 13px;font-size:12.5px;color:#e6e3ff;}',
+    '.dfo-proposal b{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#a9a4ff;margin-bottom:6px;}',
+    '.dfo-proposal p{margin:0 0 9px;line-height:1.45;}',
+    '.dfo-proposal a{display:inline-block;background:#7454ff;color:#fff;text-decoration:none;font-weight:600;',
+    'padding:7px 12px;border-radius:9px;font-size:12px;}',
+    '.dfo-proposal a:hover{background:#6344ee;}',
+    '.dfo-proposal small{display:block;margin-top:8px;color:#9aa0b4;font-size:11px;}',
     '.dfo-trace summary{cursor:pointer;}.dfo-trace summary:hover{color:#eceef5;}',
     '.dfo-trace pre{margin:7px 0 0;white-space:pre-wrap;font:11.5px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;',
     'background:#0a0c12;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:9px;max-height:150px;overflow:auto;color:#b4b9cb;}',
@@ -144,6 +157,51 @@
     scrollDown();
   }
 
+  function addProposal(steps) {
+    var step = null;
+    (steps || []).forEach(function (item) {
+      if (!step && item.tool === 'propose_confirm' && item.result) step = item;
+    });
+    if (!step) return;
+    var result = step.result || {};
+    var id = result.doc_id || (step.arguments || {}).doc_id;
+    var card = document.createElement('div');
+    card.className = 'dfo-proposal';
+    var title = document.createElement('b');
+    title.textContent = 'Human confirms in DocFlow';
+    var text = document.createElement('p');
+    text.textContent = result.proposal || 'A person reviews this document and confirms it.';
+    card.appendChild(title);
+    card.appendChild(text);
+    if (demoUrl && id) {
+      var link = document.createElement('a');
+      link.href = demoUrl.replace(/\/$/, '') + '/app?doc=' + encodeURIComponent(id);
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = 'Open in DocFlow';
+      card.appendChild(link);
+    }
+    var note = document.createElement('small');
+    note.textContent = 'The assistant never confirms, pays or sends.';
+    card.appendChild(note);
+    logEl().appendChild(card);
+    scrollDown();
+  }
+
+  function rememberRun(question, data) {
+    try {
+      var runs = JSON.parse(window.localStorage.getItem('dfo-runs') || '[]');
+      runs.unshift({
+        q: question,
+        tools: (data.steps || []).map(function (step) { return step.tool; })
+          .filter(function (tool) { return tool !== 'finish'; }),
+        ms: data.total_ms || 0,
+        at: Date.now(),
+      });
+      window.localStorage.setItem('dfo-runs', JSON.stringify(runs.slice(0, 8)));
+    } catch (error) {}
+  }
+
   function showTyping() {
     var node = document.createElement('div');
     node.className = 'dfo-msg bot dfo-dots';
@@ -197,6 +255,8 @@
         var answer = (data.answer || '').trim() || 'I could not find an answer.';
         addMessage('bot', answer);
         addTrace(data.steps);
+        addProposal(data.steps);
+        rememberRun(text, data);
         messages.push({ role: 'assistant', content: answer });
       })
       .catch(function (error) {

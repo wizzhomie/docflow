@@ -36,6 +36,21 @@ def test_widget_explains_its_grounding():
     assert 'steps' in WIDGET
 
 
+def test_a_proposal_shows_a_human_button_instead_of_confirming():
+    # The assistant proposes; the person presses the button inside DocFlow.
+    assert 'propose_confirm' in WIDGET
+    assert 'Open in DocFlow' in WIDGET
+    assert 'app?doc=' in WIDGET
+    assert 'demo_url' in WIDGET
+    assert 'never confirms' in WIDGET
+
+
+def test_recent_runs_are_kept_in_this_browser_only():
+    assert 'Recent runs' in PAGE
+    assert 'dfo-runs' in PAGE and 'dfo-runs' in WIDGET
+    assert 'localStorage' in WIDGET and 'localStorage' in PAGE
+
+
 def test_model_text_is_rendered_as_text_not_html():
     # The assistant prints model output; it goes through textContent, never through innerHTML.
     assert 'node.textContent = text' in WIDGET

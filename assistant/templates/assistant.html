@@ -77,6 +77,15 @@
   }
   .demo-cta:hover { background: rgba(124,92,255,.22); border-color: rgba(124,92,255,.5); }
   @media (max-width: 640px) { .nav-note { display: none; } }
+  .runs-note { margin: 6px 0 14px; color: var(--muted); font-size: .8rem; }
+  .run {
+    display: flex; gap: 12px; align-items: baseline; padding: 9px 0;
+    border-top: 1px solid rgba(255,255,255,.07); font-size: .84rem;
+  }
+  .run:first-of-type { border-top: 0; }
+  .run time { color: var(--muted); font-family: var(--mono); font-size: .72rem; min-width: 62px; }
+  .run b { font-weight: 600; }
+  .run span { color: var(--muted); font-size: .76rem; margin-left: auto; white-space: nowrap; }
 </style>
 </head>
 <body data-assistant-open="true">
@@ -106,6 +115,11 @@
       <code>?ask=…</code> to this URL to open the chat with a pre-filled question.
     </p>
   </div>
+  <section class="card" id="runs-card" hidden>
+    <h2>Recent runs</h2>
+    <p class="runs-note">Kept in this browser only: the question, the tools it took and how long.</p>
+    <div id="runs"></div>
+  </section>
   <p class="hint">The chat panel is open in the corner. Close it and the round button stays.</p>
 </div>
 <script src="/widget.js" defer></script>
@@ -121,6 +135,34 @@ fetch('/api/config').then(function (r) { return r.json(); }).then(function (conf
   var note = document.getElementById('demo-note');
   if (note) note.hidden = false;
 }).catch(function () {});
+function renderRuns() {
+  var runs = [];
+  try { runs = JSON.parse(window.localStorage.getItem('dfo-runs') || '[]'); } catch (e) {}
+  var box = document.getElementById('runs');
+  var card = document.getElementById('runs-card');
+  if (!box || !card || !runs.length) return;
+  box.innerHTML = '';
+  runs.forEach(function (run) {
+    var row = document.createElement('div');
+    row.className = 'run';
+    var time = document.createElement('time');
+    time.textContent = new Date(run.at).toLocaleTimeString();
+    var question = document.createElement('b');
+    question.textContent = run.q;
+    var detail = document.createElement('span');
+    var seconds = run.ms ? (run.ms / 1000).toFixed(1) + ' s' : '';
+    detail.textContent = [(run.tools || []).join(', ') || 'no tools', seconds].filter(Boolean).join(' · ');
+    row.appendChild(time);
+    row.appendChild(question);
+    row.appendChild(detail);
+    box.appendChild(row);
+  });
+  card.hidden = false;
+}
+renderRuns();
+window.addEventListener('storage', function (event) {
+  if (event.key === 'dfo-runs') renderRuns();
+});
 window.addEventListener('load', function () {
   var question = new URLSearchParams(window.location.search).get('ask');
   if (!question || !window.DocFlowAssistant) return;

@@ -375,6 +375,7 @@ const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.tif', '.tiff', '.bmp'];
 // Deployment default from /api/config (the registered document profile).
 let defaultCurrency = '';
 let typeLabels = {};
+let deepLinked = false;
 
 function money(v, cur = defaultCurrency) {
   if (v === null || v === undefined || v === '') return '—';
@@ -554,6 +555,18 @@ function renderResult(data) {
 }
 
 
+// The assistant links here as /app?doc=<id>, so one document opens from a proposal.
+async function openDocument(id) {
+  try {
+    const res = await fetch('/api/documents/' + encodeURIComponent(id));
+    if (!res.ok) throw new Error('Could not open document');
+    loadDoc(await res.json());
+    toast('Opened for review', 'ok');
+  } catch (err) {
+    toast(err.message, 'bad');
+  }
+}
+
 function renderInbox(items) {
   const wrap = $('#inbox-wrap');
   const hint = $('#inbox-hint');
@@ -578,16 +591,7 @@ function renderInbox(items) {
     </button>`;
   }).join('');
   wrap.querySelectorAll('.inbox-row').forEach((row) => {
-    row.onclick = async () => {
-      try {
-        const res = await fetch('/api/documents/' + row.dataset.id);
-        if (!res.ok) throw new Error('Could not open document');
-        loadDoc(await res.json());
-        toast('Opened for review', 'ok');
-      } catch (err) {
-        toast(err.message, 'bad');
-      }
-    };
+    row.onclick = () => openDocument(row.dataset.id);
   });
 }
 
@@ -863,6 +867,11 @@ async function refresh() {
         </tr>`;
       }).join('')}</tbody>
     </table>`;
+    const wanted = new URLSearchParams(window.location.search).get('doc');
+    if (wanted && !deepLinked) {
+      deepLinked = true;
+      openDocument(wanted);
+    }
   } catch (e) {}
 }
 
