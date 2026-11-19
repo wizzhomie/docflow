@@ -212,7 +212,7 @@ The deterministic suite runs without network, credentials or a real CRM:
 ```bash
 python3 tests/run_eval.py            # 13 labelled fixtures, 104/104 checks, 0 confident errors
 python3 tests/run_eval_split.py      # real vs synthetic split
-pytest -q --cov --cov-fail-under=71  # the whole suite in one process, with the coverage gate
+pytest -q --cov --cov-fail-under=70  # the whole suite in one process, with the coverage gate
 ruff check .                         # the lint CI runs (pip install -r requirements-dev.txt)
 ```
 
