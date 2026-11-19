@@ -41,3 +41,6 @@ assistant/data/
 .models/
 *.gguf
 .ruff_cache/
+
+# Generated synthetic corpus for the independent parser check
+data/synthetic-corpus/
