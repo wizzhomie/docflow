@@ -20,6 +20,7 @@ set -uo pipefail
 
 ROOT="${DOCFLOW_ROOT:-/home/ubuntu/docflow}"
 LOG="$ROOT/.run/health.log"
+STATE="$ROOT/.run/health.state"
 PYTHON="${DOCFLOW_PYTHON:-$ROOT/.venv/bin/python}"
 
 problems=()
@@ -82,7 +83,21 @@ ping_switch() {
     python3 "$(dirname "$0")/ping.py" "$1" || true
 }
 
+# Mail is a convenience channel: without SMTP settings it does nothing, and its
+# own failures never change the verdict of the check.
+notify_mail() {
+    [ -x "$PYTHON" ] || return 0
+    "$PYTHON" "$(dirname "$0")/notify_mail.py" "$1" "$2" || true
+}
+
+previous="$(cat "$STATE" 2>/dev/null || echo ok)"
+
 if [ "${#problems[@]}" -eq 0 ]; then
+    if [ "$previous" = fail ]; then
+        notify_mail ok "the demo answers again"
+        printf '%s healthcheck recovered\n' "$(date -Is)" >> "$LOG"
+    fi
+    printf 'ok\n' > "$STATE"
     ping_switch success
     exit 0
 fi
@@ -94,5 +109,10 @@ printf '%s\n' "$line" >&2
 if [ -n "${SENTRY_DSN:-}" ] && [ -x "$PYTHON" ]; then
     "$PYTHON" "$(dirname "$0")/report.py" "$line" || true
 fi
+# One mail per outage, not one per five-minute check; the recovery mail closes it.
+if [ "$previous" != fail ]; then
+    notify_mail fail "$line"
+fi
+printf 'fail\n' > "$STATE"
 ping_switch fail
 exit 1

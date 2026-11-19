@@ -8,6 +8,7 @@ Type=oneshot
 User=__USER__
 WorkingDirectory=__DEPLOY_ROOT__
 EnvironmentFile=-__DOCFLOW_ROOT__/.env
+EnvironmentFile=-__USER_HOME__/.config/docflow/alerts.env
 Environment=DOCFLOW_ROOT=__DOCFLOW_ROOT__
 ExecStart=__DEPLOY_ROOT__/healthcheck/check.sh
 
