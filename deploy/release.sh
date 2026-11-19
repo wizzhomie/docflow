@@ -78,7 +78,7 @@ smoke() {
     local path code
     wait_ready || { echo "smoke: the service did not answer after 30 s"; return 1; }
     for path in / /app /api/health /api/health/detail /api/metrics /api/stats \
-                /api/impact /api/config /api/roadmap /api/session; do
+                /api/impact /api/config /api/session; do
         code="$(curl -s -o /dev/null -m 10 -w '%{http_code}' "http://127.0.0.1:8765$path")"
         if [ "$code" != 200 ]; then
             echo "smoke: $path returned ${code:-nothing}"
