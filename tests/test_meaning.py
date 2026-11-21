@@ -195,6 +195,27 @@ def test_a_failed_model_call_is_logged_with_its_reason(monkeypatch, caplog):
     assert 'meaning layer' in caplog.text
 
 
+def test_an_unescaped_quote_in_a_copied_name_is_repaired():
+    """A supplier printed as ТОВ "РЕГІОН ДСТ" breaks the JSON the model returns."""
+    answer = (
+        '{"fields": {"supplier": {"line": 2, "text": "ТОВ "РЕГІОН ДСТ""}, '
+        '"total": {"line": 5, "text": "2 500,00"}}}'
+    )
+    assert meaning._loads(answer) == {
+        'fields': {
+            'supplier': {'line': 2, 'text': 'ТОВ "РЕГІОН ДСТ"'},
+            'total': {'line': 5, 'text': '2 500,00'},
+        }
+    }
+
+
+def test_valid_json_is_not_touched_by_the_repair():
+    answer = '{"fields": {"number": {"line": 1, "text": "104038"}}}'
+    assert meaning._loads(answer) == {
+        'fields': {'number': {'line': 1, 'text': '104038'}}
+    }
+
+
 def test_the_layer_does_not_run_when_it_is_off(monkeypatch, tmp_path):
     import intake
     import settings

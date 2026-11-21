@@ -83,6 +83,57 @@ def _api_key() -> str:
     return ''
 
 
+def _escape_inner_quotes(raw: str) -> str:
+    """Escape a quote that belongs to the text, not to the JSON around it.
+
+    The model copies a name verbatim, so a supplier printed as
+    `ТОВ "РЕГІОН ДСТ"` comes back inside a JSON string unescaped. A string ends
+    only at a quote followed by `,`, `}`, `]` or `:`; every other quote inside a
+    string is part of the value and must be escaped.
+    """
+    result = []
+    index = 0
+    in_string = False
+    while index < len(raw):
+        char = raw[index]
+        if not in_string:
+            if char == '"':
+                in_string = True
+            result.append(char)
+            index += 1
+            continue
+        if char == '\\' and index + 1 < len(raw):
+            result.append(raw[index:index + 2])
+            index += 2
+            continue
+        if char == '"':
+            ahead = index + 1
+            while ahead < len(raw) and raw[ahead].isspace():
+                ahead += 1
+            following = raw[ahead] if ahead < len(raw) else ''
+            if following and following not in ',}]:':
+                result.append('\\"')
+                index += 1
+                continue
+            in_string = False
+        result.append(char)
+        index += 1
+    return ''.join(result)
+
+
+def _loads(raw: str) -> dict | None:
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        repaired = _escape_inner_quotes(raw)
+        if repaired == raw:
+            return None
+        try:
+            return json.loads(repaired)
+        except json.JSONDecodeError:
+            return None
+
+
 def _ask(text: str) -> dict:
     """One request to an OpenAI-compatible endpoint; empty dict on any failure."""
     url = os.environ.get('DOCFLOW_MEANING_URL', DEFAULT_URL)
@@ -117,10 +168,13 @@ def _ask(text: str) -> dict:
         logger.warning('meaning layer: no JSON in the answer from %s', url)
         return {}
     try:
-        return json.loads(match.group(0))
-    except json.JSONDecodeError:
+        answer = _loads(match.group(0))
+    except Exception:  # noqa: BLE001 - repair is best-effort
+        answer = None
+    if answer is None:
         logger.warning('meaning layer: unparsable JSON from %s', url)
         return {}
+    return answer
 
 
 def parse_date(text: str) -> str | None:
