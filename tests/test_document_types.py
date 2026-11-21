@@ -76,6 +76,22 @@ def test_unknown_document_falls_back_to_invoice():
     assert detect_profile('Якийсь невідомий документ без заголовка') is invoice_ua
 
 
+def test_buyer_first_layout_keeps_the_supplier_tax_id():
+    """A buyer block printed first must not donate its tax id to the supplier."""
+    text = (
+        'Счёт на оплату № КП-79 от 9 мая 2026\n'
+        'Покупатель: ТОВ «Вода-Град»\n'
+        'ИНН 46187055\n'
+        'Поставщик: ФОП Савченко Дмитро Вікторович\n'
+        'ИНН 4530378074\n'
+        'Всего к оплате: 150 000,00 грн\n'
+    )
+    parsed = parse_invoice(text)
+    values = {key: field['value'] for key, field in parsed['fields'].items()}
+    assert values['supplier'] == 'ФОП Савченко Дмитро Вікторович'
+    assert values['tax_id'] == '4530378074'
+
+
 def test_act_fields_are_parsed():
     text = (
         'Акт виконаних робіт № 2026-14 від 11.11.2026\n'

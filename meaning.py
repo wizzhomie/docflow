@@ -186,6 +186,14 @@ def resolve(plan: dict, text: str) -> dict[str, Resolved]:
         span = str(pointer.get('text') or '').strip()
         if not (1 <= number <= len(lines)) or not span:
             continue
+        # A tax id must sit in the supplier block. In a buyer-first layout the
+        # buyer's tax id is printed before the supplier's, and a model can point
+        # at the first number it sees; the supplier anchor is already resolved,
+        # so an out-of-block tax pointer is dropped rather than copied.
+        if name == 'tax_id' and 'supplier' in out:
+            anchor = out['supplier'].line
+            if not (anchor <= number <= anchor + 2):
+                continue
         if span.casefold() not in lines[number - 1].casefold():
             continue
         value = _value_for(name, span)

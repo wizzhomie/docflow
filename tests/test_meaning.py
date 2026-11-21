@@ -55,6 +55,25 @@ def test_the_longest_tax_id_wins_because_a_prefix_is_a_wrong_number():
     assert meaning.parse_tax('3244793895') == '3244793895'
 
 
+def test_a_buyer_first_tax_id_is_not_accepted_for_the_supplier():
+    """The supplier anchor decides the block: a tax id before it is the buyer's."""
+    text = '\n'.join([
+        'Счёт на оплату № КП-79 от 9 мая 2026',
+        'Покупатель: ТОВ «Вода-Град»',
+        'ИНН 46187055',
+        'Поставщик: ФОП Савченко Дмитро Вікторович',
+        'ИНН 4530378074',
+    ])
+    supplier = {'line': 4, 'text': 'ФОП Савченко Дмитро Вікторович'}
+    buyer_tax = {'line': 3, 'text': '46187055'}
+    assert 'tax_id' not in meaning.resolve(
+        fake_plan(supplier=supplier, tax_id=buyer_tax), text)
+    resolved = meaning.resolve(
+        fake_plan(supplier=supplier,
+                  tax_id={'line': 5, 'text': '4530378074'}), text)
+    assert resolved['tax_id'].value == '4530378074'
+
+
 def test_applying_a_pointer_replaces_the_field_and_records_provenance(monkeypatch):
     parsed = {'fields': {'date': {'value': None}, 'total': {'value': None}}}
     monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(

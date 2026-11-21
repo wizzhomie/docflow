@@ -335,14 +335,11 @@ def _find_supplier_and_tax_id(
         )[0].strip(' .,;')
         supplier = _tidy_supplier(supplier, patterns['tax_prefixes'])
 
-    block = text
-    between = re.search(
-        rf'(?:{patterns["supplier_labels"]})[:\s]+(.+?)(?:\n\s*(?:{patterns["buyer_labels"]}))',
-        text,
-        re.I | re.S,
-    )
-    if between:
-        block = between.group(1)
+    # Anchor at the supplier label, not at the first line. A buyer-first layout
+    # prints the buyer's tax id before the supplier's; slicing from the supplier
+    # anchor makes the supplier's tax id the first one the search can meet.
+    supplier_at = re.search(rf'(?:{patterns["supplier_labels"]})', text, re.I)
+    block = text[supplier_at.start():] if supplier_at else text
     tax_match = re.search(
         rf'(?:{patterns["tax_prefixes"]})[^\d\n]{{0,15}}(\d{{8,12}})', block, re.I
     )
