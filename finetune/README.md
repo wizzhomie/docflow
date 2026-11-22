@@ -157,7 +157,13 @@ DOCFLOW_MEANING_TIMEOUT=300 python finetune/eval_pipeline.py
 
 `eval_pipeline.py` defaults to the held-out synthetic corpus and writes
 `finetune/data/pipeline-eval.json`; `results/pipeline-eval-synthetic.json` in this
-directory is the output of that command. Pointing the layer at a local server needs no
+directory is the output of that command.
+
+Nothing here is run by the product, so `tests/test_finetune.py` generates a corpus and
+builds the training set on every CI run: the prompt it checks is `meaning.PROMPT` itself,
+so a change to the runtime request that the generator does not follow fails the build
+instead of a retrain. The `finetune` job in `.github/workflows/ci.yml` lints this
+directory by path and runs those five tests. Pointing the layer at a local server needs no
 key — `DOCFLOW_MEANING_URL=http://127.0.0.1:8080/v1/chat/completions`,
 `DOCFLOW_MEANING_MODEL=local`, and nothing leaves the machine.
 

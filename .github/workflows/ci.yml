@@ -86,7 +86,18 @@ jobs:
           python3 tests/run_eval_split.py
 
       - name: Tests, with the coverage gate
-        run: pytest -q --cov --cov-fail-under=68
+        # A red run whose log nobody can open is a red run nobody reads: the failing
+        # tests and the coverage total go into an annotation on the commit, where they
+        # are visible without downloading anything.
+        run: |
+          set +e
+          pytest -q --cov --cov-fail-under=68 2>&1 | tee pytest.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            summary=$(grep -E '^(TOTAL|FAILED|ERROR)' pytest.log | head -n 12 | tr '\n' ';')
+            echo "::error title=pytest failed::${summary:-no summary line, see the log}"
+          fi
+          exit "$status"
 
   assistant:
     # The assistant is part of this product but has its own dependencies, its own
