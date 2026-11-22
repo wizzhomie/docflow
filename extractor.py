@@ -151,7 +151,11 @@ def _ocr_pdf(path: Path) -> str:
         pages = sorted(Path(tmp).glob('page*.png'))[:limit]
         text: list[str] = []
         for page in pages:
-            if time.monotonic() > deadline:
+            # A budget of zero is "spend nothing", stated rather than left to the
+            # clock: `time.monotonic()` on Windows ticks in milliseconds, two reads
+            # can return the same value, and the comparison below would then pass
+            # for every page — the opposite of what a zero budget asks for.
+            if settings.MAX_OCR_SECONDS <= 0 or time.monotonic() > deadline:
                 break
             text.append(_ocr_image(page))
         return '\n'.join(text)
