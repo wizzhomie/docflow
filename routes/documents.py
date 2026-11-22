@@ -4,7 +4,9 @@ import threading
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
+from fastapi import (
+    APIRouter, BackgroundTasks, File, HTTPException, Request, Response, UploadFile,
+)
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -42,7 +44,12 @@ CONFIRM_LOCK = threading.Lock()
 
 
 @router.post('/api/upload')
-async def upload(request: Request, response: Response, file: UploadFile = File(...)):
+async def upload(
+    request: Request,
+    response: Response,
+    background: BackgroundTasks,
+    file: UploadFile = File(...),
+):
     suffix = Path(file.filename or 'doc').suffix.lower()
     if suffix not in settings.ALLOWED:
         raise HTTPException(400, 'Supported formats: PDF, TXT, HTML and images (PNG/JPG/TIFF)')
@@ -79,6 +86,8 @@ async def upload(request: Request, response: Response, file: UploadFile = File(.
             target,
             extra={'session': session} if session else None,
             persist=person is None,
+            # The model step runs after this response: an upload must not wait for it.
+            defer_meaning=True,
         )
     except intake.ExtractionBusy as busy:
         target.unlink(missing_ok=True)
@@ -109,6 +118,12 @@ async def upload(request: Request, response: Response, file: UploadFile = File(.
         )
     if not meta['text_preview'].strip():
         meta['warning'] = 'No text extracted: the file may be a scan. OCR is not enabled yet.'
+    # The model reads the document after this response has gone out. What it finds is
+    # merged into the record through the same invariants; if it finds nothing, the
+    # rules' values stand and the only thing lost is the improvement.
+    text = meta.pop('_source_text', '')
+    if text:
+        background.add_task(intake.finish_meaning, meta, text, person)
     return meta
 
 

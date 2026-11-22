@@ -109,6 +109,7 @@ def _process(
     source: str = 'upload',
     extra: dict | None = None,
     persist: bool = True,
+    defer_meaning: bool = False,
 ) -> dict:
     text = extract_text(path)
     items = parse_items(text)
@@ -120,7 +121,14 @@ def _process(
     parsed = parse_invoice(
         text, items=items, tax_id=preview_tax_id, supplier_name=preview_supplier
     )
-    if settings.MEANING != 'off':
+    queued_meaning = settings.MEANING != 'off' and defer_meaning
+    if queued_meaning:
+        # The model step is scheduled by the caller and runs after the response has
+        # been sent, so its latency belongs to nobody's request. `finish_meaning`
+        # merges what it finds through the same invariants; until then the record
+        # carries the rules' values, which is a complete answer on its own.
+        meta_meaning = {'mode': settings.MEANING, 'state': 'queued'}
+    elif settings.MEANING != 'off':
         # The model only says where the value is printed; a pointer whose text is
         # not on that line is dropped and the parser's value stays. The merge is in
         # place, so a failure after it would leave a value no invariant has seen:
@@ -175,7 +183,84 @@ def _process(
         docstore._meta_path(doc_id).write_text(
             json.dumps(meta, ensure_ascii=False), encoding='utf-8'
         )
+    if queued_meaning:
+        # The extracted text goes to the caller that schedules the model step, and is
+        # not stored: the record keeps a preview and the original file is on disk, so
+        # keeping a second full copy would only widen what a leak costs.
+        meta['_source_text'] = text
     return meta
+
+
+def finish_meaning(meta: dict, text: str, person: dict | None = None) -> dict:
+    """The model step, run after the response instead of inside it.
+
+    Best effort by design: a step that is lost leaves the rules' values in place, and
+    those are a complete answer. What must not happen is a value no invariant has
+    seen, so the merge goes back through `revise` exactly as the synchronous path did.
+    """
+    if settings.MEANING == 'off' or not text or not meta:
+        return {}
+    parsed = meta.get('parsed') or {}
+    if not parsed.get('fields'):
+        return {}
+    try:
+        import meaning
+
+        asked = meaning.gaps(parsed)
+        if not asked:
+            return {}
+        shadow = settings.MEANING == 'shadow'
+        resolved = meaning.apply(parsed, text, shadow=shadow, fields=asked)
+        if not resolved:
+            return {}
+        if not shadow:
+            parsed = revise(parsed, meta.get('items'), profiles.get_profile(parsed.get('type')))
+            meta['parsed'] = parsed
+        meta['meaning'] = {
+            'mode': settings.MEANING,
+            'state': 'done',
+            'asked': asked,
+            'fields': {
+                name: {'line': item.line, 'text': item.text}
+                for name, item in resolved.items()
+            },
+        }
+    except Exception as error:  # noqa: BLE001 - the model must never break intake
+        logger.warning(
+            'meaning layer: deferred step failed for %s: %s', meta.get('id'), error)
+        return {}
+    meta.pop('_source_text', None)
+    _save_meaning(meta, person)
+    return meta['meaning']['fields']
+
+
+def _save_meaning(meta: dict, person: dict | None) -> None:
+    """Write the improved parse back where the document lives, if it is still ours."""
+    doc_id = str(meta.get('id') or '')
+    if not doc_id:
+        return
+    try:
+        if person is not None:
+            import pg_documents
+
+            pg_documents.update_meaning(person, doc_id, meta['parsed'])
+            return
+        path = docstore._meta_path(doc_id)
+        if not path.exists():
+            return
+        if doc_id in {str(row.get('id')) for row in docstore._read_confirmed()}:
+            # A person confirmed the document while the model was reading it. Their
+            # record is the truth and it is already written; changing the pending
+            # file now would leave two different answers on disk.
+            return
+        # Written aside and moved into place: the review page may be reading this
+        # file at the same moment, and a half-written record is worse than a stale one.
+        temporary = path.with_suffix('.tmp')
+        temporary.write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
+        temporary.replace(path)
+    except Exception as error:  # noqa: BLE001 - a failed write must not take a worker down
+        logger.warning(
+            'meaning layer: could not record the deferred result for %s: %s', doc_id, error)
 
 
 async def process_async(
@@ -185,6 +270,7 @@ async def process_async(
     source: str = 'upload',
     extra: dict | None = None,
     persist: bool = True,
+    defer_meaning: bool = False,
 ) -> dict:
     """`_process` off the event loop, behind the extraction gate.
 
@@ -200,7 +286,8 @@ async def process_async(
         )
     try:
         return await asyncio.to_thread(
-            _process, doc_id, filename, path, source=source, extra=extra, persist=persist
+            _process, doc_id, filename, path, source=source, extra=extra, persist=persist,
+            defer_meaning=defer_meaning,
         )
     finally:
         GATE.release()

@@ -23,7 +23,10 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import (
+    APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, Response,
+    UploadFile,
+)
 from pydantic import BaseModel
 
 import apikeys
@@ -365,6 +368,7 @@ def me(key: dict[str, Any] = Depends(_key)) -> dict[str, Any]:
 @router.post('/documents', status_code=201)
 async def upload_document(
     response: Response,
+    background: BackgroundTasks,
     file: UploadFile = File(...),
     external_id: str | None = Form(None),
     key: dict[str, Any] = Depends(_scoped('documents:write')),
@@ -377,13 +381,14 @@ async def upload_document(
             response.status_code = 200
             return {**_load_document(key, existing), 'idempotent': True}
     data = await file.read()
-    return await _ingest(key, data, file.filename or 'document', external)
+    return await _ingest(key, data, file.filename or 'document', external, background)
 
 
 @router.post('/documents/text', status_code=201)
 async def upload_text(
     payload: TextIn,
     response: Response,
+    background: BackgroundTasks,
     key: dict[str, Any] = Depends(_scoped('documents:write')),
 ) -> dict[str, Any]:
     """A document already in text form: no OCR, the same parser and invariants."""
@@ -394,12 +399,14 @@ async def upload_text(
             response.status_code = 200
             return {**_load_document(key, existing), 'idempotent': True}
     return await _ingest(
-        key, payload.text.encode('utf-8'), payload.filename or 'document.txt', external
+        key, payload.text.encode('utf-8'), payload.filename or 'document.txt', external,
+        background,
     )
 
 
 async def _ingest(
-    key: dict[str, Any], data: bytes, filename: str, external: str | None
+    key: dict[str, Any], data: bytes, filename: str, external: str | None,
+    background: BackgroundTasks | None = None,
 ) -> dict[str, Any]:
     if not data:
         raise HTTPException(422, 'The document is empty')
@@ -430,6 +437,9 @@ async def _ingest(
             # A company-bound document lives in the database row, as it does for
             # the review form: a pending JSON next to it would be a second truth.
             persist=person is None,
+            # The model step runs after this response: an integration's POST must
+            # answer in the time its own client allows, not in the model's.
+            defer_meaning=True,
         )
     except intake.ExtractionBusy as busy:
         target.unlink(missing_ok=True)
@@ -448,10 +458,17 @@ async def _ingest(
         except Exception:
             target.unlink(missing_ok=True)
             raise
-        return _view_pg(pgapi.document_meta(person, str(meta['id']), mark_viewed=False))
-    if external:
-        _remember(key['id'], external, str(meta['id']))
-    return _view_meta(meta)
+        view = _view_pg(pgapi.document_meta(person, str(meta['id']), mark_viewed=False))
+    else:
+        if external:
+            _remember(key['id'], external, str(meta['id']))
+        view = _view_meta(meta)
+    # The model reads the document after this answer has gone out: an integration's
+    # POST must finish inside its own client's timeout, not the model's.
+    text = meta.pop('_source_text', '')
+    if text and background is not None:
+        background.add_task(intake.finish_meaning, meta, text, person)
+    return view
 
 
 @router.get('/documents')

@@ -319,3 +319,39 @@ def test_a_confirmed_record_names_the_key_that_approved_it():
     rows = [json.loads(line) for line in settings.CONFIRMED.read_text(encoding='utf-8').splitlines()]
     assert rows[0]['confirmed_by'].startswith('api:')
     assert rows[0]['source'] == 'api'
+
+
+def test_the_answer_is_built_before_the_model_reads_the_document(monkeypatch):
+    """An integration's POST must not wait for the model.
+
+    The answer it receives is the rules' answer, complete on its own; the model step
+    is scheduled and lands in the record afterwards, through the invariants. The two
+    values below are the proof: the response carries the rules' total and the stored
+    record carries the model's.
+    """
+    isolate()
+    token = issue()
+    import meaning
+
+    monkeypatch.setattr(settings, 'MEANING', 'on')
+    monkeypatch.setattr(meaning, '_ask', lambda text, fields=None: {
+        'fields': {'total': {'line': 3, 'text': '1 028,80'}}})
+    document = (
+        'Рахунок на оплату № API-18 від 12 лютого 2026\n'
+        'Постачальник: ТОВ «Платформа-Тест», ЄДРПОУ 41234567\n'
+        'Сума без ПДВ: 1 028,80 грн\n'
+        'Всього: 1 234,56 грн\n'
+    )
+    with TestClient(app.app) as client:
+        answer = client.post(
+            '/api/v1/documents',
+            headers={'Authorization': f'Bearer {token}'},
+            files={'file': ('invoice.txt', document.encode('utf-8'), 'text/plain')},
+        )
+        body = answer.json()
+        assert answer.status_code == 201
+        assert body['values']['total'] == 1234.56
+        stored = json.loads(
+            (settings.PENDING / f"{body['id']}.json").read_text(encoding='utf-8'))
+        assert stored['parsed']['fields']['total']['value'] == 1028.8
+        assert stored['meaning']['state'] == 'done'

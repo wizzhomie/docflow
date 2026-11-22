@@ -160,6 +160,39 @@ def store_upload(person: dict[str, Any], meta: dict[str, Any], file_path: str) -
             return str(row['id'])
 
 
+def update_meaning(person: dict[str, Any], doc_id: str, parsed: dict[str, Any]) -> None:
+    """Put an improved parse on a document that is still waiting for a person.
+
+    The model step runs after the upload response, so the row already exists. Only a
+    document still in `new` is touched: one a person confirmed, or one an outbox has
+    sent, is a record with someone's name behind it, and the model has no business
+    rewriting it afterwards.
+    """
+    fields = _values(parsed)
+    company_id = person['company_id']
+    with db.tenant(company_id) as connection, connection.cursor(
+        cursor_factory=RealDictCursor
+    ) as cursor:
+        cursor.execute(
+            """
+            UPDATE documents
+               SET supplier_id = %s, number = %s, doc_date = %s, total = %s,
+                   vat = %s, currency = %s, parsed = %s
+             WHERE id = %s AND status = 'new'
+            """,
+            (
+                supplier_id(cursor, company_id, fields),
+                str(fields.get('number') or '') or None,
+                _date(fields.get('date')),
+                _number(fields.get('total')),
+                _number(fields.get('vat')),
+                _currency(fields.get('currency')),
+                Json(parsed),
+                int(doc_id),
+            ),
+        )
+
+
 def document_file_path(person: dict[str, Any], doc_id: str, uploads: Path) -> Path | None:
     """The stored original of a document, if this company owns it and it is on disk.
 
