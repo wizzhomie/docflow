@@ -76,6 +76,7 @@ for _connection_error in db.CONNECTION_ERRORS:
 
 OBSERVABILITY = observability.install(app)
 
+from routes import api_v1 as api_v1_routes  # noqa: E402
 from routes import documents, ops, pages, reports  # noqa: E402
 from routes import intake as intake_routes  # noqa: E402
 
@@ -85,6 +86,7 @@ for router in (
     intake_routes.router,
     reports.router,
     ops.router,
+    api_v1_routes.router,
 ):
     app.include_router(router)
 

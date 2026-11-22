@@ -26,6 +26,10 @@ value. The layer is off unless `DOCFLOW_MEANING` is `shadow` or `on`.
 - `extractor.py` — text acquisition, OCR fallback and field interpretation.
 - `meaning.py` — the optional meaning layer: a model points at the line a value is
   printed on, the code copies it and records the provenance.
+- `apikeys.py` — keys for machine clients: digests at rest, a scope per action.
+- `routes/api_v1.py` — the machine door (`/api/v1`): upload, read, poll and confirm
+  through the same pipeline the review form calls; `docs/api.md` is its contract,
+  `tools/api_key.py` issues and revokes keys.
 - `mailbox.py` — IMAP intake: attachments of new mail go through the same pipeline as an upload.
 - `profiles/market_ua.py` — shared facts of the Ukrainian market: currency, VAT, label
   vocabulary, tax-ID/IBAN/phone formats, legal forms, OCR language.
@@ -84,6 +88,11 @@ value. The layer is off unless `DOCFLOW_MEANING` is `shadow` or `on`.
   `tools/make_delivery_sample.py` regenerate the sample documents used for the walkthrough.
 - `DOCFLOW_CRM=uspacy|bitrix24|none` picks the active connector; Bitrix24 works through an
   incoming webhook (`BITRIX24_WEBHOOK_URL`).
+- `DOCFLOW_API=off` switches the machine API off (its routes answer `404`); keys are
+  issued with `python3 tools/api_key.py issue --label "..." --scopes ...`, and a key
+  issued with `--company` writes through that company's PostgreSQL tenant.
+- On the public showcase (`DOCFLOW_DEMO_MODE=1`) the queue lists the labelled demo and the
+  visitor's own uploads, never an integration's document; on a real workspace it does.
 - Documents dropped into `data/inbox/` are picked up by a background watcher.
 - `DOCFLOW_IMAP_*` connects one mailbox: attachments are ingested through the same
   pipeline, a message is marked seen only after a successful ingest, and seen Message-IDs
@@ -110,6 +119,7 @@ tool calls, and every answer must be grounded in a tool result.
 ./dev.sh status
 ./dev.sh logs
 curl -s http://127.0.0.1:8765/api/health
+python3 tools/api_key.py issue --label "smoke" --scopes documents:write,documents:read
 ```
 
 Regression baseline:

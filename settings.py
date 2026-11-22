@@ -69,6 +69,19 @@ MAX_OCR_SECONDS = float(os.environ.get('DOCFLOW_MAX_OCR_SECONDS', '180'))
 EXTRACTIONS = int(os.environ.get('DOCFLOW_MAX_EXTRACTIONS', '2'))
 EXTRACTION_WAIT_SECONDS = float(os.environ.get('DOCFLOW_EXTRACTION_WAIT', '10'))
 
+# The machine door: an integration is not a browser, so it carries a key instead
+# of a session cookie. The key file keeps digests only (`apikeys.py`), and the
+# external-id index makes an upload retried by the integration the same document
+# rather than a second one.
+API_ENABLED = os.environ.get('DOCFLOW_API', 'on').strip().lower() not in {
+    '0',
+    'false',
+    'off',
+    'no',
+}
+API_KEYS = BASE / 'data' / 'api_keys.json'
+API_EXTERNAL_IDS = BASE / 'data' / 'api_external_ids.json'
+
 # The meaning layer: a model points at the line a value is printed on, the code
 # copies it. `off` is the deterministic pipeline, `shadow` records what the model
 # would have said without changing an answer, `on` uses a pointer only when the

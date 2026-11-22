@@ -39,6 +39,11 @@ repository and run it locally for that.
   destination and its reason are stored with the record and written into the CRM comment.
 - **One CRM interface, two connectors**: Uspacy (verified against a live account) and
   Bitrix24 (incoming webhook, verified against a local fake of the REST protocol).
+- **A machine API for the platform around it**: a keyed, versioned door (`/api/v1`) —
+  upload, read the fields with the confidence they were read with, poll the queue, and
+  confirm through the same invariants the review form enforces. A key carries the
+  scopes it may use, and the record names the key that approved a document. The
+  contract is in [docs/api.md](docs/api.md).
 - **Duplicate protection on two levels**: local history (number + supplier + date) and a
   client-side match against the CRM.
 - **History, impact report and CSV export**: auto-pass rate, review time, saved minutes,
@@ -218,8 +223,36 @@ Everything is optional; the application starts with no CRM and no mailbox.
 | `DOCFLOW_MAX_EXTRACTIONS`, `DOCFLOW_EXTRACTION_WAIT` | concurrent extractions and how long a request waits for a slot before `503` |
 | `DOCFLOW_MAX_OCR_PAGES`, `DOCFLOW_MAX_OCR_SECONDS` | how much of a scan reaches OCR and for how long |
 | `DOCFLOW_DEFAULT_COMPANY` | the company a file-demo retry belongs to (default 1); a multi-company deployment passes the tenant with the job |
+| `DOCFLOW_API` | `on` (default) or `off` — `off` switches the machine API off and its routes answer `404` |
 
 Secrets live only in `.env` (git-ignored). `.env.example` documents the keys with empty values.
+
+## The machine API
+
+`/api/v1` is how the platform that owns a document flow talks to DocFlow without a
+browser: an integration holds a key instead of a session cookie, and calls the same
+pipeline the review form calls.
+
+```bash
+python3 tools/api_key.py issue --label "Platform ERP" --scopes documents:write,documents:read
+curl -s -X POST http://127.0.0.1:8765/api/v1/documents \
+  -H "Authorization: Bearer dfk_..." -F "file=@invoice.pdf" -F "external_id=ERP-1"
+```
+
+The answer carries the fields, the confidence each one was read with, the issues the
+rules raised, and the route — not a sentence. `external_id` makes a retried upload the
+same document instead of a second one in the queue. A key issued with
+`documents:confirm` can record the approval the platform's own reviewer made; that
+confirmation runs the form's invariants (a bad tax id is `422`, not a stored value) and
+the record says `confirmed_by: "api:<key id>"`, so the approval is attributable and
+appears in the impact report like any other. A key issued for a company writes through
+that company's PostgreSQL tenant and needs the database; a key without a company works
+on the file store, where the key is the tenant.
+
+There is no webhook: an integration polls `GET /api/v1/documents?status=confirmed`,
+because a notification that can be lost would not remove the poll anyway. The full
+contract — scopes, every endpoint with examples, error table, what is deliberately
+missing — is [docs/api.md](docs/api.md).
 
 ## Verification
 
@@ -505,7 +538,7 @@ DocFlow. Tests and the widget contract live next to it (`cd assistant && ./scrip
 
 ```text
 app.py             the application object: startup work, mounted routers
-routes/            one module per audience: pages, documents, intake, reports, ops
+routes/            one module per audience: pages, documents, intake, reports, ops, api v1
 settings.py        every knob in one place: paths, limits, demo switch
 docstore.py        the standalone file store: pending snapshots, confirmed history
 intake.py          upload → pending document, folder watcher, mailbox poller
@@ -517,12 +550,14 @@ profiles/          document-type profiles, market facts and the detection regist
 connectors/        CRM connectors behind one interface (Uspacy, Bitrix24)
 routing.py         deterministic destination policy
 validation.py      deterministic field invariants
+apikeys.py         keys for machine clients: digests at rest, scopes per action
 uspacy*.py         Uspacy authentication, client-side matching, deal creation
 templates/         showcase page (/) and review workspace (/app)
 assistant/         the assistant service, its model contract, tools, tests and widget
 deploy/            systemd units, release script, backups, healthcheck, logrotate, fail2ban
 tests/             deterministic suites and labelled fixtures
-docs/              architecture, walkthrough, process map, design system
+tools/             keys for the API, sample generators, the migration runner
+docs/              architecture, walkthrough, process map, design system, the API contract
 sql/               PostgreSQL schema of the practice database
 ```
 

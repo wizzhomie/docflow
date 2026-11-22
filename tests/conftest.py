@@ -34,6 +34,11 @@ SETTINGS_KNOBS = (
     'EXTRACTION_WAIT_SECONDS',
     'MEANING',
     'MANUAL_BASELINE_MINUTES',
+    # The machine door: a suite that issues keys or restores the switch must not
+    # leave either behind for the next file.
+    'API_ENABLED',
+    'API_KEYS',
+    'API_EXTERNAL_IDS',
 )
 
 USPACY_CALLABLES = ('_patch', '_post', '_page_through', 'find_or_create_company')

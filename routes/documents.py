@@ -122,7 +122,22 @@ def confirm(payload: ConfirmPayload, request: Request):
         return _confirm_in_files(payload, demo.session_id(request))
 
 
-def _confirm_in_files(payload: ConfirmPayload, session: str = '') -> dict:
+def confirm_in_files(
+    doc_id: str, fields: dict, session: str = '', confirmed_by: str = ''
+) -> dict:
+    """The file store's confirmation, for a caller that is not the review form.
+
+    The API uses this: the same invariants, the same duplicate check and the same
+    record, so an integration cannot confirm by a path the reviewer's form does
+    not take. `confirmed_by` names who approved it — a person's session, or the
+    key an integration holds.
+    """
+    return _confirm_in_files(
+        ConfirmPayload(id=doc_id, fields=fields), session=session, confirmed_by=confirmed_by
+    )
+
+
+def _confirm_in_files(payload: ConfirmPayload, session: str = '', confirmed_by: str = '') -> dict:
     meta_path = docstore._meta_path(payload.id)
     if not meta_path.exists():
         raise HTTPException(404, 'Document not found')
@@ -184,6 +199,7 @@ def _confirm_in_files(payload: ConfirmPayload, session: str = '') -> dict:
         'issues': list(meta['parsed'].get('issues') or []),
         'crm_deal_id': (crm_result.get('deal') or {}).get('id'),
         'doc_type': doc_type,
+        'doc_type_code': profile_code,
         'destination': route_info['destination'],
         'destination_code': route_info['destination_code'],
         'route_reason': route_info['reason'],
@@ -191,6 +207,14 @@ def _confirm_in_files(payload: ConfirmPayload, session: str = '') -> dict:
         'session': meta.get('session') or session,
         'validation_warnings': validation_warnings,
     }
+    # Who approved it, when that was not a browser: the record is what the impact
+    # report and the audit read, and "which key confirmed this" is the question an
+    # integration adds. Records of the review form keep their old shape.
+    if confirmed_by:
+        record['confirmed_by'] = confirmed_by
+    for name in ('api_key', 'external_id'):
+        if meta.get(name):
+            record[name] = meta[name]
     with settings.CONFIRMED.open('a', encoding='utf-8') as out:
         out.write(json.dumps(record, ensure_ascii=False) + '\n')
 
