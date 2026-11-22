@@ -222,10 +222,8 @@ def totals_block(
     else:
         total_label, vat_label = 'Всього до сплати', (f'ПДВ {vat_rate}%' if vat_rate else 'Без ПДВ')
         net_label = 'Разом без ПДВ'
-    if vat_rate:
-        subtotal_line = f'{net_label}: {money(net)}'
-    else:
-        subtotal_line = f'Разом: {money(subtotal)}'
+    subtotal_line = (f'{net_label}: {money(net)}' if vat_rate
+                     else f'Разом: {money(subtotal)}')
     total_line = f'{total_label}: {money(subtotal)} {currency}'
     if vat_rate and rng.random() < 0.25:
         total_line += f' (ПДВ {money(vat)})'

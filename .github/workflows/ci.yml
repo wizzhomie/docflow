@@ -117,6 +117,37 @@ jobs:
         working-directory: assistant
         run: pytest --cov --cov-report=term-missing
 
+  finetune:
+    # The pointer model's tools are run by hand, once per experiment; nothing else in
+    # the repository imports them, so a break here would surface after a retrain rather
+    # than before it. The lint step names the directory on purpose: a path passed on the
+    # command line is checked even if the shared exclude list grows to cover it. The
+    # tests generate a corpus and build the training set, which is what catches the one
+    # failure that matters — training records drifting from the prompt the runtime sends.
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint the fine-tune tools
+        run: ruff check finetune/ tests/test_finetune.py
+
+      - name: The corpus, the prompt and the labels still agree
+        run: pytest -q tests/test_finetune.py
+
   docker-build:
     runs-on: ubuntu-latest
     needs: tests

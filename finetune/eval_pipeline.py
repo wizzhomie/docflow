@@ -30,8 +30,8 @@ os.environ.setdefault('DOCFLOW_MEANING_URL', 'http://127.0.0.1:8080/v1/chat/comp
 os.environ.setdefault('DOCFLOW_MEANING_MODEL', 'local')
 os.environ['DOCFLOW_MEANING_KEY'] = ''
 
-import settings  # noqa: E402
 import intake  # noqa: E402
+import settings  # noqa: E402
 
 FIELDS = ('number', 'date', 'supplier', 'tax_id', 'total', 'vat', 'currency')
 

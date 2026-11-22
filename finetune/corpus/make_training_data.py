@@ -65,7 +65,7 @@ def main() -> int:
         by_layout[entry['meta']['layout']].append(entry)
 
     train, val, test = [], [], []
-    for layout, entries in sorted(by_layout.items()):
+    for _layout, entries in sorted(by_layout.items()):
         rng.shuffle(entries)
         n = len(entries)
         n_test = max(1, round(n * 0.1))
