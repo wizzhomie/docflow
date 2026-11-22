@@ -24,7 +24,14 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import (
-    APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, Response,
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
     UploadFile,
 )
 from pydantic import BaseModel

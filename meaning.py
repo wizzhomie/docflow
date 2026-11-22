@@ -98,13 +98,8 @@ def gaps(parsed: dict) -> list[str]:
     for name in FIELDS:
         field = fields.get(name) or {}
         value = field.get('value')
-        if name in ALWAYS_ASK:
-            out.append(name)
-        elif value in (None, ''):
-            out.append(name)
-        elif name in refused:
-            out.append(name)
-        elif float(field.get('confidence') or 0.0) < GAP_CONFIDENCE:
+        weak = float(field.get('confidence') or 0.0) < GAP_CONFIDENCE
+        if name in ALWAYS_ASK or value in (None, '') or name in refused or weak:
             out.append(name)
     return out
 

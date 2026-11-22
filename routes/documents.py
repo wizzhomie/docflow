@@ -5,7 +5,13 @@ import uuid
 from pathlib import Path
 
 from fastapi import (
-    APIRouter, BackgroundTasks, File, HTTPException, Request, Response, UploadFile,
+    APIRouter,
+    BackgroundTasks,
+    File,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
 )
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
