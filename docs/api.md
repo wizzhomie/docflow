@@ -9,7 +9,8 @@ invariants the review form runs, and the record names the key that approved it.
 
 The door is keyed, versioned and off by a switch. It is the same extraction, the
 same parser and the same confirmation the workspace calls; an integration cannot
-reach an answer that a person could not.
+reach an answer that a person could not. The machine-readable schema of every route
+below is the application's own at `/openapi.json`.
 
 ## Authentication
 
@@ -119,7 +120,9 @@ curl -s "http://127.0.0.1:8765/api/v1/documents?status=confirmed&limit=5" \
 
 One document, with its current status. A document uploaded through the API is
 readable only by the key that uploaded it (`404` otherwise); on PostgreSQL the
-tenant of the key decides.
+tenant of the key decides. Reading through the API does not start the review
+timer: the clock belongs to a person opening the document, and an integration
+polling for a status must not report its own wait as the reviewer's time.
 
 ### `POST /api/v1/documents/{id}/confirm`
 

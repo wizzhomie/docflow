@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import apikeys  # noqa: E402
 import app  # noqa: E402
 import settings  # noqa: E402
+from routes import api_v1  # noqa: E402
 
 # Every check builds a store of its own; the directories are removed after it, so
 # a run does not leave seventeen copies of the demo behind in the working tree.
@@ -277,6 +278,34 @@ def test_an_integration_document_reaches_a_real_workspace():
     settings.DEMO_MODE = False
     with TestClient(app.app) as client:
         assert [item['id'] for item in client.get('/api/inbox').json()] == [meta['id']]
+
+
+def test_a_company_read_does_not_start_the_review_timer(monkeypatch):
+    """The reviewer's clock starts when a person opens the document, not when an
+    integration polls for a status — otherwise the wait is reported as review time."""
+    isolate()
+    token = issue(company=1)
+    seen: dict = {}
+
+    class FakeStore:
+        AVAILABLE = True
+
+        def document_meta(self, person, doc_id, **kwargs):
+            seen.update(kwargs, person=person, doc_id=doc_id)
+            return {
+                'id': doc_id,
+                'status': 'new',
+                'filename': 'invoice.pdf',
+                'uploaded_at': '2026-02-12T10:31:07+02:00',
+                'parsed': {'fields': {'total': {'value': 1.0, 'confidence': 0.9}}},
+            }
+
+    monkeypatch.setattr(api_v1, 'pgapi', FakeStore())
+    with TestClient(app.app) as client:
+        answer = client.get('/api/v1/documents/12', headers={'X-API-Key': token})
+    assert answer.status_code == 200
+    assert seen['mark_viewed'] is False
+    assert seen['person']['company_id'] == 1
 
 
 def test_a_confirmed_record_names_the_key_that_approved_it():

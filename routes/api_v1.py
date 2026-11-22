@@ -335,7 +335,7 @@ def _load_document(key: dict[str, Any], doc_id: str) -> dict[str, Any]:
         raise HTTPException(404, 'Document not found')
     if apikeys.company_of(key) is not None:
         _require_company_store(key)
-        return _view_pg(pgapi.document_meta(_person(key), doc_id))
+        return _view_pg(pgapi.document_meta(_person(key), doc_id, mark_viewed=False))
     meta = _meta_of(doc_id)
     if meta is not None and _owned(meta, key):
         row = _confirmed_row(doc_id)
@@ -448,7 +448,7 @@ async def _ingest(
         except Exception:
             target.unlink(missing_ok=True)
             raise
-        return _view_pg(pgapi.document_meta(person, str(meta['id'])))
+        return _view_pg(pgapi.document_meta(person, str(meta['id']), mark_viewed=False))
     if external:
         _remember(key['id'], external, str(meta['id']))
     return _view_meta(meta)
@@ -522,7 +522,10 @@ def confirm_document(
         _require_company_store(key)
         person = _person(key)
         result = pgapi.confirm_document(person, doc_id, submitted)
-        return {'document': _view_pg(pgapi.document_meta(person, doc_id)), 'confirmation': result}
+        return {
+            'document': _view_pg(pgapi.document_meta(person, doc_id, mark_viewed=False)),
+            'confirmation': result,
+        }
     with documents.CONFIRM_LOCK:
         meta = _meta_of(doc_id)
         if meta is None or not _owned(meta, key):

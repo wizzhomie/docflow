@@ -516,10 +516,19 @@ def queue_documents(person: dict[str, Any], limit: int = 20) -> list[dict[str, A
     return [_queue_row(row, threshold) for row in rows]
 
 
-def document_meta(person: dict[str, Any], doc_id: str) -> dict[str, Any]:
+def document_meta(
+    person: dict[str, Any], doc_id: str, *, mark_viewed: bool = True
+) -> dict[str, Any]:
+    """One document of this company, in the shape the workspace and the API read.
+
+    `mark_viewed` is False for a machine: the review session starts when a person
+    opens the document, and an integration polling for a status would otherwise
+    report its own wait as the reviewer's time.
+    """
     if not str(doc_id).isdigit():
         raise HTTPException(status_code=404, detail="No such document in this company")
-    _mark_viewed(person, doc_id)
+    if mark_viewed:
+        _mark_viewed(person, doc_id)
     rows = _rows(
         person,
         """
