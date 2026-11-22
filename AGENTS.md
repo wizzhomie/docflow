@@ -52,6 +52,8 @@ value. The layer is off unless `DOCFLOW_MEANING` is `shadow` or `on`.
 - `templates/landing.html` — showcase page at `/` (router scene plus live stats).
 - `templates/index.html` — review workspace at `/app`.
 - `tests/run_eval.py` — deterministic regression baseline.
+- `tests/eval_meaning.py` — QA of the meaning layer with qagent: parser vs parser+pointers,
+  pointer checks, committed cassette; findings in `docs/meaning-qa.md`.
 - `tests/document_cases.json` — labelled fixtures for every document type.
 - `assistant/` — the chat assistant: deterministic FAQ and intents, read-only tools over the
   DocFlow API, a small local model on CPU and the widget. Its own service (`:8769`, model on
@@ -130,6 +132,8 @@ Regression baseline:
 ```bash
 python3 tests/run_eval.py            # 13 fixtures, 104/104 checks, 0 confident errors
 python3 tests/run_eval_split.py      # real vs synthetic split
+python3 tests/eval_meaning.py --parser          # meaning layer QA, no model
+MEANING_REPLAY=1 python3 tests/eval_meaning.py  # same numbers from the cassette
 pytest -q --cov --cov-fail-under=68  # DocFlow: one process, coverage gate
 (cd assistant && ./scripts/ci.sh)    # assistant: ruff, tests, coverage gate (90%)
 ```

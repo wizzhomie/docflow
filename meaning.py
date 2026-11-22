@@ -203,12 +203,9 @@ def _schema(asked: list[str]) -> dict:
     }
 
 
-def _ask(text: str, fields: list[str] | None = None) -> dict:
-    """One request to an OpenAI-compatible endpoint; empty dict on any failure."""
+def build_prompt(text: str, fields: list[str] | None = None) -> str:
+    """The numbered-lines prompt; the evaluation must ask exactly what production asks."""
     asked = list(fields) if fields else list(FIELDS)
-    url = os.environ.get('DOCFLOW_MEANING_URL', DEFAULT_URL)
-    model = os.environ.get('DOCFLOW_MEANING_MODEL', 'qwen/qwen3.8-27b')
-    key = _api_key()
     lines = text.splitlines()
     shown = lines[:MAX_LINES]
     numbered = '\n'.join(
@@ -216,21 +213,51 @@ def _ask(text: str, fields: list[str] | None = None) -> dict:
     )
     if len(lines) > len(shown):
         numbered += f'\n…(показано {len(shown)} рядків із {len(lines)})'
+    return PROMPT.format(fields=', '.join(asked), lines=numbered)
+
+
+def build_request(
+    text: str, fields: list[str] | None = None, model: str | None = None
+) -> dict:
+    """The exact payload production sends, schema included, without sending it."""
+    asked = list(fields) if fields else list(FIELDS)
     payload = {
-        'model': model,
-        'messages': [{'role': 'user',
-                      'content': PROMPT.format(fields=', '.join(asked), lines=numbered)}],
+        'model': model or os.environ.get('DOCFLOW_MEANING_MODEL', 'qwen/qwen3.8-27b'),
+        'messages': [{'role': 'user', 'content': build_prompt(text, asked)}],
         'temperature': 0,
         'max_tokens': 700,
     }
-    headers = {'Authorization': f'Bearer {key}'} if key else {}
-    constrained = {
+    return {
         **payload,
         'response_format': {
             'type': 'json_schema',
             'json_schema': {'name': 'pointers', 'strict': True, 'schema': _schema(asked)},
         },
     }
+
+
+def parse_plan(content: str) -> dict:
+    """The JSON object in the answer, after the same repair production applies."""
+    match = re.search(r'\{.*\}', content, re.S)
+    if not match:
+        return {}
+    try:
+        answer = _loads(match.group(0))
+    except Exception:  # noqa: BLE001 - repair is best-effort, like in _ask
+        return {}
+    return answer or {}
+
+
+def _ask(text: str, fields: list[str] | None = None) -> dict:
+    """One request to an OpenAI-compatible endpoint; empty dict on any failure."""
+    asked = list(fields) if fields else list(FIELDS)
+    url = os.environ.get('DOCFLOW_MEANING_URL', DEFAULT_URL)
+    model = os.environ.get('DOCFLOW_MEANING_MODEL', 'qwen/qwen3.8-27b')
+    key = _api_key()
+    payload = build_request(text, asked, model)
+    constrained = payload
+    plain = {name: value for name, value in payload.items() if name != 'response_format'}
+    headers = {'Authorization': f'Bearer {key}'} if key else {}
     try:
         response = httpx.post(url, headers=headers, json=constrained, timeout=TIMEOUT)
         if response.status_code >= 400:
@@ -240,7 +267,7 @@ def _ask(text: str, fields: list[str] | None = None) -> dict:
             logger.warning(
                 'meaning layer: %s refused the answer schema (%s), asking without it',
                 url, response.status_code)
-            response = httpx.post(url, headers=headers, json=payload, timeout=TIMEOUT)
+            response = httpx.post(url, headers=headers, json=plain, timeout=TIMEOUT)
         response.raise_for_status()
         content = response.json()['choices'][0]['message']['content']
     except Exception as error:  # noqa: BLE001 - the model is an optional helper, never a gate
@@ -249,17 +276,9 @@ def _ask(text: str, fields: list[str] | None = None) -> dict:
         # pointers unless the log says which one happened.
         logger.warning('meaning layer: no answer from %s (%s)', url, error)
         return {}
-    match = re.search(r'\{.*\}', content, re.S)
-    if not match:
-        logger.warning('meaning layer: no JSON in the answer from %s', url)
-        return {}
-    try:
-        answer = _loads(match.group(0))
-    except Exception:  # noqa: BLE001 - repair is best-effort
-        answer = None
-    if answer is None:
-        logger.warning('meaning layer: unparsable JSON from %s', url)
-        return {}
+    answer = parse_plan(content)
+    if not answer:
+        logger.warning('meaning layer: no usable JSON in the answer from %s', url)
     return answer
 
 
