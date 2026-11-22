@@ -99,10 +99,12 @@ A pointer that does not resolve is dropped, the rule-based value stays, and a mo
 is down, slow or unkeyed changes nothing. `DOCFLOW_MEANING` is `off` by default, `shadow`
 records what the model would say without answering with it, `on` applies the pointer.
 
-Measured on the 45-document synthetic corpus with `qwen3.8-27b`: number, date and tax id
-45/45, supplier and total 44/45, the two misses being OCR damage in a scan (the rule-based
-parser read 35/31/28/42/42 on the same set). The value is always the document's own text:
-the model chooses a line, never a number.
+Measured through the real intake path, twice: on a 30-document held-out synthetic corpus
+the pipeline reads 207 of 210 fields with the layer against 178 with the rules alone, and
+the rules' eleven confident VAT errors become none; on 12 real invoices published by
+ProZorro — 84 fields, never in training — 74 against 64, with VAT going from 2 of 12 to
+9 of 12. The value is always the document's own text: the model chooses a line, never a
+number. The harness and the numbers are in [`finetune/`](../finetune/README.md).
 
 A pointer is not a verdict. After the layer changes a field, `extractor.revise` runs the
 invariants again over the result: a value chosen by the model gets the weight of the weakest
@@ -111,10 +113,17 @@ the rules. The case that motivated this is a pointer to a line that really exist
 something else — the VAT line copied as the total — and `validation.py` now refuses a total
 that is not above its own VAT line.
 
-The layer is a network call: with it on, the extracted text is sent to the configured
-provider (the demo uses Groq). A deployment that cannot send documents anywhere turns it
-off and keeps the rules — nothing else in the pipeline depends on it. Real personal or
-financial documents need a data-processing agreement with the provider first.
+The layer is a network call to the configured endpoint: the public demo sends the extracted
+text to Groq, and a private installation can point it at a local `llama.cpp` server that
+serves the fine-tuned adapter ([`finetune/`](../finetune/README.md)) — then nothing leaves
+the machine and no key is needed. A deployment that cannot send documents anywhere turns
+the layer off and keeps the rules; nothing else in the pipeline depends on it. Real personal
+or financial documents need a data-processing agreement with the provider first.
+
+When the layer is on, the upload does not wait for it: the route answers with the rules'
+values and schedules `intake.finish_meaning` after the response, so a slow provider costs
+the record a few seconds instead of costing the person a request. The merge goes through
+the same `revise` and invariants, and a confirmed document is never rewritten.
 
 ### `mailbox.py`
 

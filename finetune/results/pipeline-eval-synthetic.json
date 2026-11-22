@@ -1,0 +1,93 @@
+{
+ "off": {
+  "number": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "date": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "supplier": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "tax_id": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "total": {
+   "correct": 15,
+   "wrong": 15,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "vat": {
+   "correct": 13,
+   "wrong": 17,
+   "missing": 0,
+   "confident_wrong": 11
+  },
+  "currency": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  }
+ },
+ "on": {
+  "number": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "date": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "supplier": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "tax_id": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "total": {
+   "correct": 27,
+   "wrong": 3,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "vat": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  },
+  "currency": {
+   "correct": 30,
+   "wrong": 0,
+   "missing": 0,
+   "confident_wrong": 0
+  }
+ },
+ "documents": 30,
+ "corpus": "data/synthetic-corpus-test-v2",
+ "tolerant": false
+}

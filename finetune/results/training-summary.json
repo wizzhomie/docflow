@@ -1,0 +1,10 @@
+{
+ "base_model": "Qwen/Qwen3-1.7B",
+ "train_examples": 238,
+ "val_examples": 31,
+ "epochs": 1.0,
+ "seq_len": 1024,
+ "lr": 0.0001,
+ "grad_accum": 8,
+ "peak_vram_gb": 4.21
+}

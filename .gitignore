@@ -45,6 +45,9 @@ assistant/data/
 # Generated synthetic corpus for the independent parser check
 data/synthetic-corpus*/
 
+# Artefacts of the fine-tuning experiment: generated corpora, JSONL, adapter weights
+finetune/data/
+
 # Test temp dirs: when TMP points inside the checkout, the suite creates them here
 tmp*/
 pytest-of-*/

@@ -26,6 +26,9 @@ value. The layer is off unless `DOCFLOW_MEANING` is `shadow` or `on`.
 - `extractor.py` — text acquisition, OCR fallback and field interpretation.
 - `meaning.py` — the optional meaning layer: a model points at the line a value is
   printed on, the code copies it and records the provenance.
+- `finetune/` — the pointer model's own directory: synthetic corpus generator, QLoRA
+  training of the 1.7B adapter, the A/B harness that measures rules against rules + layer
+  through `intake._process`, and the run artefacts under `results/`.
 - `apikeys.py` — keys for machine clients: digests at rest, a scope per action.
 - `routes/api_v1.py` — the machine door (`/api/v1`): upload, read, poll and confirm
   through the same pipeline the review form calls; `docs/api.md` is its contract,

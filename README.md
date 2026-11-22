@@ -13,7 +13,10 @@ only probabilistic step — deciding what a human still needs to check — is su
 the review queue instead of being hidden behind a model. The one place a model may
 speak is the **meaning layer**: it names the line a value is printed on, and the code
 copies that text. The model never produces the value, and the layer is optional — with
-it off, the same pipeline runs on rules alone.
+it off, the same pipeline runs on rules alone. The model that does the pointing is not
+rented: it is a Qwen3-1.7B fine-tuned for this task on a 6 GB consumer GPU and served
+locally by `llama.cpp` — corpus, training script, A/B numbers and the runs that failed are
+in [`finetune/`](finetune/README.md).
 
 **Public demo.** The demonstration instance runs at <https://docflow.website> on sample
 documents only. Its API is
@@ -128,6 +131,34 @@ tenants through one pooled connection and checks that the second sees nothing.
 - **A new document type is data, not a branch.** Profiles carry anchors, totals wording,
   value formats and labels; the parser and the CRM connectors stay unchanged. Three types
   ship today: a Ukrainian invoice, an act of completed work and a delivery note.
+
+## The pointer model, and the fine-tune behind it
+
+The meaning layer asks a model one narrow question: on which line is this value printed?
+That model is trained here, not rented — a **QLoRA fine-tune of Qwen3-1.7B**, 4-bit, on
+one 6 GB consumer GPU (peak 4.21 GB), 238 synthetic documents, one epoch, a 66 MB adapter
+that `llama.cpp` serves on CPU. No provider, no key, no document leaving the machine.
+
+| measured through the real intake path | rules | rules + layer |
+| --- | ---: | ---: |
+| 12 real invoices (ProZorro), 84 fields | 64 | **74** |
+| `vat` on the same 12 | 2/12 | **9/12** |
+| `total` on the same 12 | 4/12 | **6/12** |
+| held-out synthetic, 30 documents, 210 fields | 178 | **207** |
+
+Two notes keep that table honest. The rules column is measured *after* two parser defects
+this experiment exposed were fixed, so the layer's own contribution is the money columns,
+not everything above it. And 84 fields is a sample: the decision was made on a class of
+error, not on a decimal point — the rules were **confidently** wrong on VAT in 11 of the
+30 synthetic documents, and that is how a wrong amount reaches a CRM unnoticed.
+
+The cost is real too: 10.9 s median per document on the two cores of the target VM,
+5.6–5.9 tokens/s of generation, 154 s for the first request after a cold start. That is
+why the model step runs *after* the response instead of inside it, and why the model is
+asked only about the fields the rules could not vouch for. The corpus generator, the
+training script, the A/B harness and the numbers as files live in
+[`finetune/`](finetune/README.md), together with the run that was thrown away because
+narrow fine-tuning cost the model its output format.
 
 ## Handling dirty data
 
@@ -487,14 +518,18 @@ demo door, not a security boundary — real documents belong on a private instal
   label found exactly, `0.85` for an OCR variant, `0.6` for a fallback), not a calibrated
   probability of being right. The human review, not the number, is the safety net — and a
   validated contradiction still halves the weight of the total and the VAT;
-- the meaning layer is measured on a 45-document synthetic corpus, not on real client
-  documents: with `qwen3.8-27b` over Groq it read the number, date and tax id 45/45, the
-  supplier and total 44/45, and the two remaining misses were OCR damage in a scan. The
-  corpus is generated, so this is a robustness result, not a claim of real-world accuracy;
-- a model call sits in the upload path when the layer is on, and its latency is someone
-  else's: the free tier throttles, so the demo's pointers can take a second or two (and
-  minute-scale under a rate limit), while a model outage falls back to the rules and
-  writes the reason to the log;
+- the meaning layer is measured on two corpora, and neither is a client's documents: a
+  30-document held-out synthetic corpus (205 of 210 fields against 172 for the rules
+  alone) and 12 real invoices published by ProZorro, 84 fields, where the whole pipeline
+  went from 64 to 74 correct fields. Both sets are small — a difference of one or two
+  fields is noise — so this is a direction, not a percentage, and a real client's
+  documents would need their own measurement before anyone quotes a number;
+- when the layer is on, the model step runs *after* the response, not inside it: the
+  upload is answered with the rules' values, and the pointers land in the record a few
+  seconds later (`intake.finish_meaning`). A slow or rate-limited provider therefore
+  stretches nobody's request, and a failed step leaves the rules' answer standing with the
+  reason in the log. That was not always so: while the call sat in the upload path, a
+  model was a second — or a minute under a rate limit — of someone's wait;
 - a pointer is not trusted because it is a pointer: after the layer changes a field, the
   invariants run again over the result, a value the model chose gets the weight of the
   weakest anchor (not a made-up 0.97), is marked `verified: false` and carries a
@@ -556,6 +591,7 @@ templates/         showcase page (/) and review workspace (/app)
 assistant/         the assistant service, its model contract, tools, tests and widget
 deploy/            systemd units, release script, backups, healthcheck, logrotate, fail2ban
 tests/             deterministic suites and labelled fixtures
+finetune/          the pointer model: corpus generator, QLoRA training, A/B harness, results
 tools/             keys for the API, sample generators, the migration runner
 docs/              architecture, walkthrough, process map, design system, the API contract
 sql/               PostgreSQL schema of the practice database
@@ -567,4 +603,5 @@ sql/               PostgreSQL schema of the practice database
   [`docs/process-map.md`](docs/process-map.md) · design system:
   [`docs/design-system.md`](docs/design-system.md) · case-study structure:
   [`docs/case-study.md`](docs/case-study.md).
-- The assistant's own notes: [`assistant/README.md`](assistant/README.md).
+- The assistant's own notes: [`assistant/README.md`](assistant/README.md) · the pointer
+  model's: [`finetune/README.md`](finetune/README.md).
