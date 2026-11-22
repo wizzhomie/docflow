@@ -76,7 +76,7 @@ def test_a_buyer_first_tax_id_is_not_accepted_for_the_supplier():
 
 def test_applying_a_pointer_replaces_the_field_and_records_provenance(monkeypatch):
     parsed = {'fields': {'date': {'value': None}, 'total': {'value': None}}}
-    monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(
+    monkeypatch.setattr(meaning, '_ask', lambda text, fields=None: fake_plan(
         date={'line': 1, 'text': '27 січня 2026'},
         total={'line': 4, 'text': 'Всього до сплати: 1 234,56 грн'},
     ))
@@ -90,7 +90,7 @@ def test_applying_a_pointer_replaces_the_field_and_records_provenance(monkeypatc
 
 def test_shadow_mode_records_without_touching_the_parsed_fields(monkeypatch):
     parsed = {'fields': {'date': {'value': '2026-01-01'}}}
-    monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(
+    monkeypatch.setattr(meaning, '_ask', lambda text, fields=None: fake_plan(
         date={'line': 1, 'text': '27 січня 2026'}))
     resolved = meaning.apply(parsed, doc_text(), shadow=True)
     assert resolved['date'].value == '2026-01-27'
@@ -99,7 +99,7 @@ def test_shadow_mode_records_without_touching_the_parsed_fields(monkeypatch):
 
 def test_an_unreachable_model_returns_nothing_and_changes_nothing(monkeypatch):
     parsed = {'fields': {'date': {'value': '2026-01-01'}}}
-    monkeypatch.setattr(meaning, '_ask', lambda text: {})
+    monkeypatch.setattr(meaning, '_ask', lambda text, fields=None: {})
     assert meaning.apply(parsed, doc_text()) == {}
     assert parsed['fields']['date']['value'] == '2026-01-01'
 
@@ -115,8 +115,9 @@ def invoice_text() -> str:
 
 
 def test_a_changed_value_gets_an_honest_weight_and_is_not_called_verified(monkeypatch):
-    parsed = {'fields': {'total': {'value': 1.0, 'confidence': 0.9, 'base_confidence': 0.9}}}
-    monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(
+    parsed = {'fields': {'total': {'value': 1.0, 'confidence': 0.45, 'base_confidence': 0.9}},
+              'issues': ['total: invariant failed']}
+    monkeypatch.setattr(meaning, '_ask', lambda text, fields=None: fake_plan(
         total={'line': 4, 'text': '1 234,56 грн'}))
     meaning.apply(parsed, invoice_text())
     field = parsed['fields']['total']
@@ -129,9 +130,9 @@ def test_a_changed_value_gets_an_honest_weight_and_is_not_called_verified(monkey
 def test_an_agreeing_pointer_keeps_the_parser_weight(monkeypatch):
     parsed = {'fields': {'date': {'value': '2026-01-27', 'confidence': 0.9,
                                   'base_confidence': 0.9}}}
-    monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(
+    monkeypatch.setattr(meaning, '_ask', lambda text, fields=None: fake_plan(
         date={'line': 1, 'text': '27 січня 2026'}))
-    meaning.apply(parsed, invoice_text())
+    meaning.apply(parsed, invoice_text(), fields=['date'])
     field = parsed['fields']['date']
     assert field['confidence'] == 0.9
     assert field['provenance']['line'] == 1
@@ -143,7 +144,9 @@ def test_a_pointer_to_the_vat_line_is_caught_by_revalidation(monkeypatch, tmp_pa
     import settings
 
     monkeypatch.setattr(settings, 'MEANING', 'on')
-    monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(
+    # The gap test is separate: here the document is asked about its total on purpose.
+    monkeypatch.setattr(meaning, 'gaps', lambda parsed: ['total'])
+    monkeypatch.setattr(meaning, '_ask', lambda text, fields=None: fake_plan(
         total={'line': 5, 'text': '205,76 грн'}))
     path = tmp_path / 'invoice.txt'
     path.write_text(invoice_text(), encoding='utf-8')
@@ -162,7 +165,7 @@ def test_a_failed_revalidation_does_not_leave_the_model_value_behind(monkeypatch
     import settings
 
     monkeypatch.setattr(settings, 'MEANING', 'on')
-    monkeypatch.setattr(meaning, '_ask', lambda text: fake_plan(
+    monkeypatch.setattr(meaning, '_ask', lambda text, fields=None: fake_plan(
         total={'line': 4, 'text': '1 234,56 грн'}))
 
     def broken(*args, **kwargs):
@@ -222,9 +225,115 @@ def test_the_layer_does_not_run_when_it_is_off(monkeypatch, tmp_path):
 
     monkeypatch.setattr(settings, 'MEANING', 'off')
     calls: list[str] = []
-    monkeypatch.setattr(meaning, '_ask', lambda text: calls.append(text) or {})
+    monkeypatch.setattr(meaning, '_ask', lambda text, fields=None: calls.append(text) or {})
     path = tmp_path / 'invoice.txt'
     path.write_text(invoice_text(), encoding='utf-8')
     meta = intake._process('doc0000002', 'invoice.txt', path, persist=False)
     assert calls == []
     assert 'meaning' not in meta
+
+
+def parsed_with(**fields) -> dict:
+    """A parse in the shape the extractor produces, with an optional issue list."""
+    issues = fields.pop('issues', [])
+    return {
+        'fields': {
+            name: {'value': value[0], 'confidence': value[1],
+                   'base_confidence': value[1]}
+            for name, value in fields.items()
+        },
+        'issues': issues,
+    }
+
+
+def test_a_field_the_rules_answered_is_not_asked_about():
+    """The gap is the whole point of the change: an approved value costs no tokens.
+
+    The money fields are the exception, and on purpose: no deterministic check can
+    confirm them, so they are asked about even when the rules are confident.
+    """
+    parsed = parsed_with(
+        number=('104038', 0.95),
+        supplier=('ТОВ «Чистий дім»', 0.85),
+        total=(487776.0, 0.9),
+    )
+    assert meaning.gaps(parsed) == ['date', 'tax_id', 'total', 'vat', 'currency']
+    assert 'number' not in meaning.gaps(parsed)
+    assert 'supplier' not in meaning.gaps(parsed)
+
+
+def test_an_invariant_that_refused_the_value_opens_the_gap():
+    parsed = parsed_with(
+        total=(81296.0, 0.45),
+        issues=['total: invariant failed'],
+    )
+    assert 'total' in meaning.gaps(parsed)
+
+
+def test_a_low_weight_opens_the_gap_even_without_an_issue():
+    """`items_sum` halves the money weights without naming the field in the issues."""
+    parsed = parsed_with(total=(8000.0, 0.45), vat=(0.0, 0.38),
+                         issues=['items_sum: invariant failed'])
+    assert 'total' in meaning.gaps(parsed) and 'vat' in meaning.gaps(parsed)
+
+
+def test_a_clean_document_asks_only_about_the_money_fields(monkeypatch):
+    """Seven fields became two: that is where the speed comes from."""
+    parsed = parsed_with(
+        number=('104038', 0.95), date=('2025-12-09', 0.9),
+        supplier=('ТОВ «Чистий дім»', 0.85), tax_id=('41234567', 0.85),
+        total=(1234.56, 0.9), vat=(205.76, 0.75), currency=('UAH', 0.6),
+    )
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        meaning, '_ask', lambda text, fields=None: calls.append(list(fields)) or {})
+    assert meaning.apply(parsed, invoice_text()) == {}
+    assert calls == [['total', 'vat']]
+
+
+def test_the_prompt_names_only_the_asked_fields(monkeypatch):
+    """The answer is the slow part; the request must not invite values nobody needs."""
+    sent: list[dict] = []
+
+    class Answer:
+        status_code = 200
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {'choices': [{'message': {'content': '{}'}}]}
+
+    def capture(url, headers=None, json=None, timeout=None):
+        sent.append(json)
+        return Answer()
+
+    monkeypatch.setattr(meaning.httpx, 'post', capture)
+    meaning._ask(doc_text(), ['date', 'total'])
+    prompt = sent[0]['messages'][0]['content']
+    field_line = next(line for line in prompt.splitlines() if line.startswith('Поля:'))
+    assert field_line.strip() == 'Поля: date, total.'
+
+
+def test_the_layer_records_what_it_asked(monkeypatch, tmp_path):
+    """A shadow run must say which fields were opened, or it cannot be analysed."""
+    import intake
+    import settings
+
+    monkeypatch.setattr(settings, 'MEANING', 'shadow')
+    monkeypatch.setattr(meaning, '_ask', lambda text, fields=None: fake_plan(
+        total={'line': 4, 'text': '205,76 грн'}))
+    # The total equals its own VAT line: the invariant refuses it, so it is a gap.
+    text = '\n'.join([
+        'Рахунок на оплату № 2026-501 від 27 січня 2026',
+        'Постачальник  ТОВ «Смак-Дистрибуція»',
+        'ЄДРПОУ  41234567',
+        'Всього до сплати: 205,76 грн',
+        'в т.ч. ПДВ 20% — 205,76 грн',
+    ])
+    path = tmp_path / 'invoice.txt'
+    path.write_text(text, encoding='utf-8')
+    meta = intake._process('doc0000004', 'invoice.txt', path, persist=False)
+    asked = meta['meaning']['asked']
+    assert 'total' in asked
+    assert meta['meaning']['fields']['total']['line'] == 4

@@ -129,7 +129,12 @@ def _process(
         try:
             import meaning
 
-            resolved = meaning.apply(parsed, text, shadow=settings.MEANING == 'shadow')
+            # The model is asked only about the fields the rules could not vouch
+            # for: a value the code already approved does not need a second reader,
+            # and every field asked for lengthens the answer, which is the slow part.
+            asked = meaning.gaps(parsed)
+            resolved = meaning.apply(
+                parsed, text, shadow=settings.MEANING == 'shadow', fields=asked)
             if settings.MEANING == 'on':
                 # A pointer can name a real line and still the wrong one (the VAT
                 # line as the total), so the changed fields go back through the
@@ -137,6 +142,7 @@ def _process(
                 parsed = revise(parsed, items, profiles.get_profile(parsed.get('type')))
             meta_meaning = {
                 'mode': settings.MEANING,
+                'asked': asked,
                 'fields': {
                     name: {'line': item.line, 'text': item.text}
                     for name, item in resolved.items()

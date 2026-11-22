@@ -37,6 +37,27 @@ KEY_FILE = Path.home() / '.config' / 'docflow' / 'models.env'
 # first pages, and the prompt has a budget. The limit is documented, not silent:
 # the prompt says how many lines were shown.
 MAX_LINES = int(os.environ.get('DOCFLOW_MEANING_LINES', '200'))
+# A remote endpoint answers in a second; a model on the server's own two cores needs
+# tens of seconds, and the first request after a restart needs minutes because the
+# weights are read cold. Too short a timeout does not fail loudly — it falls back to
+# the rules and looks exactly like "the model had nothing to say".
+TIMEOUT = float(os.environ.get('DOCFLOW_MEANING_TIMEOUT', '30'))
+# Which fields are worth asking about. A field the rules answered and no invariant
+# refused does not need the model: asking costs answer tokens — the answer is the
+# slow part of the request on a CPU — and gives the model a chance to overwrite a
+# value the code already approved. Below this weight a field is treated as unknown.
+GAP_CONFIDENCE = float(os.environ.get('DOCFLOW_MEANING_GAP', '0.6'))
+# The two fields no deterministic check can confirm on a text extraction. Measured on
+# the twelve real ProZorro invoices: the rules are right about `total` in 4 cases and
+# about `vat` in 2, and every wrong one arrives with full confidence — a total copied
+# from the subtotal line and a VAT of zero on an invoice that prints VAT are both
+# well-formed values. So they are asked about always; the model is the only reader
+# that can tell the total from the line above it.
+ALWAYS_ASK = tuple(
+    name.strip()
+    for name in os.environ.get('DOCFLOW_MEANING_ALWAYS', 'total,vat').split(',')
+    if name.strip()
+)
 
 MONTHS = {
     'січня': 1, 'лютого': 2, 'березня': 3, 'квітня': 4, 'травня': 5, 'червня': 6,
@@ -51,7 +72,7 @@ PROMPT = """Тобі дано текст українського докумен
 Поверни ЛИШЕ JSON:
 {{"fields": {{"поле": {{"line": <номер рядка>, "text": "<точна підстрока з цього рядка>"}} або null}}}}
 
-Поля: number, date, supplier, tax_id, total, vat, currency.
+Поля: {fields}.
 Правила:
 - "text" копіюй дослівно з вказаного рядка, без перетворень.
 - date — дата як надруковано; total/vat — рядок із сумою; tax_id — лише цифри;
@@ -61,6 +82,31 @@ PROMPT = """Тобі дано текст українського докумен
 Рядки:
 {lines}
 """
+
+
+def gaps(parsed: dict) -> list[str]:
+    """The fields the rules could not vouch for, in the layer's own field order.
+
+    The model exists for these and only these: a field with a value, no refused
+    invariant and a weight above `GAP_CONFIDENCE` was answered by deterministic code,
+    and asking again would spend the slowest part of the request on a value that is
+    already recorded — with a chance of replacing a good value by a worse one.
+    """
+    fields = parsed.get('fields') or {}
+    refused = {issue.split(':')[0] for issue in parsed.get('issues') or []}
+    out: list[str] = []
+    for name in FIELDS:
+        field = fields.get(name) or {}
+        value = field.get('value')
+        if name in ALWAYS_ASK:
+            out.append(name)
+        elif value in (None, ''):
+            out.append(name)
+        elif name in refused:
+            out.append(name)
+        elif float(field.get('confidence') or 0.0) < GAP_CONFIDENCE:
+            out.append(name)
+    return out
 
 
 @dataclass
@@ -134,8 +180,37 @@ def _loads(raw: str) -> dict | None:
             return None
 
 
-def _ask(text: str) -> dict:
+def _schema(asked: list[str]) -> dict:
+    """The exact answer shape, for endpoints that constrain decoding to it.
+
+    Without the constraint a small model occasionally answers in prose instead of JSON,
+    and on a CPU that costs the whole `max_tokens` budget before the answer is dropped:
+    measured 145 and 178 seconds on documents that a constrained answer handles in ten.
+    """
+    pointer = {
+        'type': 'object',
+        'properties': {'line': {'type': 'integer'}, 'text': {'type': 'string'}},
+        'required': ['line', 'text'],
+        'additionalProperties': False,
+    }
+    return {
+        'type': 'object',
+        'properties': {
+            'fields': {
+                'type': 'object',
+                'properties': {name: {'oneOf': [pointer, {'type': 'null'}]} for name in asked},
+                'required': list(asked),
+                'additionalProperties': False,
+            },
+        },
+        'required': ['fields'],
+        'additionalProperties': False,
+    }
+
+
+def _ask(text: str, fields: list[str] | None = None) -> dict:
     """One request to an OpenAI-compatible endpoint; empty dict on any failure."""
+    asked = list(fields) if fields else list(FIELDS)
     url = os.environ.get('DOCFLOW_MEANING_URL', DEFAULT_URL)
     model = os.environ.get('DOCFLOW_MEANING_MODEL', 'qwen/qwen3.8-27b')
     key = _api_key()
@@ -148,13 +223,29 @@ def _ask(text: str) -> dict:
         numbered += f'\n…(показано {len(shown)} рядків із {len(lines)})'
     payload = {
         'model': model,
-        'messages': [{'role': 'user', 'content': PROMPT.format(lines=numbered)}],
+        'messages': [{'role': 'user',
+                      'content': PROMPT.format(fields=', '.join(asked), lines=numbered)}],
         'temperature': 0,
         'max_tokens': 700,
     }
     headers = {'Authorization': f'Bearer {key}'} if key else {}
+    constrained = {
+        **payload,
+        'response_format': {
+            'type': 'json_schema',
+            'json_schema': {'name': 'pointers', 'strict': True, 'schema': _schema(asked)},
+        },
+    }
     try:
-        response = httpx.post(url, headers=headers, json=payload, timeout=30)
+        response = httpx.post(url, headers=headers, json=constrained, timeout=TIMEOUT)
+        if response.status_code >= 400:
+            # Not every OpenAI-compatible endpoint accepts a schema; the plain request
+            # still works, it is only less reliable. Losing the layer silently would be
+            # worse than losing the constraint.
+            logger.warning(
+                'meaning layer: %s refused the answer schema (%s), asking without it',
+                url, response.status_code)
+            response = httpx.post(url, headers=headers, json=payload, timeout=TIMEOUT)
         response.raise_for_status()
         content = response.json()['choices'][0]['message']['content']
     except Exception as error:  # noqa: BLE001 - the model is an optional helper, never a gate
@@ -225,11 +316,11 @@ def _value_for(name: str, span: str):
     return span
 
 
-def resolve(plan: dict, text: str) -> dict[str, Resolved]:
+def resolve(plan: dict, text: str, fields: list[str] | None = None) -> dict[str, Resolved]:
     """Keep only pointers that point at text that is really there."""
     lines = text.splitlines()
     out: dict[str, Resolved] = {}
-    for name in FIELDS:
+    for name in (fields if fields is not None else FIELDS):
         pointer = (plan.get('fields') or {}).get(name)
         if not isinstance(pointer, dict):
             continue
@@ -273,14 +364,19 @@ def _agrees(name: str, left, right) -> bool:
     return str(left).strip().casefold() == str(right).strip().casefold()
 
 
-def apply(parsed: dict, text: str, shadow: bool = False) -> dict[str, Resolved]:
+def apply(parsed: dict, text: str, shadow: bool = False,
+          fields: list[str] | None = None) -> dict[str, Resolved]:
     """Merge resolved pointers into `parsed`, keeping the parser value as fallback.
 
     In shadow mode nothing is merged: the result is returned for the caller to
     record, which is how the layer can be tried on live documents without
-    changing an answer.
+    changing an answer. `fields` names what to ask about; by default it is the gap
+    the rules left behind, and an empty gap means no request is made at all.
     """
-    resolved = resolve(_ask(text), text)
+    asked = list(fields) if fields is not None else gaps(parsed)
+    if not asked:
+        return {}
+    resolved = resolve(_ask(text, asked), text, asked)
     if shadow:
         return resolved
     fields = parsed.setdefault('fields', {})

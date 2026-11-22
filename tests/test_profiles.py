@@ -115,6 +115,34 @@ def test_extractor_reports_the_profile_passport():
     assert parsed['fields']['tax_id']['source'] == 'ЄДРПОУ / ІПН'
 
 
+def test_a_date_printed_in_words_becomes_iso():
+    """A real invoice prints «від 09 грудня 2025 р.»; a digits-only rule lost the date."""
+    text = (
+        'Рахунок на оплату № 104038 від 09 грудня 2025 р.\n'
+        'Постачальник: ТОВ «Нова»\n'
+        'Сума до сплати: 1 000,00 грн\n'
+    )
+    parsed = parse_invoice(text)
+    assert parsed['fields']['date']['value'] == '2025-12-09'
+    assert 'date' not in ' '.join(parsed['issues'])
+
+
+def test_a_month_name_in_the_other_script_is_understood():
+    text = (
+        'Счёт на оплату № 79 от 9 мая 2026\n'
+        'Поставщик: ТОВ «Вода»\n'
+        'Итого к оплате: 1 000,00 грн\n'
+    )
+    assert parse_invoice(text)['fields']['date']['value'] == '2026-05-09'
+
+
+def test_a_worded_date_with_an_unknown_month_is_not_guessed():
+    """A month word nobody knows must leave the field empty, not invent a date."""
+    parsed = parse_invoice('Рахунок на оплату № 7 від 01 фруктня 2026\n')
+    assert parsed['fields']['date']['value'] is None
+    assert 'date: invariant failed' in parsed['issues']
+
+
 def test_validation_takes_value_formats_from_the_profile():
     from validation import validate
 

@@ -62,6 +62,12 @@ def _build_patterns(
     total_re = '|'.join(document_profile.TOTAL_LABELS)
     subtotal_re = '|'.join(document_profile.SUBTOTAL_LABELS)
     vat_re = '|'.join(document_profile.VAT_LABELS)
+    # A date is printed either as digits or in words — «від 09 грудня 2025 р.» is
+    # ordinary on a Ukrainian invoice — and the profile owns both shapes.
+    date_re = (
+        r'\d{1,2}\s*[.\-/]\s*\d{1,2}\s*[.\-/]\s*\d{2,4}'
+        + r'|' + getattr(document_profile, 'DATE_WORD_RE', '')
+    )
     number_re = (
         document_profile.TITLE_RE
         + getattr(document_profile, 'NUMBER_CONTEXT_RE', '')
@@ -70,7 +76,7 @@ def _build_patterns(
         + r')\s*'
         r'([\w\-/]+)'
         r'(?:\s*(?:' + '|'.join(document_profile.DATE_PREFIXES) + r')\s*'
-        r'(\d{1,2}\s*[.\-/]\s*\d{1,2}\s*[.\-/]\s*\d{2,4}))?'
+        r'(' + date_re + r'))?'
     )
 
     return {
@@ -83,6 +89,7 @@ def _build_patterns(
         'subtotal_re': subtotal_re,
         'vat_re': vat_re,
         'number_re': number_re,
+        'date_re': date_re,
         'currency': overrides.get('currency', document_profile.DEFAULT_CURRENCY),
         'vat_rate': overrides.get('vat_rate', document_profile.VAT_RATE),
         'vat_zero_re': document_profile.VAT_ZERO_RE,
@@ -220,10 +227,28 @@ def _money(raw: str | None) -> float | None:
     return round(value, 2) if value is not None else None
 
 
-def _date(raw: str | None) -> str | None:
+def _date(raw: str | None, months: dict | None = None,
+          word_re: str | None = None) -> str | None:
+    """A printed date as ISO, from digits or from words.
+
+    «09.12.2025» and «9 грудня 2025 р.» must become the same shape: the date
+    invariant accepts nothing else, and a date left in its printed form was the
+    defect behind every `date: invariant failed` on a real invoice. Both shapes
+    come from the profile — the core is handed a pattern and a month table, never
+    a language.
+    """
     if not raw:
         return None
-    parts = re.split(r'[.\-/]', raw.replace(' ', ''))
+    text = str(raw).strip()
+    if word_re and months:
+        worded = re.fullmatch(word_re, text, re.I)
+        if worded:
+            month = months.get(worded.group('month').lower())
+            if not month:
+                return None
+            return (f"{int(worded.group('year'))}-{month:02d}-"
+                    f"{int(worded.group('day')):02d}")
+    parts = re.split(r'[.\-/]', text.replace(' ', ''))
     if len(parts) != 3:
         return raw
     day, month, year = parts
@@ -370,15 +395,17 @@ def parse_invoice(
     patterns = _build_patterns(tax_id, supplier, profile)
 
     number = date = None
+    months = getattr(profile, 'MONTHS', None)
+    word_re = getattr(profile, 'DATE_WORD_RE', None)
     m = re.search(patterns['number_re'], flat, re.I)
     if m:
         number = m.group(1)
-        date = _date(m.group(2))
+        date = _date(m.group(2), months, word_re)
 
     if date is None:
-        dm = re.search(r'(?<!\d)(\d{1,2}\s*[.\-/]\s*\d{1,2}\s*[.\-/]\s*\d{2,4})(?!\d)', flat)
+        dm = re.search(rf'(?<!\d)(?:{patterns["date_re"]})(?!\d)', flat, re.I)
         if dm:
-            date = _date(dm.group(1))
+            date = _date(dm.group(0), months, word_re)
 
     supplier, tax_id = _find_supplier_and_tax_id(t, flat, patterns)
 

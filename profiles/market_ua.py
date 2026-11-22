@@ -31,6 +31,23 @@ OCR_LANGS = 'ukr+eng'
 NUMBER_MARKERS = [r'№', r'n[oоeе]?', r'м[оo0О]']
 DATE_PREFIXES = [r'від', r'от']
 
+# A Ukrainian invoice often prints the date in words — «від 09 грудня 2025 р.» —
+# and a numeric-only rule turns that into no date at all, which the date invariant
+# then refuses. The months are given in the genitive because that is the form a
+# date uses; the nominative («грудень») never appears next to a day number.
+MONTHS = {
+    'січня': 1, 'лютого': 2, 'березня': 3, 'квітня': 4, 'травня': 5, 'червня': 6,
+    'липня': 7, 'серпня': 8, 'вересня': 9, 'жовтня': 10, 'листопада': 11, 'грудня': 12,
+    'января': 1, 'февраля': 2, 'марта': 3, 'апреля': 4, 'мая': 5, 'июня': 6,
+    'июля': 7, 'августа': 8, 'сентября': 9, 'октября': 10, 'ноября': 11, 'декабря': 12,
+}
+# The worded shape of a date, for the patterns that look for one in a line. The
+# groups are named so the core can read a day, a month and a year out of a match
+# without carrying a Ukrainian letter class of its own.
+DATE_WORD_RE = (
+    r'(?P<day>\d{1,2})\s+(?P<month>' + '|'.join(MONTHS) + r')\s+(?P<year>\d{4})'
+)
+
 # Order-independent label synonyms. One vocabulary for the whole market: a
 # supplier block may be titled «Постачальник», «Продавець» or «Виконавець»
 # depending on the document type, and the buyer may be «Покупець» or «Замовник».
