@@ -257,9 +257,19 @@ def test_a_turned_off_door_is_not_found():
         assert client.get('/api/v1/me', headers={'X-API-Key': token}).status_code == 404
 
 
-def test_a_company_key_without_the_database_is_told_so():
-    """A company-bound key must not quietly write into a shared file store."""
+def test_a_company_key_without_the_database_is_told_so(monkeypatch):
+    """A company-bound key must not quietly write into a shared file store.
+
+    The state is forced rather than borrowed from the environment: on a machine where
+    psycopg2 is installed the layer *is* available, and a test that reads
+    `pgapi.AVAILABLE` would then assert the opposite of what it is named for.
+    """
     isolate()
+
+    class NotInstalled:
+        AVAILABLE = False
+
+    monkeypatch.setattr(api_v1, 'pgapi', NotInstalled)
     token = issue(company=1)
     with TestClient(app.app) as client:
         answer = client.get('/api/v1/documents', headers={'X-API-Key': token})
